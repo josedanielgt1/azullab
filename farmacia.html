@@ -362,6 +362,15 @@ tbody tr:hover td{background:var(--acento-suave)}
 .tabs button:hover{color:var(--tinta)}
 .tabs button.on{background:var(--hoja);border-color:var(--renglon);color:var(--tinta)}
 .cell-in{min-height:38px;padding:6px 8px;border:1px solid var(--linea);border-radius:4px;background:var(--hoja);width:100%;font-family:var(--font-maquina);font-size:13.5px}
+.fh{margin:6px 0 -4px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--tinta-3);font-weight:700}
+.hist{display:grid}.hist .hi{display:grid;grid-template-columns:84px minmax(0,1fr);gap:8px;padding:7px 0;border-bottom:1px dashed var(--renglon);font-size:14px}.hist .hi:last-child{border-bottom:0}
+.paygrp{display:grid;gap:10px;border:1px solid var(--linea);border-radius:4px;padding:12px}.paygrp p{margin:0}.paygrp .list{border:1px solid var(--renglon);border-radius:4px}.paygrp .list .it{padding:8px 10px}
+.txtfile{font-family:var(--font-maquina);font-size:12px;line-height:1.5;background:var(--hoja-alt);border:1px solid var(--linea);border-radius:4px;padding:10px 12px;overflow-x:auto;white-space:pre;margin:0;max-width:100%}
+.pasos{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
+.aupick{border:1px solid var(--linea);border-radius:4px;padding:6px 12px 8px;display:grid;margin:0;min-width:0}.aupick legend{font-size:11.5px;font-weight:600;color:var(--tinta-3);padding:0 4px}.aupick label{display:flex;align-items:center;gap:10px;min-height:40px}.aupick input{width:20px;height:20px;accent-color:var(--acento-tinta);flex:none}
+.tgl{display:flex;align-items:center;gap:12px;min-height:46px;border-bottom:1px dashed var(--renglon)}.tgl:last-child{border-bottom:0}.tgl input{width:20px;height:20px;accent-color:var(--acento-tinta);flex:none}
+.permb{border:1px dashed var(--linea);background:transparent;border-radius:4px;min-width:46px;min-height:34px;font:inherit;color:inherit;cursor:pointer}.permb:hover{background:var(--acento-suave)}
+.secx{border:0;background:transparent;color:var(--tinta-3);width:26px;height:26px;border-radius:4px;display:grid;place-items:center;margin-right:-6px}.secx:hover{background:var(--hoja-alt);color:var(--tinta)}.secx .i{width:14px;height:14px}
 .cell-in.miss{border-color:var(--sello-ambar);background:var(--sello-ambar-suave)}
 .drop{border:2px dashed var(--linea);border-radius:4px;padding:28px 16px;text-align:center;display:grid;gap:6px;justify-items:center;color:var(--tinta-2);background:var(--hoja-alt)}
 .rolebar{background:var(--sello-violeta-suave);border:1px dashed var(--sello-violeta);border-radius:4px;padding:10px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:14px;color:var(--tinta)}
@@ -427,6 +436,8 @@ const ICONS = {
   clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', wa:'<path d="M4 20l1.3-4A8 8 0 1 1 8 19z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1-1.5-2-1-1 1a4 4 0 0 1-2-2l1-1-1-2z"/>',
   sync:'<path d="M20 12a8 8 0 0 1-14 5.3M4 12A8 8 0 0 1 18 6.7"/><path d="M18 3v4h-4M6 21v-4h4"/>',
   idcard:'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2.5"/><path d="M5.5 16.5a3.5 3.5 0 0 1 7 0M14 10h4M14 13.5h3"/>',
+  edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>', up:'<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
+  bank:'<path d="M3 10h18L12 4z"/><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18"/>', gear:'<circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M2.5 12h3M18.5 12h3M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1"/>',
   pay:'<rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v5M18 9.5v5"/>'
 };
 const ic = (n, cls='i') => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]||''}</svg>`;
@@ -519,6 +530,11 @@ const lineUSD = ([id,q]) => { const p = P.find(x=>x.id===id); return p.price*q*(
 S.sales.forEach(x => { x.usd = +x.it.reduce((a,l)=>a+lineUSD(l),0).toFixed(2); });
 S.notas = [{n:'NE-000030', ctrl:'00-00007030', f:'24/10/2026', h:'10:15', c:CLIENTS[5], it:[[12,6],[4,10]], u:'Mariela Contreras', mot:'Crédito a 15 días', vence:'08/11/2026', est:'Por facturar'}];
 S.notas.forEach(x => { x.usd = +x.it.reduce((a,l)=>a+lineUSD(l),0).toFixed(2); });
+const UPN = x => String(x).toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+const EMPRESA = {razon:'Azullab Farmacia, C.A.', rif:'J-XXXXXXXX-X', dir:'Av. Principal, La Azulita', mun:'Municipio Andrés Bello, Mérida', tel:'0274-XXX-XXXX', mail:'correo@azullab.com', wa:'0414-XXX-XXXX'};
+const CFG = {venc:90, aviso:5, tasaModo:'auto', margSec:{}, mOff:[]};
+const CUENTAS = [{b:'Banesco', t:'Corriente', n:'0134-0461-72-4611008712', uso:'Cobros, pago móvil y nómina'}, {b:'Mercantil', t:'Corriente', n:'0105-0087-51-1087004425', uso:'Punto de venta'}, {b:'Zelle', t:'Dólares', n:'Cuenta en dólares de la empresa', uso:'Cobros en dólares'}];
+const DROG = [{n:'Cobeca', cred:15, tel:'Vendedor de zona'}, {n:'Drolanca', cred:10, tel:'Vendedor de zona'}, {n:'Dronena', cred:21, tel:'Vendedor de zona'}];
 const VENDS = ['Kevin Albarrán','Mariela Contreras','Lcda. Rosángela Paredes','Daniela Uzcátegui'];
 const vendNow = () => S.vend || (VENDS.includes(S.user) ? S.user : VENDS[0]);
 const shortName = n => String(n).replace(/^Lcda?\.\s*/,'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').split(' ').slice(0,2).join(' ');
@@ -526,7 +542,7 @@ const DAYS = [{d:'Mar 20',v:968.40},{d:'Mié 21',v:1104.20},{d:'Jue 22',v:1032.7
 
 const daysTo = e => Math.round((new Date(e+'T00:00:00') - TODAY)/86400000);
 const fmtDate = e => { const [y,m,d] = e.split('-'); return `${d}/${m}/${y}`; };
-const lotState = e => { const d = daysTo(e); return d < 0 ? ['bad','Vencido'] : d <= 90 ? ['warn',`Vence en ${d} días`] : ['ok','Vigente']; };
+const lotState = e => { const d = daysTo(e); return d < 0 ? ['bad','Vencido'] : d <= CFG.venc ? ['warn',`Vence en ${d} días`] : ['ok','Vigente']; };
 const todayUSD = () => S.todayBase.usd + S.sales.slice(0, S.sales.length - 6).reduce((a,s)=>a+s.usd,0);
 const todayN = () => S.todayBase.n + (S.sales.length - 6);
 const ROLES = {
@@ -540,6 +556,13 @@ const ROLES = {
                    desc:'Recibe facturas de droguería, carga productos, lotes y vencimientos. No vende ni ve dinero de caja.'}
 };
 const can = v => ROLES[S.role].views==='all' || ROLES[S.role].views.includes(v);
+const ROL_TXT = {'Dueño':'Dueño','Farmacéutico':'Farmacéutico regente','Cajero':'Cajero','Almacén':'Almacén'};
+const USERS = [
+  {id:0, n:'Daniela Uzcátegui', rol:'Dueño', caja:'Todas las cajas', est:'Activo', last:'Hoy 07:58', emp:null},
+  {id:1, n:'Lcda. Rosángela Paredes', rol:'Farmacéutico', caja:'Caja 1', est:'Activo', last:'Hoy 08:02', emp:1},
+  {id:2, n:'Kevin Albarrán', rol:'Cajero', caja:'Caja 1', est:'Activo', last:'Hoy 08:05', emp:2},
+  {id:3, n:'Mariela Contreras', rol:'Cajero', caja:'Caja 2', est:'Activo', last:'Hoy 08:10', emp:3},
+  {id:4, n:'Wilmer Rivas', rol:'Almacén', caja:'Almacén', est:'Activo', last:'Ayer 17:40', emp:4}];
 const USERS_TODAY = [
   {u:'Kevin Albarrán', caja:'Caja 1', usd:528.40, n:29},
   {u:'Mariela Contreras', caja:'Caja 2', usd:431.70, n:23},
@@ -561,14 +584,14 @@ const NAV = [
   {g:'Fiscal', items:[['receipt','fiscal','Módulo fiscal'],['chart','reports','Reportes y cierre']]},
   {g:'Administración', items:[['coins','finance','Ganancias y gastos'],['wallet','banks','Cuentas y bancos']]},
   {g:'Nómina', mod:true, items:[['idcard','employees','Empleados'],['pay','payroll','Nómina']]},
-  {g:'Sistema', items:[['cloud','offline','Modo sin conexión'],['shield','users','Usuarios y permisos']]},
+  {g:'Sistema', items:[['cloud','offline','Modo sin conexión'],['shield','users','Usuarios y permisos'],['gear','config','Configuración']]},
   {g:'Fase 2', f2:true, items:[['building','suppliers','Proveedores y pagos'],['star','loyalty','Azul Puntos'],['phone','store','Tienda web y WhatsApp'],['rx','recipes','Récipes y controlados'],['branches','branches','Sucursales y app del dueño']]},
   {g:'Proyecto', items:[['doc','scope','Alcance de la propuesta']]}
 ];
-const TITLES = {employees:'Empleados',payroll:'Nómina',dashboard:'Inicio',pos:'Caja',products:'Productos',inventory:'Inventario y lotes',purchases:'Compras',clients:'Clientes',fiscal:'Módulo fiscal',reports:'Reportes y cierre',offline:'Modo sin conexión',users:'Usuarios y permisos',suppliers:'Proveedores y pagos',loyalty:'Azul Puntos',store:'Tienda web y WhatsApp',recipes:'Récipes y controlados',branches:'Sucursales y app del dueño',scope:'Alcance de la propuesta',finance:'Ganancias y gastos',banks:'Cuentas y bancos'};
+const TITLES = {config:'Configuración',employees:'Empleados',payroll:'Nómina',dashboard:'Inicio',pos:'Caja',products:'Productos',inventory:'Inventario y lotes',purchases:'Compras',clients:'Clientes',fiscal:'Módulo fiscal',reports:'Reportes y cierre',offline:'Modo sin conexión',users:'Usuarios y permisos',suppliers:'Proveedores y pagos',loyalty:'Azul Puntos',store:'Tienda web y WhatsApp',recipes:'Récipes y controlados',branches:'Sucursales y app del dueño',scope:'Alcance de la propuesta',finance:'Ganancias y gastos',banks:'Cuentas y bancos'};
 const F2 = ['suppliers','loyalty','store','recipes','branches'];
 const MOD = ['employees','payroll'];
-const CODE = {dashboard:'TB',pos:'CJ',products:'PR',inventory:'IV',purchases:'CO',clients:'CL',fiscal:'FI',reports:'RE',offline:'SC',users:'US',suppliers:'PV',loyalty:'AP',store:'TW',recipes:'RX',branches:'SU',scope:'AL',finance:'GG',banks:'CB',employees:'EM',payroll:'NO'};
+const CODE = {dashboard:'TB',pos:'CJ',products:'PR',inventory:'IV',purchases:'CO',clients:'CL',fiscal:'FI',reports:'RE',offline:'SC',users:'US',suppliers:'PV',loyalty:'AP',store:'TW',recipes:'RX',branches:'SU',scope:'AL',finance:'GG',banks:'CB',employees:'EM',payroll:'NO',config:'CF'};
 const folio = v => CODE[v] + '-' + String(Object.keys(CODE).indexOf(v)+1).padStart(2,'0');
 const DOCS = /^(Libro de ventas|Cierre de caja|Mi cierre de turno|Ingresar mercancía|Venta actual)/;
 function stampFolios(){
@@ -599,7 +622,7 @@ function shell(inner){
       <div class="ttl"><h1>${S.view==='dashboard'&&S.role==='Cajero'?'Mi turno':TITLES[S.view]}</h1><span class="folio">Folio ${folio(S.view)} · 26-10-2026</span>${phase}</div>
       <div class="chips">
         ${(()=>{ const n = S.fallas.filter(f=>f.nuevo).length; return S.role!=='Cajero' && n ? `<button class="chip alerta" data-act="verfallas" title="Fallas anotadas por los cajeros">${ic('alert')}${n} ${n===1?'falla nueva':'fallas nuevas'}</button>` : ''; })()}
-        <span class="chip num hide-sm" title="Tasa oficial BCV">BCV <b style="color:var(--ink)">${nf(S.rate)}</b> Bs/$</span>
+        ${S.role==='Dueño'?`<button class="chip num hide-sm" data-act="tasa" title="Cambiar la tasa BCV">BCV <b style="color:var(--ink)">${nf(S.rate)}</b> Bs/$ ${ic('edit')}</button>`:`<span class="chip num hide-sm" title="Tasa oficial BCV">BCV <b style="color:var(--ink)">${nf(S.rate)}</b> Bs/$</span>`}
         <span class="chip hide-sm" title="Medio de facturación">${S.medio==='digital'?ic('receipt')+(S.online?'Imprenta digital':'Talonario de contingencia'):ic('printer')+'HKA80 lista'}</span>
         <button class="chip ${S.online?'':'off'}" data-act="net" title="Simular corte de internet">${S.online?'<span class="dot"></span>En línea':'<span class="dot"></span>Sin conexión'}</button>
       </div>
@@ -641,7 +664,7 @@ V.login = () => `<div class="login">
 V.dashboard = () => {
   if (S.role==='Cajero') return V.myShift();
   const exp = [];
-  P.forEach(p => p.lots.forEach(l => { const d = daysTo(l.e); if (d <= 90) exp.push({p,l,d}); }));
+  P.forEach(p => p.lots.forEach(l => { const d = daysTo(l.e); if (d <= CFG.venc) exp.push({p,l,d}); }));
   exp.sort((a,b)=>a.d-b.d);
   const low = P.filter(p => p.stock < p.min);
   const expList = `<section class="panel"><div class="hd"><h2>Lotes por vencer</h2><a href="#inventory" data-act="nav" data-v="inventory" class="small" style="color:var(--azul)">Ver inventario</a></div>
@@ -650,7 +673,7 @@ V.dashboard = () => {
       <div class="bd flush list">${low.map(p=>`<div class="it"><div class="t"><b>${p.name}</b><span class="small muted">Mínimo ${p.min} · ${p.lab}</span></div><span class="pill bad num">${p.stock} und</span></div>`).join('')}</div></section>`;
   if (S.role==='Almacén') return `<div class="rolebar">${ic('box')}<span>Vista de almacén: inventario, lotes y compras. No muestra dinero de caja.</span></div>
     <div class="kpis">
-    <div class="kpi"><span class="l">Por vencer (90 días)</span><span class="v num" style="color:var(--warn)">${exp.filter(e=>e.d>=0).length} lotes</span><span class="s">${exp.filter(e=>e.d<0).length} vencido para devolver</span></div>
+    <div class="kpi"><span class="l">Por vencer (${CFG.venc} días)</span><span class="v num" style="color:var(--warn)">${exp.filter(e=>e.d>=0).length} lotes</span><span class="s">${exp.filter(e=>e.d<0).length} vencido para devolver</span></div>
     <div class="kpi"><span class="l">Bajo el mínimo</span><span class="v num" style="color:var(--bad)">${low.length} productos</span><span class="s">Pedir a droguería</span></div>
     <div class="kpi"><span class="l">Compras por recibir</span><span class="v num">1</span><span class="s">Cobeca · OC-0012</span></div>
     <div class="kpi"><span class="l">Productos activos</span><span class="v num">${P.length}</span><span class="s">En el catálogo</span></div></div>
@@ -671,7 +694,7 @@ V.dashboard = () => {
   <div class="kpis">
     <div class="kpi hero"><span class="l">Ventas de hoy</span><span class="v">${usd(tu)}</span><span class="s num">${bs(tu*S.rate)}</span></div>
     <div class="kpi"><span class="l">Facturas emitidas</span><span class="v num">${todayN()}</span><span class="s">Ticket promedio ${usd(tu/todayN())}</span></div>
-    <div class="kpi"><span class="l">Por vencer (90 días)</span><span class="v num" style="color:var(--warn)">${exp.filter(e=>e.d>=0).length} lotes</span><span class="s">${exp.filter(e=>e.d<0).length} vencido para retirar</span></div>
+    <div class="kpi"><span class="l">Por vencer (${CFG.venc} días)</span><span class="v num" style="color:var(--warn)">${exp.filter(e=>e.d>=0).length} lotes</span><span class="s">${exp.filter(e=>e.d<0).length} vencido para retirar</span></div>
     <div class="kpi"><span class="l">Bajo el mínimo</span><span class="v num" style="color:var(--bad)">${low.length} productos</span><span class="s">Pedir a droguería</span></div>
   </div>
   ${owner?`<section class="panel"><div class="hd"><h2>Ventas de hoy por cajero</h2><a href="#reports" data-act="nav" data-v="reports" class="small" style="color:var(--azul)">Ver por semana y mes</a></div><div class="bd flush tbl-wrap">${userTable()}</div></section>`:''}
@@ -843,7 +866,7 @@ function payModal(){
     <div class="row" style="justify-content:space-between"><div><div class="muted small">Total de la factura</div><div style="font-size:1.6rem;font-weight:700" class="num">${usd(t.base)}</div><div class="muted num">${bs(t.base*S.rate)} · tasa ${nf(S.rate)}</div></div>
     ${t.igtf?`<div style="text-align:right"><div class="muted small">IGTF 3% por pago en divisas</div><div class="num" style="font-weight:700">${usd(t.igtf)}</div></div>`:''}</div>
     <div><div class="small" style="font-weight:700;margin-bottom:6px;color:var(--ink-2)">Agregar forma de pago</div>
-      <div class="methods">${METHODS.map(m=>`<button data-act="addpay" data-k="${m.k}"><b>${m.k}</b><small>${m.div&&S.spe?'Divisas +3% IGTF':m.s}</small></button>`).join('')}</div></div>
+      <div class="methods">${METHODS.filter(m=>!CFG.mOff.includes(m.k)).map(m=>`<button data-act="addpay" data-k="${m.k}"><b>${m.k}</b><small>${m.div&&S.spe?'Divisas +3% IGTF':m.s}</small></button>`).join('')}</div></div>
     ${S.pays.some(p=>p.div)?`<p class="small" style="background:var(--hoja-alt);border:1px dashed var(--linea);border-radius:4px;padding:8px 12px;margin:0">${S.spe?'<b>IGTF 3 %</b> sobre lo pagado en divisas en efectivo o Zelle. Azullab lo cobra porque es contribuyente especial (agente de percepción) y sale en la factura.':'<b>IGTF: no se cobra.</b> Solo lo cobran los contribuyentes especiales. Azullab es contribuyente ordinario. Si el SENIAT la califica como especial, se activa el módulo y se suma 3 % a lo pagado en divisas.'}</p>`:''}
     ${lines?`<div style="display:grid;gap:8px"><p class="small muted">Pago móvil, punto y efectivo en bolívares se escriben en Bs; el sistema calcula cuánto falta.</p>${lines}</div>`:''}
     ${S.pays.some(p=>p.cashea)?`<p class="small" style="background:var(--sello-violeta-suave);border:1px dashed var(--sello-violeta);border-radius:4px;padding:8px 12px">Con Cashea el cliente paga aquí la inicial y el resto en cuotas cada 14 días a la cuenta de la farmacia. Si no paga, Cashea cubre la cuota. Las cuotas quedan en <b>Cuentas y bancos</b>.</p>`:''}
@@ -871,7 +894,7 @@ const ctr = (s,w=32) => { s=String(s); const l = Math.max(0, Math.floor((w-s.len
 function ticketText(sale){
   const r = S.rate, L = [];
   if (sale.mode==='maquina') L.push(ctr('SENIAT'));
-  L.push(ctr('AZULLAB FARMACIA, C.A.'), ctr('RIF J-XXXXXXXX-X'), ctr('AV. PRINCIPAL, LA AZULITA'), ctr('MUNICIPIO ANDRES BELLO, MERIDA'), '');
+  L.push(ctr(UPN(EMPRESA.razon)), ctr('RIF '+EMPRESA.rif), ctr(UPN(EMPRESA.dir)), ctr(UPN(EMPRESA.mun)), '');
   L.push(ctr(sale.mode==='cont'?'FACTURA DE CONTINGENCIA':'FACTURA'), pad('FACTURA N:', sale.n));
   if (sale.mode!=='maquina') L.push(pad(sale.mode==='cont'?'N CONTROL TALONARIO:':'N DE CONTROL:', sale.ctrl));
   L.push(pad('FECHA: 26-10-2026', 'HORA: '+sale.t));
@@ -911,39 +934,41 @@ function ticketModal(sale){
 }
 
 V.products = () => `<div class="row"><p class="lead">Cada producto lleva su nombre comercial y su principio activo. Así, cuando el cliente pide una marca, la caja muestra las otras opciones con el mismo componente.</p><span class="spacer"></span>
-  <button class="btn" data-act="toast" data-m="Precios en Bs recalculados con la tasa ${nf(S.rate)}">${ic('sync')}Actualizar por tasa</button><button class="btn primary" data-act="prodnew">${ic('plus')}Nuevo producto</button></div>
+  ${S.role==='Dueño'?`<button class="btn" data-act="tasa">${ic('sync')}Tasa BCV ${nf(S.rate)}</button>`:''}<button class="btn primary" data-act="prodnew">${ic('plus')}Nuevo producto</button></div>
   <section class="panel"><div class="hd"><h2>Secciones</h2><span class="muted small">Ordenan el catálogo y los botones de la caja</span></div>
-    <div class="bd" style="display:grid;gap:12px"><div class="secs">${S.secs.map(x=>`<span class="sec">${x}<small>${P.filter(p=>p.cat===x).length}</small>${CTRL_SECS.includes(x)?'<span class="pill bad">Récipe especial</span>':''}</span>`).join('')}</div>
+    <div class="bd" style="display:grid;gap:12px"><div class="secs">${S.secs.map(x=>`<span class="sec">${x}<small>${P.filter(p=>p.cat===x).length}</small>${CTRL_SECS.includes(x)?'<span class="pill bad">Récipe especial</span>':''}${!P.some(p=>p.cat===x)&&!CTRL_SECS.includes(x)?`<button class="secx" data-act="secdel" data-s="${x}" aria-label="Quitar la sección ${x}">${ic('x')}</button>`:''}</span>`).join('')}</div>
     <div class="row" style="flex-wrap:nowrap"><input id="secname" class="input" style="flex:1;min-width:0" placeholder="Nueva sección, ej.: Ortopedia" aria-label="Nombre de la nueva sección"><button class="btn" data-act="secadd">${ic('plus')}Agregar sección</button></div></div></section>
-  <section class="panel"><div class="bd flush tbl-wrap"><table><thead><tr><th>Código</th><th>Producto</th><th>Principio activo</th><th>Equivalentes</th><th>Laboratorio</th><th>Sección</th><th>IVA</th><th class="r">Costo $</th><th class="r">Precio $</th><th class="r">Precio Bs</th><th class="r">Margen</th><th class="r">Existencia</th></tr></thead>
+  <section class="panel"><div class="bd flush tbl-wrap"><table><thead><tr><th>Código</th><th>Producto</th><th>Principio activo</th><th>Equivalentes</th><th>Laboratorio</th><th>Sección</th><th>IVA</th><th class="r">Costo $</th><th class="r">Precio $</th><th class="r">Precio Bs</th><th class="r">Margen</th><th class="r">Existencia</th><th></th></tr></thead>
   <tbody>${P.map(p=>{ const eq = equivs(p); return `<tr><td class="num small muted">${p.code}</td><td><b>${p.name}</b><div class="small muted">${p.pres}${p.ctrl?' · récipe especial':p.rx?' · requiere récipe':''}</div></td><td>${p.act}</td><td>${eq.length?`<span class="pill info" title="${eq.map(x=>x.name).join(', ')}">${eq.length} más</span><div class="small muted">${eq.map(x=>x.name).join(', ')}</div>`:'<span class="muted">—</span>'}</td><td>${p.lab}</td><td>${p.cat}</td><td><span class="iva">${IVA_T[p.iva]}</span></td>
-  <td class="r">${nf(p.cost)}</td><td class="r"><b>${nf(p.price)}</b></td><td class="r">${nf(p.price*S.rate)}</td><td class="r">${Math.round((p.price-p.cost)/p.price*100)}%</td><td class="r"><span class="pill ${p.stock<=0?'bad':p.stock<p.min?'warn':'ok'}">${p.stock}</span></td></tr>`; }).join('')}</tbody></table></div></section>`;
-function prodModal(){
-  const acts = [...new Set(P.map(p=>p.act).filter(a=>a!=='—'))].sort();
-  return `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="pmt"><div class="hd"><h2 id="pmt">Nuevo producto</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div>
-  <form class="bd" id="prodForm">
+  <td class="r">${nf(p.cost)}</td><td class="r"><b>${nf(p.price)}</b></td><td class="r">${nf(p.price*S.rate)}</td><td class="r">${Math.round((p.price-p.cost)/p.price*100)}%</td><td class="r"><span class="pill ${p.stock<=0?'bad':p.stock<p.min?'warn':'ok'}">${p.stock}</span></td><td><button class="btn sm" data-act="prodedit" data-id="${p.id}">${ic('edit')}Editar</button></td></tr>`; }).join('')}</tbody></table></div></section>`;
+function prodModal(p){
+  const acts = [...new Set(P.map(p=>p.act).filter(a=>a!=='—'))].sort(), ed = !!p, v = k => ed ? String(p[k]).replace(/"/g,'&quot;') : '', own = S.role==='Dueño';
+  return `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="pmt"><div class="hd"><h2 id="pmt">${ed?'Editar producto':'Nuevo producto'}</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div>
+  <form class="bd" id="prodForm" data-id="${ed?p.id:''}">
     <div class="grid g2" style="gap:10px">
-      <div class="field"><label for="p-name">Nombre comercial</label><input id="p-name" class="input" placeholder="Ej.: Losartán Calox 50 mg" autocomplete="off"></div>
-      <div class="field"><label for="p-act">Principio activo (componente)</label><input id="p-act" class="input" list="act-list" placeholder="Ej.: Losartán" autocomplete="off"><datalist id="act-list">${acts.map(a=>`<option value="${a}">`).join('')}</datalist></div>
+      <div class="field"><label for="p-name">Nombre comercial</label><input id="p-name" class="input" placeholder="Ej.: Losartán Calox 50 mg" autocomplete="off" value="${v('name')}"></div>
+      <div class="field"><label for="p-act">Principio activo (componente)</label><input id="p-act" class="input" list="act-list" placeholder="Ej.: Losartán" autocomplete="off" value="${v('act')}"><datalist id="act-list">${acts.map(a=>`<option value="${a}">`).join('')}</datalist></div>
     </div>
     <p class="small muted" id="p-act-hint" aria-live="polite" style="margin:0">Escribe el componente tal como aparece en la caja. Si no tiene (champú, pañales), escribe un guion: —</p>
     <div class="grid g2" style="gap:10px">
-      <div class="field"><label for="p-lab">Laboratorio</label><input id="p-lab" class="input" placeholder="Ej.: Calox"></div>
-      <div class="field"><label for="p-pres">Presentación</label><input id="p-pres" class="input" placeholder="Ej.: Caja x 30 tabletas"></div>
+      <div class="field"><label for="p-lab">Laboratorio</label><input id="p-lab" class="input" placeholder="Ej.: Calox" value="${v('lab')}"></div>
+      <div class="field"><label for="p-pres">Presentación</label><input id="p-pres" class="input" placeholder="Ej.: Caja x 30 tabletas" value="${v('pres')}"></div>
     </div>
     <div class="grid g2" style="gap:10px">
-      <div class="field"><label for="p-sec">Sección</label><select id="p-sec" class="input">${S.secs.map(x=>`<option>${x}</option>`).join('')}</select></div>
-      <div class="field"><label for="p-rx">Récipe</label><select id="p-rx" class="input"><option value="no">No necesita</option><option value="rx">Récipe médico</option><option value="ctrl">Récipe especial (controlado)</option></select></div>
+      <div class="field"><label for="p-sec">Sección</label><select id="p-sec" class="input">${fOpt(S.secs, ed?p.cat:'')}</select></div>
+      <div class="field"><label for="p-rx">Récipe</label><select id="p-rx" class="input">${fOpt([['no','No necesita'],['rx','Récipe médico'],['ctrl','Récipe especial (controlado)']], ed?(p.ctrl?'ctrl':p.rx?'rx':'no'):'no')}</select></div>
     </div>
     <div class="grid g2" style="gap:10px">
-      <div class="field"><label for="p-iva">IVA</label><select id="p-iva" class="input"><option value="E">(E) Exento: medicamentos</option><option value="G">(G) 16 %</option><option value="R">(R) 8 % reducido</option></select></div>
-      <div class="field"><label for="p-code">Código de barras</label><input id="p-code" class="input num" inputmode="numeric" placeholder="Escanéalo aquí"></div>
+      <div class="field"><label for="p-iva">IVA</label><select id="p-iva" class="input">${fOpt([['E','(E) Exento: medicamentos'],['G','(G) 16 %'],['R','(R) 8 % reducido']], ed?p.iva:'E')}</select></div>
+      <div class="field"><label for="p-code">Código de barras</label><input id="p-code" class="input num" inputmode="numeric" placeholder="Escanéalo aquí" value="${v('code')}"></div>
     </div>
     <div class="grid g2" style="gap:10px">
-      <div class="field"><label for="p-cost">Costo $</label><input id="p-cost" class="input num" inputmode="decimal" placeholder="0,00"></div>
-      <div class="field"><label for="p-price">Precio de venta $</label><input id="p-price" class="input num" inputmode="decimal" placeholder="0,00"></div>
+      <div class="field"><label for="p-cost">Costo $</label><input id="p-cost" class="input num" inputmode="decimal" placeholder="0,00" value="${ed?nf(p.cost):''}" ${ed&&!own?'disabled':''}></div>
+      <div class="field"><label for="p-price">Precio de venta $</label><input id="p-price" class="input num" inputmode="decimal" placeholder="0,00" value="${ed?nf(p.price):''}" ${ed&&!own?'disabled':''}></div>
     </div>
-    <button class="btn primary big" type="submit">${ic('check')}Guardar producto</button>
+    <div class="field"><label for="p-min">Existencia mínima: avisa cuando baja de aquí</label><input id="p-min" class="input num" inputmode="numeric" value="${ed?p.min:5}"></div>
+    ${ed&&!own?'<p class="small muted" style="margin:0">El costo y el precio solo los cambia el dueño.</p>':''}
+    <button class="btn primary big" type="submit">${ic('check')}${ed?'Guardar cambios':'Guardar producto'}</button>
   </form></div>`;
 }
 function actHint(){
@@ -960,12 +985,12 @@ V.inventory = () => {
   P.forEach(p => p.lots.forEach(l => rows.push({p,l,d:daysTo(l.e)})));
   rows.sort((a,b)=>a.d-b.d);
   const f = S.invFilter;
-  const vis = rows.filter(r => f==='Todos' || (f==='Por vencer' && r.d>=0 && r.d<=90) || (f==='Vencidos' && r.d<0) || (f==='Poco stock' && r.p.stock<r.p.min));
+  const vis = rows.filter(r => f==='Todos' || (f==='Por vencer' && r.d>=0 && r.d<=CFG.venc) || (f==='Vencidos' && r.d<0) || (f==='Poco stock' && r.p.stock<r.p.min));
   const val = P.reduce((a,p)=>a+p.cost*p.stock,0);
   return `<div class="kpis">
     <div class="kpi"><span class="l">Valor del inventario (a costo)</span><span class="v">${usd(val)}</span><span class="s num">${bs(val*S.rate)}</span></div>
     <div class="kpi"><span class="l">Productos activos</span><span class="v num">${P.length}</span><span class="s">${rows.length} lotes registrados</span></div>
-    <div class="kpi"><span class="l">Lotes por vencer</span><span class="v num" style="color:var(--warn)">${rows.filter(r=>r.d>=0&&r.d<=90).length}</span><span class="s">Próximos 90 días</span></div>
+    <div class="kpi"><span class="l">Lotes por vencer</span><span class="v num" style="color:var(--warn)">${rows.filter(r=>r.d>=0&&r.d<=CFG.venc).length}</span><span class="s">Próximos ${CFG.venc} días</span></div>
     <div class="kpi"><span class="l">Lotes vencidos</span><span class="v num" style="color:var(--bad)">${rows.filter(r=>r.d<0).length}</span><span class="s">Bloqueados para la venta</span></div></div>
   <div class="row"><div class="cats">${['Todos','Por vencer','Vencidos','Poco stock'].map(c=>`<button data-act="invf" data-c="${c}" class="${f===c?'on':''}">${c}</button>`).join('')}</div><span class="spacer"></span>
   ${can('fiscal')?`<button class="btn" data-act="go177">${ic('doc')}Registro art. 177 ISLR</button>`:''}<button class="btn" data-act="toast" data-m="Ajuste de inventario registrado con motivo y usuario">Ajuste de inventario</button></div>
@@ -981,7 +1006,8 @@ let RECV = [
   {id:13, l:'GV26D009', e:'2028-03-31', q:40, c:1.05},
   {id:12, l:'', e:'', q:24, c:1.95}
 ];
-const MARGIN = 0.80;
+let MARGIN = 0.80;
+const margenDe = cat => (CFG.margSec[cat] ?? MARGIN*100)/100;
 V.purchases = () => {
   const sub = RECV.reduce((a,r)=>a+r.q*r.c,0);
   const miss = RECV.filter(r=>!r.l||!r.e).length;
@@ -993,7 +1019,7 @@ V.purchases = () => {
   let body = '';
   if (S.buyTab==='scan') body = `
       <div class="grid g3" style="gap:10px">
-        <div class="field"><label for="dr">Droguería</label><select id="dr" class="input"><option>Cobeca</option><option>Drolanca</option><option>Dronena</option></select></div>
+        <div class="field"><label for="dr">Droguería</label><select id="dr" class="input">${DROG.map(d=>`<option>${d.n}</option>`).join('')}</select></div>
         <div class="field"><label for="fn">N° de factura</label><input id="fn" class="input" value="0051877"></div>
         <div class="field"><label for="fd">Fecha de la factura</label><input id="fd" class="input" type="date" value="2026-10-26"></div>
       </div>
@@ -1004,10 +1030,10 @@ V.purchases = () => {
         <td><input class="cell-in ${r.e?'':'miss'}" type="date" data-recv="${i}" data-f="e" value="${r.e}" aria-label="Vencimiento" style="min-width:140px"></td>
         <td class="r"><input class="cell-in num" data-recv="${i}" data-f="q" value="${r.q}" inputmode="numeric" aria-label="Cantidad" style="width:70px;text-align:right"></td>
         <td class="r"><input class="cell-in num" data-recv="${i}" data-f="c" value="${r.c.toFixed(2)}" inputmode="decimal" aria-label="Costo" style="width:80px;text-align:right"></td>
-        <td class="r"><b>${nf(r.c*(1+MARGIN))}</b><div class="small muted">antes ${nf(p.price)}</div></td>
+        <td class="r"><b>${nf(r.c*(1+margenDe(p.cat)))}</b><div class="small muted">antes ${nf(p.price)}</div></td>
         <td><button class="x" data-act="recvdel" data-i="${i}" aria-label="Quitar renglón">${ic('x')}</button></td></tr>`}).join('')}</tbody></table></div>`
       :`<div class="empty">${ic('search')}<b>Escanea el primer producto de la factura</b><span>Cada código leído agrega un renglón.</span></div>`}
-      <div class="row"><span class="muted small">Margen de la farmacia: ${Math.round(MARGIN*100)}% sobre costo. ${miss?`<b style="color:var(--warn)">Falta lote o vencimiento en ${miss} ${miss===1?'producto':'productos'}.</b>`:''}</span><span class="spacer"></span><span class="muted">Total factura</span><b class="num" style="font-size:1.15rem">${usd(sub)}</b></div>
+      <div class="row"><span class="muted small">Margen general: ${Math.round(MARGIN*100)} % sobre costo; cada sección puede tener el suyo en Configuración. ${miss?`<b style="color:var(--warn)">Falta lote o vencimiento en ${miss} ${miss===1?'producto':'productos'}.</b>`:''}</span><span class="spacer"></span><span class="muted">Total factura</span><b class="num" style="font-size:1.15rem">${usd(sub)}</b></div>
       <div class="row"><button class="btn" data-act="toast" data-m="Factura de compra guardada como borrador">Guardar borrador</button><button class="btn primary" data-act="receive" ${RECV.length?'':'disabled'}>${ic('check')}Cargar al inventario</button></div>`;
   if (S.buyTab==='file') body = `
       <div class="drop">${ic('doc')}<b>Arrastra aquí el archivo de la factura</b><span class="small">Excel o TXT, como lo manda la droguería por correo o lo descargas de su portal.</span><button class="btn" data-act="toast" data-m="Archivo leído: Drolanca 0194012 · 12 productos">Elegir archivo</button></div>
@@ -1033,9 +1059,9 @@ V.purchases = () => {
   </div></section></div>`;
 };
 
-V.clients = () => `<div class="row"><p class="lead">Clientes registrados por cédula o RIF. Si piden factura con RIF de empresa, el ticket fiscal sale a su nombre.</p><span class="spacer"></span><button class="btn primary" data-act="toast" data-m="Formulario de nuevo cliente (demostración)">${ic('plus')}Nuevo cliente</button></div>
-  <section class="panel"><div class="bd flush tbl-wrap"><table><thead><tr><th>Cédula / RIF</th><th>Nombre</th><th>Teléfono</th><th class="r">Compras</th><th class="r">Total comprado</th><th>Última visita</th></tr></thead>
-  <tbody>${CLIENTS.map(c=>`<tr><td class="num">${c.ci}</td><td><b>${c.name}</b></td><td class="num">${c.tel}</td><td class="r">${c.visits}</td><td class="r">${usd(c.total)}</td><td class="num">${c.last}</td></tr>`).join('')}</tbody></table></div></section>`;
+V.clients = () => `<div class="row"><p class="lead">Clientes registrados por cédula o RIF. Si piden factura con RIF de empresa, el ticket fiscal sale a su nombre.</p><span class="spacer"></span><button class="btn primary" data-act="clinew">${ic('plus')}Nuevo cliente</button></div>
+  <section class="panel"><div class="bd flush tbl-wrap"><table><thead><tr><th>Cédula / RIF</th><th>Nombre</th><th>Teléfono</th><th class="r">Compras</th><th class="r">Total comprado</th><th>Última visita</th><th></th></tr></thead>
+  <tbody>${CLIENTS.map((c,i)=>`<tr><td class="num">${c.ci}</td><td><b>${c.name}</b></td><td class="num">${c.tel}</td><td class="r">${c.visits}</td><td class="r">${usd(c.total)}</td><td class="num">${c.last}</td><td><button class="btn sm" data-act="cliedit" data-i="${i}">${ic('edit')}Editar</button></td></tr>`).join('')}</tbody></table></div></section>`;
 
 /* --- Fiscal --- */
 const LIBRO_DIG = ['Facturas '+'00-00001189 al 00-00001248','Factura 00001188 · control 00-00001188','Facturas 00-00001159 al 00-00001187','Facturas 00-00001132 al 00-00001158','Facturas 00-00001101 al 00-00001131'];
@@ -1074,7 +1100,7 @@ V.fiscal = () => `<div class="grid g-dash">
   </div><p class="small muted" style="margin-top:10px">El Reporte X muestra lo vendido hasta ahora sin cerrar. El Reporte Z cierra el día en la memoria fiscal y solo se hace una vez por jornada.</p></div></section>`}
   <section class="panel"><div class="hd"><h2>Datos fiscales</h2></div><div class="bd">
     <div class="stat"><span class="muted">Razón social</span><span>Azullab Farmacia, C.A.</span></div>
-    <div class="stat"><span class="muted">RIF</span><span class="num">J-XXXXXXXX-X</span></div>
+    <div class="stat"><span class="muted">RIF</span><span class="num">${EMPRESA.rif}</span></div>
     <div class="stat"><span class="muted">Alícuota general (G)</span><span class="num">16%</span></div>
     <div class="stat"><span class="muted">Alícuota reducida (R)</span><span class="num">8%</span></div>
     <div class="stat"><span class="muted">Medicamentos</span><span>Exentos (E)</span></div>
@@ -1129,13 +1155,13 @@ function librosPanel(){
 
 function cierreText(){
   const r = S.rate, tu = todayUSD(), ex = tu*0.76, bi = (tu-ex)/1.16, iva = tu-ex-bi, k = S.cont-451;
-  return [ctr('AZULLAB FARMACIA, C.A.'), ctr('RIF J-XXXXXXXX-X'), '', ctr('CIERRE DEL DIA'), pad('FECHA: 26-10-2026','HORA: 20:01'), '-'.repeat(32),
+  return [ctr(UPN(EMPRESA.razon)), ctr('RIF '+EMPRESA.rif), '', ctr('CIERRE DEL DIA'), pad('FECHA: 26-10-2026','HORA: 20:01'), '-'.repeat(32),
     'FACTURAS DIGITALES', pad('DESDE', ctrlNum(1189)), pad('HASTA', ctrlNum(S.inv-1)), pad('CANTIDAD', todayN()), pad('CONTINGENCIA (TALONARIO)', k), pad('NOTAS DE CREDITO', '0'), '-'.repeat(32),
     pad('EXENTO (E)', 'Bs '+nf(ex*r)), pad('BI G16,00%', 'Bs '+nf(bi*r)), pad('IVA G16,00%', 'Bs '+nf(iva*r)), '='.repeat(32), pad('TOTAL VENTAS', 'Bs '+nf(tu*r)), '='.repeat(32), '', ctr('REGISTRADO EN EL LIBRO DE VENTAS'), '', '', '', ''].join('\n');
 }
 function zText(kind){
   const r = S.rate, tu = todayUSD(), ex = tu*0.76, bi = (tu-ex)/1.16, iva = tu-ex-bi;
-  const L = [ctr('SENIAT'), ctr('AZULLAB FARMACIA, C.A.'), ctr('RIF J-XXXXXXXX-X'), '', ctr(kind==='Z'?'REPORTE Z':'REPORTE X'), kind==='Z'?pad('NRO. Z:', '00'+S.z):pad('NRO. X:', '0214'), pad('FECHA: 26-10-2026','HORA: 20:01'), '-'.repeat(32),
+  const L = [ctr('SENIAT'), ctr(UPN(EMPRESA.razon)), ctr('RIF '+EMPRESA.rif), '', ctr(kind==='Z'?'REPORTE Z':'REPORTE X'), kind==='Z'?pad('NRO. Z:', '00'+S.z):pad('NRO. X:', '0214'), pad('FECHA: 26-10-2026','HORA: 20:01'), '-'.repeat(32),
     pad('FACTURAS:', `00001188-${String(S.inv-1).padStart(8,'0')}`), pad('CANT. FACTURAS', todayN()), pad('NOTAS DE CREDITO', '0'), '-'.repeat(32),
     pad('EXENTO (E)', 'Bs '+nf(ex*r)), pad('BI G16,00%', 'Bs '+nf(bi*r)), pad('IVA G16,00%', 'Bs '+nf(iva*r)), ...(S.spe?[pad('IGTF 3,00%', 'Bs '+nf(tu*0.004*r))]:[]), '='.repeat(32), pad('TOTAL VENTAS', 'Bs '+nf(tu*(S.spe?1.004:1)*r)), '='.repeat(32), '', ctr('MH  Z7C0012345'), '', '', '', ''];
   return L.join('\n');
@@ -1187,7 +1213,7 @@ function neModal(){
   </form></div>`;
 }
 function neText(x){
-  const r = S.rate, L = [ctr('AZULLAB FARMACIA, C.A.'), ctr('RIF J-XXXXXXXX-X'), ctr('LA AZULITA, MERIDA'), '', ctr('ORDEN DE ENTREGA'), pad('NOTA N:', x.n), pad('N DE CONTROL:', x.ctrl), pad('FECHA: '+x.f.replace(/\//g,'-'), 'HORA: '+x.h),
+  const r = S.rate, L = [ctr(UPN(EMPRESA.razon)), ctr('RIF '+EMPRESA.rif), ctr('LA AZULITA, MERIDA'), '', ctr('ORDEN DE ENTREGA'), pad('NOTA N:', x.n), pad('N DE CONTROL:', x.ctrl), pad('FECHA: '+x.f.replace(/\//g,'-'), 'HORA: '+x.h),
     'RIF/C.I.: '+x.c.ci.replace(/\./g,''), 'RAZON SOCIAL:', x.c.name.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').slice(0,32), 'VENDEDOR: '+shortName(x.u), '-'.repeat(32)];
   x.it.forEach(([id,q]) => { const p = P.find(z=>z.id===id); L.push(p.name.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').slice(0,32)); L.push(pad(`  ${q} x ${nf(p.price*r)}`, nf(lineUSD([id,q])*r))); });
   L.push('-'.repeat(32), pad('TOTAL REFERENCIAL', 'Bs '+nf(x.usd*r)), '', ctr('SIN DERECHO A CREDITO FISCAL'), ctr('SE FACTURA ANTES DEL '+x.vence.replace(/\//g,'-')), '', 'RECIBIDO POR: ______________', 'C.I.: ______________', '', '', '');
@@ -1251,12 +1277,12 @@ const GASTOS0 = [
 ];
 if (!S.gastos) S.gastos = GASTOS0.map(g=>({f:g[0],cat:g[1],desc:g[2],cta:g[3],usd:g[4],fijo:g[5],ret:g[6]||null}));
 /* Retenciones de ISLR (Decreto 1.808): toda empresa retiene al pagar estos conceptos */
-const UT = 43, UT_F = 83.3334, UT_MIN = Math.floor(UT*UT_F*100)/100;  /* pago mínimo para retener a personas naturales: Bs 3.583,33 */
+let UT = 43; const UT_F = 83.3334; const utMin = () => Math.floor(UT*UT_F*100)/100;  /* pago mínimo para retener a personas naturales: Bs 3.583,33 */
 const ISLR_T = {hon:['Honorarios profesionales',3,5], alq:['Alquiler de inmuebles',3,5], ser:['Servicios',1,2], fle:['Fletes',1,3], pub:['Publicidad',3,5]};
 function islrCalc(bsA, k, pn){
   const pc = ISLR_T[k][pn?1:2], r = pc/100;
   if (!pn) return {pc, sus:0, ret:bsA*r};
-  if (bsA <= UT_MIN) return {pc, sus:0, ret:0, bajo:true};
+  if (bsA <= utMin()) return {pc, sus:0, ret:0, bajo:true};
   const sus = UT*r*UT_F; return {pc, sus, ret:bsA*r - sus};
 }
 function islrHint(){
@@ -1264,7 +1290,7 @@ function islrHint(){
   if (!ri) { h.textContent = 'Alquiler, honorarios, servicios, fletes y publicidad llevan retención de ISLR.'; return; }
   if (!v) { h.textContent = 'Escribe el monto para calcular la retención.'; return; }
   const bsA = $('#g-mon').value==='bs' ? v : v*S.rate, c = islrCalc(bsA, ri.split('-')[0], ri.endsWith('pn'));
-  h.textContent = c.bajo ? `Pago de ${bs(bsA)}: a una persona natural solo se le retiene si pasa de ${bs(UT_MIN)}. No lleva retención.`
+  h.textContent = c.bajo ? `Pago de ${bs(bsA)}: a una persona natural solo se le retiene si pasa de ${bs(utMin())}. No lleva retención.`
     : `Se retienen ${bs(c.ret)} (${c.pc} %${c.sus?` menos el sustraendo de ${bs(c.sus)}`:''}). Se le paga ${bs(bsA-c.ret)} y sale su comprobante.`;
 }
 function islrPanel(){
@@ -1274,7 +1300,7 @@ function islrPanel(){
   <div class="bd flush tbl-wrap"><table><thead><tr><th>Fecha</th><th>A quién y por qué</th><th class="r">Pago Bs</th><th class="r">%</th><th class="r">Sustraendo</th><th class="r">Retenido Bs</th><th class="r">Se le paga Bs</th><th>Comprobante</th></tr></thead>
   <tbody>${rows.map(r=>`<tr><td class="num">${r.g.f}</td><td style="min-width:220px"><b style="font-weight:600">${r.g.ret.a}</b><div class="small muted">${ISLR_T[r.g.ret.k][0]} · ${r.g.ret.pn?'persona natural':'empresa'} · tasa ${nf(r.g.ret.tasa)}</div></td><td class="r">${nf(r.bsA)}</td><td class="r">${r.pc} %</td><td class="r">${r.sus?nf(r.sus):'-'}</td><td class="r"><b>${r.bajo?'No aplica':nf(r.ret)}</b></td><td class="r">${nf(r.bsA-r.ret)}</td><td><span class="pill ${r.g.ret.comp==='Entregado'?'ok':'warn'}">${r.g.ret.comp}</span></td></tr>`).join('')}</tbody>
   <tfoot><tr><td></td><td>Total retenido en el mes</td><td></td><td></td><td></td><td class="r"><span>${nf(tot)}</span></td><td></td><td></td></tr></tfoot></table></div>
-  <p class="base-legal">Decreto 1.808: la farmacia, como empresa, retiene ISLR al pagar alquiler, honorarios, servicios, fletes y publicidad, entrega el comprobante y en enero el ARCV. A las personas naturales se les resta el sustraendo (UT de Bs ${UT}) y solo se les retiene si el pago pasa de ${bs(UT_MIN)}. El plazo para enterar lo confirma el contador.</p></section>`;
+  <p class="base-legal">Decreto 1.808: la farmacia, como empresa, retiene ISLR al pagar alquiler, honorarios, servicios, fletes y publicidad, entrega el comprobante y en enero el ARCV. A las personas naturales se les resta el sustraendo (UT de Bs ${UT}) y solo se les retiene si el pago pasa de ${bs(utMin())}. El plazo para enterar lo confirma el contador.</p></section>`;
 }
 const DIF = [['20/10/2026',662400,875.10],['21/10/2026',701250,876.90],['22/10/2026',648900,878.20],['23/10/2026',731800,879.60],['24/10/2026',812300,880.40],['25/10/2026',455600,881.10],['26/10/2026',694300,881.88]];
 function finanzas(){
@@ -1299,40 +1325,41 @@ V.finance = () => {
   <section class="panel doc"><div class="hd"><h2>Mes a mes</h2><span class="muted small">En dólares</span></div><div class="bd flush tbl-wrap"><table><thead><tr><th>Mes</th><th class="r">Ventas</th><th class="r">Costo</th><th class="r">Utilidad bruta</th><th class="r">Gastos</th><th class="r">Utilidad neta</th><th class="r">Margen</th></tr></thead>
     <tbody>${meses.map(([m,i,c,g])=>`<tr><td>${m}</td><td class="r">${nf(i)}</td><td class="r">${nf(c)}</td><td class="r">${nf(i-c)}</td><td class="r">(${nf(g)})</td><td class="r"><b>${nf(i-c-g)}</b></td><td class="r">${pct(i-c-g,i)}</td></tr>`).join('')}</tbody></table></div></section>
   <div class="grid g-dash" style="align-items:start">
-    <section class="panel"><div class="hd"><h2>Gastos de octubre</h2><span class="muted small">${S.gastos.length} registrados</span></div><div class="bd flush tbl-wrap"><table><thead><tr><th>Fecha</th><th>Gasto</th><th>Pagado desde</th><th>Tipo</th><th class="r">Monto $</th></tr></thead>
-    <tbody>${S.gastos.map(g=>`<tr><td class="num">${g.f}</td><td><b style="font-weight:600">${g.cat}</b><div class="small muted">${g.desc}</div></td><td class="small">${g.cta}</td><td>${g.fijo?'<span class="pill info">Fijo</span>':'<span class="pill">Variable</span>'}</td><td class="r">${nf(g.usd)}</td></tr>`).join('')}
-    <tr><td class="num">26/10/2026</td><td><b style="font-weight:600">Diferencial cambiario</b><div class="small muted">Bolívares que perdieron valor en el banco</div></td><td class="small">Calculado</td><td><span class="pill warn">Automático</span></td><td class="r">${nf(F.dif)}</td></tr></tbody>
-    <tfoot><tr><td></td><td>Total</td><td></td><td></td><td class="r"><span>${nf(F.gastos)}</span></td></tr></tfoot></table></div></section>
+    <section class="panel"><div class="hd"><h2>Gastos de octubre</h2><span class="muted small">${S.gastos.length} registrados</span></div><div class="bd flush tbl-wrap"><table><thead><tr><th>Fecha</th><th>Gasto</th><th>Pagado desde</th><th>Tipo</th><th class="r">Monto $</th><th></th></tr></thead>
+    <tbody>${S.gastos.map((g,i)=>`<tr><td class="num">${g.f}</td><td><b style="font-weight:600">${g.cat}</b><div class="small muted">${g.desc}</div></td><td class="small">${g.cta}</td><td>${g.fijo?'<span class="pill info">Fijo</span>':'<span class="pill">Variable</span>'}</td><td class="r">${nf(g.usd)}</td><td><button class="btn sm" data-act="gastoedit" data-i="${i}" aria-label="Editar gasto ${g.desc}">${ic('edit')}</button></td></tr>`).join('')}
+    <tr><td class="num">26/10/2026</td><td><b style="font-weight:600">Diferencial cambiario</b><div class="small muted">Bolívares que perdieron valor en el banco</div></td><td class="small">Calculado</td><td><span class="pill warn">Automático</span></td><td class="r">${nf(F.dif)}</td><td></td></tr></tbody>
+    <tfoot><tr><td></td><td>Total</td><td></td><td></td><td class="r"><span>${nf(F.gastos)}</span></td><td></td></tr></tfoot></table></div></section>
     <div class="grid" style="align-content:start">
     <section class="panel"><div class="hd"><h2>En qué se va la plata</h2><span class="muted small">Octubre</span></div><div class="bd hbars">${catArr.map(([k,v])=>`<div class="hbar"><span>${k}</span><div class="trk"><div class="fill" style="width:${v/mx*100}%"></div></div><span class="val">${usd(v)}</span></div>`).join('')}</div></section>
     <section class="panel"><div class="hd"><h2>Próximos pagos</h2><span class="muted small">El sistema avisa antes</span></div><div class="bd flush list">
-    ${proximos.map(p=>`<div class="it"><div class="t"><b>${p[1]} · ${p[2]}</b><span class="small muted num">${p[0]}</span></div><div style="text-align:right"><div class="num" style="font-weight:700">${usd(p[3])}</div><span class="pill ${p[4]<=5?'warn':'ghost'}">En ${p[4]} días</span></div></div>`).join('')}</div></section>
+    ${proximos.map(p=>`<div class="it"><div class="t"><b>${p[1]} · ${p[2]}</b><span class="small muted num">${p[0]}</span></div><div style="text-align:right"><div class="num" style="font-weight:700">${usd(p[3])}</div><span class="pill ${p[4]<=CFG.aviso?'warn':'ghost'}">En ${p[4]} días</span></div></div>`).join('')}</div></section>
     </div>
   </div>
   ${islrPanel()}`;
 };
-function gastoModal(){
-  return `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="gt"><div class="hd"><h2 id="gt">Registrar gasto</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div>
-  <form class="bd" id="gastoForm">
+function gastoModal(g, gi){
+  const ed = !!g, riV = ed && g.ret ? `${g.ret.k}-${g.ret.pn?'pn':'pj'}` : '';
+  return `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="gt"><div class="hd"><h2 id="gt">${ed?'Editar gasto':'Registrar gasto'}</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div>
+  <form class="bd" id="gastoForm" data-i="${ed?gi:''}">
     <div class="grid g2" style="gap:10px">
-      <div class="field"><label for="g-cat">Categoría</label><select id="g-cat" class="input">${['Nómina','Alquiler','Servicios','Insumos','Mantenimiento','Impuestos','Contador','Publicidad','Otros'].map(c=>`<option>${c}</option>`).join('')}</select></div>
-      <div class="field"><label for="g-cta">Pagado desde</label><select id="g-cta" class="input">${['Caja Bs','Caja $','Banesco','Pago móvil Banesco','Mercantil','Zelle'].map(c=>`<option>${c}</option>`).join('')}</select></div>
+      <div class="field"><label for="g-cat">Categoría</label><select id="g-cat" class="input">${fOpt(['Nómina','Alquiler','Servicios','Insumos','Mantenimiento','Impuestos','Contador','Publicidad','Otros'], ed?g.cat:'')}</select></div>
+      <div class="field"><label for="g-cta">Pagado desde</label><select id="g-cta" class="input">${fOpt(['Caja Bs','Caja $','Banesco','Pago móvil Banesco','Mercantil','Zelle'], ed?g.cta:'')}</select></div>
     </div>
-    <div class="field"><label for="g-desc">Descripción</label><input id="g-desc" class="input" placeholder="Ej.: recarga de gas, reparación del aire"></div>
+    <div class="field"><label for="g-desc">Descripción</label><input id="g-desc" class="input" placeholder="Ej.: recarga de gas, reparación del aire" value="${ed?g.desc:''}"></div>
     <div class="grid g2" style="gap:10px">
-      <div class="field"><label for="g-monto">Monto</label><input id="g-monto" class="input num" inputmode="decimal" placeholder="0,00"></div>
-      <div class="field"><label for="g-mon">Moneda</label><select id="g-mon" class="input"><option value="bs">Bolívares (Bs)</option><option value="usd">Dólares ($)</option></select></div>
+      <div class="field"><label for="g-monto">Monto</label><input id="g-monto" class="input num" inputmode="decimal" placeholder="0,00" value="${ed?nf(g.usd):''}"></div>
+      <div class="field"><label for="g-mon">Moneda</label><select id="g-mon" class="input">${fOpt([['bs','Bolívares (Bs)'],['usd','Dólares ($)']], ed?'usd':'bs')}</select></div>
     </div>
     <div class="grid g2" style="gap:10px">
-      <div class="field"><label for="g-islr">Retención de ISLR</label><select id="g-islr" class="input"><option value="">No aplica</option>${Object.entries(ISLR_T).map(([k,t])=>`<option value="${k}-pn">${t[0]} · persona natural ${t[1]} %</option><option value="${k}-pj">${t[0]} · empresa ${t[2]} %</option>`).join('')}</select></div>
-      <div class="field"><label for="g-ben">Pagado a</label><input id="g-ben" class="input" placeholder="Nombre y RIF de quien cobra"></div>
+      <div class="field"><label for="g-islr">Retención de ISLR</label><select id="g-islr" class="input">${fOpt([['','No aplica'], ...Object.entries(ISLR_T).flatMap(([k,t])=>[[k+'-pn',`${t[0]} · persona natural ${t[1]} %`],[k+'-pj',`${t[0]} · empresa ${t[2]} %`]])], riV)}</select></div>
+      <div class="field"><label for="g-ben">Pagado a</label><input id="g-ben" class="input" placeholder="Nombre y RIF de quien cobra" value="${ed&&g.ret?g.ret.a:''}"></div>
     </div>
     <p class="small muted" id="g-islr-hint" aria-live="polite" style="margin:0">Alquiler, honorarios, servicios, fletes y publicidad llevan retención de ISLR.</p>
     <div class="grid g2" style="gap:10px">
-      <div class="field"><label for="g-rec">Se repite</label><select id="g-rec" class="input"><option value="0">No, es variable</option><option value="1">Sí, cada mes (avisar antes)</option></select></div>
+      <div class="field"><label for="g-rec">Se repite</label><select id="g-rec" class="input">${fOpt([['0','No, es variable'],['1','Sí, cada mes (avisar antes)']], ed&&g.fijo?'1':'0')}</select></div>
       <div class="field"><label for="g-comp">Comprobante</label><input id="g-comp" class="input" type="file" accept="image/*,application/pdf"></div>
     </div>
-    <button class="btn primary big" type="submit">${ic('check')}Guardar gasto</button>
+    ${ed?`<div class="row"><button type="button" class="btn" style="flex:1;color:var(--bad)" data-act="gastodel" data-i="${gi}">Anular gasto</button><button class="btn primary" style="flex:2" type="submit">${ic('check')}Guardar cambios</button></div>`:`<button class="btn primary big" type="submit">${ic('check')}Guardar gasto</button>`}
   </form></div>`;
 }
 V.banks = () => {
@@ -1373,39 +1400,232 @@ V.banks = () => {
 };
 
 /* ======================= Módulo de nómina y empleados (se cobra aparte) ======================= */
-const SM = 130, PENS = 0.09, ING_MIN = 240;   /* salario mínimo mensual (Bs), contribución para pensiones, ingreso mínimo integral ($) */
+/* Parámetros de ley: se cambian en Nómina > Parámetros de ley cuando sale un decreto, y todo se recalcula */
+const LEY = {sm:130, ingMin:240, cesta:40, pens:9, ivssPat:9, hx:50, noct:30, fer:50, util:30, tasaPrest:15.5};
+const LEY_HIST = [{f:'01/03/2026', t:'Parámetros de 2026 cargados al instalar la nómina', u:'Cuadre'}];
+const pcT = x => nf(x).replace(/,00$/,'') + ' %';
+const dd = x => String(Math.round(x*100)/100).replace('.',',');
+const BANCO_COD = {'Banesco':'0134','Banco de Venezuela':'0102','Mercantil':'0105','Provincial':'0108','BNC':'0191','Bancaribe':'0114','Sofitasa':'0137','Bicentenario':'0175','Tesoro':'0163','Venezolano de Crédito':'0104','Banplus':'0174','Bancamiga':'0172','R4':'0169','Exterior':'0115','Plaza':'0138','Activo':'0171','100% Banco':'0156','Del Sur':'0157','Caroní':'0128','Fondo Común':'0151'};
+const BANCOS = Object.keys(BANCO_COD);
 const EMP = [
-  {id:1, n:'Lcda. Rosángela Paredes', ci:'V-14.882.310', cargo:'Farmacéutica regente', ing:'2026-03-01', sal:8818.80, bono:560, cesta:40, cargas:1, pago:'Pago móvil Banesco'},
-  {id:2, n:'Kevin Albarrán', ci:'V-27.115.904', cargo:'Cajero · Caja 1', ing:'2026-03-15', sal:4409.40, bono:345, cesta:40, cargas:0, pago:'Pago móvil Banesco'},
-  {id:3, n:'Mariela Contreras', ci:'V-25.660.218', cargo:'Cajera · Caja 2', ing:'2026-03-15', sal:4409.40, bono:345, cesta:40, cargas:1, pago:'Pago móvil Mercantil'},
-  {id:4, n:'Wilmer Rivas', ci:'V-19.442.871', cargo:'Almacén', ing:'2026-04-01', sal:4409.40, bono:365, cesta:40, cargas:2, pago:'Efectivo en dólares'}
+  {id:1, n:'Lcda. Rosángela Paredes', ci:'V-14.882.310', cargo:'Farmacéutica regente', jor:'Diurna', est:'Activo', ing:'2026-03-01', sal:8818.80, bono:560, cesta:40, cargas:1, ari:null, pago:'Transferencia', banco:'Banesco', cta:'0134-0461-72-4612003311', tel:'0414-7330912', hx:12, hist:[]},
+  {id:2, n:'Kevin Albarrán', ci:'V-27.115.904', cargo:'Cajero · Caja 1', jor:'Diurna', est:'Activo', ing:'2026-03-15', sal:4409.40, bono:345, cesta:40, cargas:0, ari:null, pago:'Transferencia', banco:'Banesco', cta:'0134-0219-11-2190047785', tel:'0424-7351880', hx:38,
+   hist:[{f:'15/09/2026', t:'Bono: $ 300,00 → $ 345,00', m:'Ajuste por desempeño', u:'Daniela Uzcátegui'}]},
+  {id:3, n:'Mariela Contreras', ci:'V-25.660.218', cargo:'Cajera · Caja 2', jor:'Diurna', est:'Activo', ing:'2026-03-15', sal:4409.40, bono:345, cesta:40, cargas:1, ari:null, pago:'Pago móvil', banco:'Mercantil', cta:'0105-0087-51-1087330019', tel:'0416-6702214', hx:16, hist:[]},
+  {id:4, n:'Wilmer Rivas', ci:'V-19.442.871', cargo:'Almacén', jor:'Diurna', est:'Activo', ing:'2026-04-01', sal:4409.40, bono:365, cesta:40, cargas:2, ari:null, pago:'Efectivo en dólares', banco:'Banco de Venezuela', cta:'0102-0388-14-0000917256', tel:'0412-5560193', hx:44, hist:[]}
 ];
+const activos = () => EMP.filter(e=>e.est!=='Egresado');
+const pagoTxt = e => e.pago==='Efectivo en dólares' ? e.pago : `${e.pago} ${e.banco}`;
+const userOf = e => USERS.find(u=>u.emp===e.id);
+const cuentaCorta = c => c ? '••••' + String(c).replace(/\D/g,'').slice(-4) : '—';
 const TARIFA1 = [[1000,.06,0],[1500,.09,30],[2000,.12,75],[2500,.16,155],[3000,.20,255],[4000,.24,375],[6000,.29,575],[Infinity,.34,875]];
-function ariPct(e){ const ut = e.sal*12/UT, base = ut - 774; if (ut <= 1000 || base <= 0) return 0;
+function ariPct(e){ if (e.ari!=null) return e.ari/100; const ut = e.sal*12/UT, base = ut - 774; if (ut <= 1000 || base <= 0) return 0;
   const [,r,sus] = TARIFA1.find(([l])=>base<=l); return Math.max(0, base*r - sus - 10 - 10*e.cargas)/ut; }
 const pctTxt = v => (v*100).toFixed(2).replace('.',',') + ' %';
 const initials = n => n.replace(/^Lcda?\.\s*/,'').split(' ').slice(0,2).map(x=>x[0]).join('');
 const mesesDesde = d => { const a = new Date(d+'T00:00:00'); return (TODAY.getFullYear()-a.getFullYear())*12 + TODAY.getMonth()-a.getMonth() - (TODAY.getDate()<a.getDate()?1:0); };
+const mesesEntre = (a, b) => { const x = new Date(a+'T00:00:00'), y = new Date(b+'T00:00:00'); y.setDate(y.getDate()+1); return Math.max(0, (y.getFullYear()-x.getFullYear())*12 + y.getMonth()-x.getMonth() - (y.getDate()<x.getDate()?1:0)); };
 const aniv = e => fmtDate(e.ing.replace(/^(\d{4})/, y=>String(+y+1)));
+const conProg = (e, hasta) => (e.prog||[]).filter(p=>p.desde<=hasta).reduce((x,p)=>({...x, [p.q]:p.n}), e);
+
+/* Novedades de la quincena: horas extra, horas de noche, feriados, descansos, faltas y adelantos */
+const NOV = [['hed','Horas extra de día','Extra de día','horas'],['hen','Horas extra de noche','Extra de noche','horas'],['noc','Horas nocturnas','Nocturnas','horas'],['fer','Feriados trabajados','Feriados','días'],['des','Descansos trabajados','Descansos','días'],['fal','Faltas sin justificar','Faltas','días'],['adel','Adelantos','Adelantos','$']];
+if (!S.nov) S.nov = {1:{des:1}, 2:{hed:6, adel:20}, 3:{hen:2, noc:7, des:1}, 4:{hed:4, fal:1}};
+function variables(e){
+  const n = S.nov[e.id] || {}, g = k => +n[k] || 0, d = e.sal/30, h = d/8, x = LEY.hx/100, no = LEY.noct/100, f = LEY.fer/100;
+  const hed = g('hed')*h*(1+x), hen = g('hen')*h*(1+no)*(1+x), noc = g('noc')*h*no, fer = (g('fer')+g('des'))*d*(1+f), fal = g('fal')*d;
+  return {hed, hen, noc, fer, fal, adel:g('adel'), tot: hed+hen+noc+fer-fal, horasX: g('hed')+g('hen')};
+}
+function novTxt(e){ const n = S.nov[e.id] || {}, t = [], pl = (v, a, b) => `${dd(v)} ${v==1?a:b}`;
+  if (+n.hed) t.push(pl(n.hed,'h extra','h extra')); if (+n.hen) t.push(pl(n.hen,'h extra noche','h extra noche')); if (+n.noc) t.push(pl(n.noc,'h de noche','h de noche'));
+  if (+n.fer) t.push(pl(n.fer,'feriado','feriados')); if (+n.des) t.push(pl(n.des,'descanso','descansos')); if (+n.fal) t.push(pl(n.fal,'falta','faltas'));
+  return t.join(' · '); }
 function quincena(e){
-  const sal = e.sal/2, ivss = Math.min(e.sal, 5*SM)*0.04/2, rpe = Math.min(e.sal, 10*SM)*0.005/2, faov = e.sal*0.01/2, islr = sal*ariPct(e);
-  const ded = ivss+rpe+faov+islr, netoBs = sal-ded, bonos = e.bono/2, cesta = e.cesta;
-  return {sal, ivss, rpe, faov, islr, ded, netoBs, bonos, cesta, netoUSD: netoBs/S.rate + bonos + cesta};
+  const v = variables(e), sal = e.sal/2, dev = Math.max(0, sal + v.tot);
+  const ivss = Math.min(dev, 5*LEY.sm/2)*0.04, rpe = Math.min(dev, 10*LEY.sm/2)*0.005, faov = dev*0.01, islr = dev*ariPct(e);
+  const ded = ivss+rpe+faov+islr, netoBs = dev-ded, bonos = e.bono/2, cesta = e.cesta;
+  return {sal, v, dev, ivss, rpe, faov, islr, ded, netoBs, bonos, cesta, adel:v.adel, netoUSD: netoBs/S.rate + bonos + cesta - v.adel};
 }
 function costoMes(e){
   const R = S.rate, pagado = e.sal/R + e.bono + e.cesta;
-  const patronal = (Math.min(e.sal,5*SM)*0.09 + Math.min(e.sal,10*SM)*0.02 + e.sal*0.02)/R;
-  const pens = Math.max(pagado, ING_MIN)*PENS;
-  const prov = (e.sal/30)*(5 + 2.5 + 2.5)/R;
+  const patronal = (Math.min(e.sal,5*LEY.sm)*LEY.ivssPat/100 + Math.min(e.sal,10*LEY.sm)*0.02 + e.sal*0.02)/R;
+  const pens = Math.max(pagado, LEY.ingMin)*LEY.pens/100;
+  const prov = (e.sal/30)*(5 + 2.5 + LEY.util/12)/R;
   return {pagado, patronal, pens, prov, total: pagado+patronal+pens+prov};
 }
+/* Liquidación (LOTTT arts. 92, 131, 142, 143 y 196) */
+function liquidacion(e, mot, fEg){
+  const m = mesesEntre(e.ing, fEg), anios = Math.floor(m/12), fr = m%12, sd = e.sal/30;
+  const bvD = Math.min(15+anios, 30), vacD = Math.min(15+anios, 30), si = sd*(1 + LEY.util/360 + bvD/360);
+  let adic = 0; for (let k=1; k<anios; k++) adic += Math.min(2*k, 30);
+  const gDias = 15*Math.floor(m/3) + adic, garantia = gDias*si, rDias = 30*(anios + (fr>6?1:0)), retro = rDias*si, prest = Math.max(garantia, retro);
+  const inter = garantia*LEY.tasaPrest/100*(m/12)/2;
+  const y = fEg.slice(0,4), mA = mesesEntre(e.ing > y+'-01-01' ? e.ing : y+'-01-01', fEg), utilD = LEY.util*mA/12;
+  const vacF = vacD*fr/12, bvF = bvD*fr/12;
+  const rows = [
+    ['Prestaciones sociales', prest, `Garantía: ${dd(gDias)} días. Cálculo final: ${rDias} días. Se paga el mayor`, 'Art. 142'],
+    ['Intereses de las prestaciones', inter, `Tasa BCV ${pcT(LEY.tasaPrest)} anual, aproximado`, 'Art. 143'],
+    ['Vacaciones fraccionadas', vacF*sd, `${dd(vacF)} días de salario`, 'Art. 196'],
+    ['Bono vacacional fraccionado', bvF*sd, `${dd(bvF)} días de salario`, 'Art. 196'],
+    ['Utilidades fraccionadas', utilD*sd, `${dd(utilD)} días: ${mA} meses de ${y}`, 'Art. 131']];
+  if (mot==='Despido injustificado') rows.push(['Indemnización por despido injustificado', prest, 'Igual a las prestaciones', 'Art. 92']);
+  return {m, sd, si, rows, total: rows.reduce((s,r)=>s+r[1],0)};
+}
+/* Archivo de pago para el banco (formato de muestra; el definitivo sale del manual del banco) */
+function txtNomina(){
+  const R = S.rate, cta = CUENTAS[0], p = (s,n) => String(s).padEnd(n).slice(0,n), z = (s,n) => String(s).padStart(n,'0').slice(-n), cen = x => Math.round(x*100);
+  const emp = activos().filter(e=>e.pago==='Transferencia');
+  const L = emp.map(e => { const bsA = quincena(e).netoUSD*R; return {e, bsA, l:'D' + p(e.ci.replace(/[-.]/g,''),10) + z(e.cta.replace(/\D/g,''),20) + z(cen(bsA),15) + p(UPN(e.n.replace(/^Lcda?\.\s*/,'')),30) + p('NOMINA 2Q OCT 2026',20)}; });
+  const tot = L.reduce((a,x)=>a+x.bsA,0);
+  const head = 'H' + p(EMPRESA.rif.replace(/-/g,''),10) + z(cta.n.replace(/\D/g,''),20) + '30102026' + z(1,8) + z(L.length,5) + z(cen(tot),15);
+  return {txt:[head, ...L.map(x=>x.l)].join('\n'), n:L.length, tot, cta, otros: emp.filter(e=>e.banco!==cta.b), file:`nomina_${UPN(cta.b).toLowerCase().replace(/\s+/g,'_')}_30102026.txt`};
+}
+function pagoModal(){
+  const R = S.rate, Q = activos().map(e=>({e, ...quincena(e)})), tot = Q.reduce((a,x)=>a+x.netoUSD,0), cta = CUENTAS[0];
+  const tr = Q.filter(x=>x.e.pago==='Transferencia'), pm = Q.filter(x=>x.e.pago==='Pago móvil'), ef = Q.filter(x=>x.e.pago==='Efectivo en dólares'), otros = tr.filter(x=>x.e.banco!==cta.b);
+  const row = (x, extra) => { const cash = x.e.pago==='Efectivo en dólares'; return `<div class="it"><span class="av">${initials(x.e.n)}</span><div class="t"><b>${x.e.n}</b><span class="small muted num">${extra}</span></div><div style="text-align:right"><div class="num" style="font-weight:700">${cash?usd(x.netoUSD):bs(x.netoUSD*R)}</div><span class="small muted num">${cash?bs(x.netoUSD*R):usd(x.netoUSD)}</span></div></div>`; };
+  const grp = (icn, t, arr, inner) => arr.length ? `<section class="paygrp"><div class="row"><b class="row" style="gap:6px">${ic(icn)}${t}</b><span class="spacer"></span><span class="pill info">${arr.length}</span></div>${inner}</section>` : '';
+  return `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="pgt"><div class="hd"><h2 id="pgt">Pagar la quincena · ${usd(tot)}</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div>
+  <div class="bd">
+    <p class="small muted" style="margin:0">Cada empleado cobra por donde dice su ficha. Lo que va en bolívares se paga a la tasa BCV del día, ${nf(R)}.</p>
+    ${grp('bank','Transferencia con archivo para el banco', tr, `<div class="list">${tr.map(x=>row(x, `${x.e.banco} ${cuentaCorta(x.e.cta)}`)).join('')}</div>
+      <p class="small muted">Cuadre arma un archivo TXT con todos los pagos. El dueño lo sube en la banca en línea de empresas de ${cta.b} y lo aprueba con su token. El banco paga a todos de una vez, y se puede programar para el día de pago.${otros.length?` ${otros.length===1?'Una cuenta es':otros.length+' cuentas son'} de otro banco: para pagarlas en el mismo archivo, la farmacia debe estar afiliada al pago a proveedores.`:''}</p>
+      <button class="btn" data-act="nomtxt">${ic('doc')}Generar archivo TXT para ${cta.b}</button>`)}
+    ${grp('phone','Pago móvil, uno por uno', pm, `<div class="list">${pm.map(x=>row(x, `${x.e.banco} · ${x.e.tel} · ${x.e.ci}`)).join('')}</div>
+      <button class="btn" data-act="toast" data-m="Datos del pago móvil copiados: teléfono, cédula, banco y monto">Copiar datos del pago móvil</button>`)}
+    ${grp('coins','Efectivo en dólares', ef, `<div class="list">${ef.map(x=>row(x, 'Firma el recibo al cobrar')).join('')}</div>`)}
+    <p class="base-legal" style="margin:0;padding:10px 0 0">¿Y pagar directo con la API del banco? Hoy los bancos venezolanos abren sus API sobre todo para cobrar y para verificar pagos móviles. Para pagar nómina por API hace falta un convenio especial con el banco. Si la farmacia lo consigue, Cuadre se conecta y el archivo ya no hace falta.</p>
+    <div class="row"><button class="btn" style="flex:1" data-act="close">Cancelar</button><button class="btn primary" style="flex:1" data-act="nomconfirm">${ic('check')}Marcar como pagada</button></div>
+  </div></div>`;
+}
+function txtModal(){
+  const t = txtNomina();
+  return `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="txt"><div class="hd"><h2 id="txt">Archivo de nómina · ${t.cta.b}</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div>
+  <div class="bd">
+    <div><div class="stat"><span class="muted">Archivo</span><span class="num">${t.file}</span></div>
+    <div class="stat"><span class="muted">Cuenta que paga</span><span class="num">${t.cta.b} ${cuentaCorta(t.cta.n)}</span></div>
+    <div class="stat"><span class="muted">Pagos</span><span class="num">${t.n} · ${bs(t.tot)}</span></div></div>
+    <pre class="txtfile" aria-label="Contenido del archivo">${t.txt}</pre>
+    <ol class="pasos"><li>Descarga el archivo.</li><li>Entra a la banca en línea de empresas de ${t.cta.b}, opción pago de nómina, y súbelo.</li><li>Revisa el total y apruébalo con tu token.</li><li>Cuando el banco confirme, marca la quincena como pagada aquí.</li></ol>
+    <p class="small muted" style="margin:0">Formato de muestra. El definitivo se arma con el manual de archivos que el banco le entrega a la farmacia al afiliarla al pago de nómina. Cuadre puede generar el de cada banco: Banesco, Banco de Venezuela, Mercantil, Provincial, BNC, Bancaribe y otros a pedido.</p>
+    <div class="row"><button class="btn" style="flex:1" data-act="nompagar">Volver</button><button class="btn primary" style="flex:1" data-act="txtdl">${ic('doc')}Descargar .txt</button></div>
+  </div></div>`;
+}
+const fOpt = (arr, v) => arr.map(x => { const [val,txt] = Array.isArray(x) ? x : [x,x]; return `<option value="${val}" ${String(val)===String(v)?'selected':''}>${txt}</option>`; }).join('');
+function empModal(e){
+  const nuevo = !e; e = e || {n:'', ci:'', cargo:'', jor:'Diurna', est:'Activo', ing:'2026-11-01', sal:4409.40, bono:345, cesta:LEY.cesta, cargas:0, ari:null, pago:'Transferencia', banco:'Banesco', cta:'', tel:''};
+  const u = nuevo ? null : userOf(e);
+  return `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="emt"><div class="hd"><h2 id="emt">${nuevo?'Nuevo empleado':'Editar ficha'}</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div>
+  <form class="bd" id="empForm" data-id="${nuevo?'':e.id}">
+    <h3 class="fh">Datos y cargo</h3>
+    <div class="grid g2" style="gap:10px">
+      <div class="field"><label for="em-n">Nombre y apellido</label><input id="em-n" class="input" value="${e.n}" autocomplete="off"></div>
+      <div class="field"><label for="em-ci">Cédula</label><input id="em-ci" class="input num" value="${e.ci}" placeholder="V-00.000.000"></div>
+    </div>
+    <div class="grid g2" style="gap:10px">
+      <div class="field"><label for="em-cargo">Cargo</label><input id="em-cargo" class="input" value="${e.cargo}" placeholder="Ej.: Cajero · Caja 1"></div>
+      <div class="field"><label for="em-rol">Acceso al sistema</label><select id="em-rol" class="input">${fOpt([['','Sin usuario'],['Farmacéutico','Farmacéutico regente'],['Cajero','Cajero'],['Almacén','Almacén']], u?u.rol:'')}</select></div>
+    </div>
+    <div class="grid g3" style="gap:10px">
+      <div class="field"><label for="em-ing">Fecha de ingreso</label><input id="em-ing" class="input" type="date" value="${e.ing}"></div>
+      <div class="field"><label for="em-jor">Jornada</label><select id="em-jor" class="input">${fOpt([['Diurna','Diurna · 8 h'],['Nocturna','Nocturna · 7 h'],['Mixta','Mixta · 7,5 h']], e.jor)}</select></div>
+      <div class="field"><label for="em-est">Estado</label><select id="em-est" class="input">${fOpt(['Activo','Vacaciones','Reposo','Permiso','Egresado'], e.est)}</select></div>
+    </div>
+    <h3 class="fh">Lo que gana</h3>
+    <div class="grid g3" style="gap:10px">
+      <div class="field"><label for="em-sal">Salario mensual Bs</label><input id="em-sal" class="input num" inputmode="decimal" value="${nf(e.sal)}"></div>
+      <div class="field"><label for="em-bono">Bono mensual $</label><input id="em-bono" class="input num" inputmode="decimal" value="${nf(e.bono)}"></div>
+      <div class="field"><label for="em-cesta">Cestaticket $</label><input id="em-cesta" class="input num" inputmode="decimal" value="${nf(e.cesta)}"></div>
+    </div>
+    <div class="grid g2" style="gap:10px">
+      <div class="field"><label for="em-cargas">Cargas familiares</label><input id="em-cargas" class="input num" inputmode="numeric" value="${e.cargas}"></div>
+      <div class="field"><label for="em-ari">Porcentaje del AR-I</label><input id="em-ari" class="input num" inputmode="decimal" value="${e.ari==null?'':nf(e.ari)}" placeholder="Vacío: lo calcula el sistema"></div>
+    </div>
+    <h3 class="fh">Cómo cobra</h3>
+    <div class="grid g3" style="gap:10px">
+      <div class="field"><label for="em-pago">Forma de pago</label><select id="em-pago" class="input">${fOpt(['Transferencia','Pago móvil','Efectivo en dólares'], e.pago)}</select></div>
+      <div class="field"><label for="em-banco">Banco</label><select id="em-banco" class="input">${fOpt(BANCOS, e.banco)}</select></div>
+      <div class="field"><label for="em-tel">Teléfono del pago móvil</label><input id="em-tel" class="input num" value="${e.tel}" placeholder="0414-0000000"></div>
+    </div>
+    <div class="field"><label for="em-cta">Número de cuenta, 20 dígitos</label><input id="em-cta" class="input num" value="${e.cta}" placeholder="0134-0000-00-0000000000" inputmode="numeric"></div>
+    <p class="small muted" id="em-hint" aria-live="polite" style="margin:0">${nuevo?'Entra en la próxima quincena. Si le das acceso al sistema, se le crea su usuario y su PIN le llega por WhatsApp.':'Cada cambio queda en el historial de la ficha, con la fecha y quién lo hizo.'}</p>
+    ${nuevo?'':`<div class="field"><label for="em-mot">Motivo del cambio</label><input id="em-mot" class="input" placeholder="Ej.: ascenso, aumento por decreto, cambió de banco"></div>`}
+    <button class="btn primary big" type="submit">${ic('check')}${nuevo?'Guardar empleado':'Guardar cambios'}</button>
+  </form></div>`;
+}
+function empHint(){
+  const h = $('#em-hint'); if (!h) return; const c = ($('#em-cta').value||'').replace(/\D/g,''), b = $('#em-banco').value, cod = BANCO_COD[b];
+  if (!c) { h.textContent = 'Escribe la cuenta para pagarle por transferencia.'; return; }
+  if (c.length!==20) { h.textContent = `La cuenta tiene ${c.length} dígitos: deben ser 20.`; return; }
+  if (cod && !c.startsWith(cod)) { const otro = Object.keys(BANCO_COD).find(k=>BANCO_COD[k]===c.slice(0,4)); h.textContent = `Esa cuenta empieza por ${c.slice(0,4)}${otro?` (${otro})`:''}, no por ${cod} (${b}). Revisa el banco.`; return; }
+  h.textContent = `Cuenta de ${b} correcta.`;
+}
+const EMP_F = [['n','Nombre'],['ci','Cédula'],['cargo','Cargo'],['jor','Jornada'],['est','Estado'],['ing','Fecha de ingreso',v=>fmtDate(v)],['sal','Salario',v=>bs(v)],['bono','Bono',v=>usd(v)],['cesta','Cestaticket',v=>usd(v)],['cargas','Cargas familiares'],['ari','AR-I',v=>v==null?'calculado':pcT(v)],['pago','Forma de pago'],['banco','Banco'],['cta','Cuenta',cuentaCorta],['tel','Teléfono']];
+function empDiff(o, n, rol){
+  const ch = EMP_F.filter(([k])=>String(o[k]??'')!==String(n[k]??'')).map(([k,l,fm])=>`${l}: ${fm?fm(o[k]):(o[k]||'—')} → ${fm?fm(n[k]):(n[k]||'—')}`);
+  const u = userOf(o), oR = u ? u.rol : ''; if (oR!==rol) ch.push(`Acceso al sistema: ${oR?ROL_TXT[oR]:'sin usuario'} → ${rol?ROL_TXT[rol]:'sin usuario'}`);
+  return ch;
+}
+function syncUser(e, rol){
+  const u = userOf(e);
+  if (!rol) { if (u) USERS.splice(USERS.indexOf(u),1); return; }
+  if (u) { u.n = e.n; u.rol = rol; if (rol==='Almacén') u.caja = 'Almacén'; else if (u.caja==='Almacén') u.caja = 'Caja 1'; u.est = e.est==='Egresado' ? 'Bloqueado' : u.est; }
+  else USERS.push({id:Math.max(...USERS.map(x=>x.id))+1, n:e.n, rol, caja:rol==='Almacén'?'Almacén':'Caja 1', est:e.est==='Egresado'?'Bloqueado':'Activo', last:'Nunca', emp:e.id});
+}
+function aumModal(){
+  return `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="aut"><div class="hd"><h2 id="aut">Aumento de sueldo</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div>
+  <form class="bd" id="aumForm">
+    <div class="grid g3" style="gap:10px">
+      <div class="field"><label for="au-que">Qué sube</label><select id="au-que" class="input"><option value="sal">Salario (Bs)</option><option value="bono">Bono ($)</option><option value="cesta">Cestaticket ($)</option></select></div>
+      <div class="field"><label for="au-tipo">Cómo</label><select id="au-tipo" class="input"><option value="pct">Porcentaje</option><option value="monto">Suma fija</option><option value="nuevo">Monto nuevo para todos</option></select></div>
+      <div class="field"><label for="au-val">Cuánto</label><input id="au-val" class="input num" inputmode="decimal" placeholder="Ej.: 20"></div>
+    </div>
+    <div class="grid g2" style="gap:10px">
+      <div class="field"><label for="au-desde">Desde</label><input id="au-desde" class="input" type="date" value="2026-11-01"></div>
+      <div class="field"><label for="au-mot">Motivo</label><select id="au-mot" class="input">${fOpt(['Decreto de aumento','Ajuste por inflación','Mérito o ascenso','Acuerdo con el trabajador'],'')}</select></div>
+    </div>
+    <fieldset class="aupick"><legend>A quién</legend>${activos().map(e=>`<label><input type="checkbox" class="au-emp" value="${e.id}" checked><span>${e.n} <span class="small muted">· ${e.cargo}</span></span></label>`).join('')}</fieldset>
+    <div id="au-prev">${aumPrev()}</div>
+    <button class="btn primary big" type="submit">${ic('check')}Aplicar aumento</button>
+  </form></div>`;
+}
+function aumCalc(){
+  const q = ($('#au-que')||{}).value || 'sal', t = ($('#au-tipo')||{}).value || 'pct', v = parseVE(($('#au-val')||{}).value || ''), ids = [...document.querySelectorAll('.au-emp:checked')].map(x=>+x.value);
+  return {q, t, v, ids, nuevo: o => t==='pct' ? o*(1+v/100) : t==='monto' ? o+v : v};
+}
+function aumPrev(){
+  const c = aumCalc(); if (!c.v) return '<p class="small muted" style="margin:0">Escribe cuánto sube para ver cómo queda cada uno y cuánto más le cuesta a la farmacia al mes.</p>';
+  const A = activos().filter(e=>c.ids.includes(e.id)); if (!A.length) return '<p class="small muted" style="margin:0">Marca al menos un empleado.</p>';
+  const fm = c.q==='sal' ? bs : usd, L = {sal:'Salario',bono:'Bono',cesta:'Cestaticket'}[c.q];
+  const rows = A.map(e=>{ const n = c.nuevo(e[c.q]); return {e, o:e[c.q], n, antes:costoMes(e).total, desp:costoMes({...e, [c.q]:n}).total}; }), dif = rows.reduce((a,r)=>a+r.desp-r.antes,0);
+  return `<div class="tbl-wrap"><table><thead><tr><th>Empleado</th><th class="r">${L} hoy</th><th class="r">${L} nuevo</th><th class="r">Costo real al mes</th></tr></thead>
+  <tbody>${rows.map(r=>`<tr><td>${r.e.n}</td><td class="r">${fm(r.o)}</td><td class="r"><b>${fm(r.n)}</b></td><td class="r">${usd(r.antes)} → ${usd(r.desp)}</td></tr>`).join('')}</tbody>
+  <tfoot><tr><td>A la farmacia le cuesta</td><td></td><td></td><td class="r"><span>${dif>=0?'+':''}${usd(dif)} al mes</span></td></tr></tfoot></table></div>
+  ${c.q==='sal'?'<p class="small muted" style="margin:6px 0 0">El salario arrastra las prestaciones, vacaciones, utilidades y aportes, porque se calculan sobre él. El bono no.</p>':''}`;
+}
+function userModal(u){
+  const nuevo = !u; u = u || {n:'', rol:'Cajero', caja:'Caja 1', est:'Activo', emp:null};
+  return `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ust" style="max-width:520px"><div class="hd"><h2 id="ust">${nuevo?'Nuevo usuario':u.n}</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div>
+  <form class="bd" id="userForm" data-id="${nuevo?'':u.id}">
+    ${nuevo?`<div class="field"><label for="us-n">Nombre y apellido</label><input id="us-n" class="input" list="us-emp" autocomplete="off"><datalist id="us-emp">${EMP.filter(e=>!userOf(e)&&e.est!=='Egresado').map(e=>`<option value="${e.n}">`).join('')}</datalist></div>`:''}
+    <div class="grid g2" style="gap:10px">
+      <div class="field"><label for="us-rol">Rol</label><select id="us-rol" class="input">${fOpt([['Farmacéutico','Farmacéutico regente'],['Cajero','Cajero'],['Almacén','Almacén']], u.rol)}</select></div>
+      <div class="field"><label for="us-caja">Caja</label><select id="us-caja" class="input">${fOpt(['Caja 1','Caja 2','Almacén'], u.caja)}</select></div>
+    </div>
+    <div class="field"><label for="us-est">Usuario</label><select id="us-est" class="input">${fOpt(['Activo','Bloqueado'], u.est)}</select></div>
+    ${nuevo?'':`<div class="row"><button type="button" class="btn" style="flex:1" data-act="toast" data-m="PIN nuevo de ${u.n} enviado por WhatsApp. El anterior ya no sirve">Nuevo PIN</button><button type="button" class="btn" style="flex:1" data-act="toast" data-m="Enlace para cambiar la clave enviado a ${u.n}">Restablecer clave</button></div>`}
+    <p class="small muted" style="margin:0">${u.emp?'Este usuario está unido a la ficha del empleado: el cambio de rol queda también en su historial.':'Lo que puede hacer cada rol se ajusta en la tabla de permisos.'}</p>
+    <button class="btn primary big" type="submit">${ic('check')}${nuevo?'Crear usuario':'Guardar cambios'}</button>
+  </form></div>`;
+}
 V.employees = () => {
-  const sel = EMP.find(e=>e.id===S.empSel) || EMP[1], c = costoMes(sel), m = mesesDesde(sel.ing);
-  const tot = EMP.reduce((a,e)=>a+e.sal/S.rate+e.bono+e.cesta,0), real = EMP.reduce((a,e)=>a+costoMes(e).total,0);
-  const asis = [['Wilmer Rivas','07:58','Almacén'],['Lcda. Rosángela Paredes','08:02','Regente'],['Kevin Albarrán','08:05','Caja 1'],['Mariela Contreras','08:10','Caja 2']];
-  return `<div class="row"><p class="lead">La ficha de cada empleado: contrato, salario, bonos, cargas familiares, AR-I y cuánto le cuesta de verdad a la farmacia.</p><span class="spacer"></span><button class="btn primary" data-act="toast" data-m="Ficha de nuevo empleado (demostración)">${ic('plus')}Nuevo empleado</button></div>
+  const A = activos(), sel = EMP.find(e=>e.id===S.empSel) || EMP[1], c = costoMes(sel), m = mesesDesde(sel.ing), u = userOf(sel), eg = EMP.length - A.length;
+  const tot = A.reduce((a,e)=>a+e.sal/S.rate+e.bono+e.cesta,0), real = A.reduce((a,e)=>a+costoMes(e).total,0);
+  const asis = [['Wilmer Rivas','07:58','Almacén'],['Lcda. Rosángela Paredes','08:02','Regente'],['Kevin Albarrán','08:05','Caja 1'],['Mariela Contreras','08:10','Caja 2']].filter(a=>A.some(e=>e.n===a[0]));
+  const tags = e => [e.est==='Activo'?'':`<span class="pill ${e.est==='Egresado'?'bad':'warn'}">${e.est}</span>`, (e.prog||[]).length?`<span class="pill info">Aumento el ${fmtDate(e.prog[0].desde).slice(0,5)}</span>`:''].join('');
+  return `<div class="row"><p class="lead">La ficha de cada empleado: cargo, salario, bonos, cargas familiares, AR-I, cómo cobra y cuánto le cuesta de verdad a la farmacia. Todo se puede editar y cada cambio queda en su historial.</p><span class="spacer"></span><div class="row" style="gap:8px"><button class="btn" data-act="aumento">${ic('up')}Aumento de sueldo</button><button class="btn primary" data-act="empnew">${ic('plus')}Nuevo empleado</button></div></div>
   <div class="kpis">
-    <div class="kpi"><span class="l">Empleados activos</span><span class="v num">${EMP.length}</span><span class="s">Regente, 2 cajeros y almacén</span></div>
+    <div class="kpi"><span class="l">Empleados activos</span><span class="v num">${A.length}</span><span class="s">${eg?`${eg} ${eg===1?'egresado':'egresados'}`:'Toca uno para ver su ficha'}</span></div>
     <div class="kpi"><span class="l">Nómina del mes</span><span class="v">${usd(tot)}</span><span class="s">Salario, bonos y cestaticket</span></div>
     <div class="kpi"><span class="l">Costo real del mes</span><span class="v">${usd(real)}</span><span class="s">Con aportes, pensiones y provisiones</span></div>
     <div class="kpi hero"><span class="l">Próximo pago</span><span class="v num">30/10</span><span class="s">Segunda quincena de octubre</span></div>
@@ -1413,104 +1633,230 @@ V.employees = () => {
   <div class="grid g-dash" style="align-items:start">
     <section class="panel"><div class="hd"><h2>Equipo</h2><span class="muted small">Toca un empleado para ver su ficha</span></div>
       <div class="bd flush tbl-wrap"><table><thead><tr><th>Empleado</th><th>Ingreso</th><th class="r">Salario Bs</th><th class="r">Bonos y cesta $</th><th class="r">AR-I</th></tr></thead>
-      <tbody>${EMP.map(e=>`<tr data-act="empsel" data-id="${e.id}" class="${e.id===sel.id?'sel':''}"><td style="min-width:220px"><div class="emp"><span class="av">${initials(e.n)}</span><div><b style="font-weight:600">${e.n}</b><div class="small muted">${e.cargo}</div></div></div></td><td class="num small">${fmtDate(e.ing)}</td><td class="r">${nf(e.sal)}</td><td class="r">${nf(e.bono+e.cesta)}</td><td class="r">${pctTxt(ariPct(e))}</td></tr>`).join('')}</tbody></table></div>
+      <tbody>${EMP.map(e=>`<tr data-act="empsel" data-id="${e.id}" class="${e.id===sel.id?'sel':''}"><td style="min-width:230px"><div class="emp"><span class="av">${initials(e.n)}</span><div><b style="font-weight:600">${e.n}</b><div class="small muted">${e.cargo}</div>${tags(e)?`<div class="row" style="gap:4px;margin-top:4px">${tags(e)}</div>`:''}</div></div></td><td class="num small">${fmtDate(e.ing)}</td><td class="r">${nf(e.sal)}</td><td class="r">${nf(e.bono+e.cesta)}</td><td class="r">${pctTxt(ariPct(e))}${e.ari!=null?'<div class="small muted">del formulario</div>':''}</td></tr>`).join('')}</tbody></table></div>
       <p class="base-legal">Salario: la base para prestaciones, vacaciones, seguro social e ISLR. Bonos y cestaticket: no salariales. La proporción la define el contador.</p></section>
-    <section class="panel"><div class="hd"><h2>${sel.n}</h2><span class="pill info">${sel.cargo}</span></div><div class="bd">
+    <section class="panel"><div class="hd"><h2>${sel.n}</h2><button class="btn sm" data-act="empedit" data-id="${sel.id}">${ic('edit')}Editar ficha</button></div><div class="bd">
+      <div class="stat"><span class="muted">Cargo</span><span>${sel.cargo}</span></div>
       <div class="stat"><span class="muted">Cédula</span><span class="num">${sel.ci}</span></div>
       <div class="stat"><span class="muted">Ingreso · antigüedad</span><span class="num">${fmtDate(sel.ing)} · ${m} meses</span></div>
+      <div class="stat"><span class="muted">Jornada · estado</span><span>${sel.jor} · ${sel.est}</span></div>
+      <div class="stat"><span class="muted">Acceso al sistema</span><span>${u?`${ROL_TXT[u.rol]} · ${u.caja}${u.est!=='Activo'?' · '+u.est:''}`:'Sin usuario'}</span></div>
       <div class="stat"><span class="muted">Cargas familiares</span><span class="num">${sel.cargas}</span></div>
-      <div class="stat"><span class="muted">Se le paga por</span><span>${sel.pago}</span></div>
+      <div class="stat"><span class="muted">Cobra por</span><span>${pagoTxt(sel)}${sel.pago==='Transferencia'?` <span class="num muted">${cuentaCorta(sel.cta)}</span>`:sel.pago==='Pago móvil'?` <span class="num muted">${sel.tel}</span>`:''}</span></div>
       <div class="stat"><span class="muted">AR-I (retención de ISLR)</span><span class="num">${pctTxt(ariPct(sel))}</span></div>
+      <div class="stat"><span class="muted">Horas extra en el año</span><span class="num">${sel.hx} de 100</span></div>
       <div class="stat"><span class="muted">Vacaciones</span><span>${m>=12?'15 días disponibles':'Desde el '+aniv(sel)}</span></div>
+      ${(sel.prog||[]).map(p=>`<div class="stat"><span class="muted">Aumento programado</span><span class="num">${p.txt} · ${fmtDate(p.desde)}</span></div>`).join('')}
       <h3 style="margin:16px 0 6px">Cuánto le cuesta a la farmacia al mes</h3>
       <div class="stat"><span>Lo que cobra en el mes</span><span class="num">${usd(c.pagado)}</span></div>
-      <div class="stat"><span>Contribución para pensiones (9 %)</span><span class="num">${usd(c.pens)}</span></div>
+      <div class="stat"><span>Contribución para pensiones (${pcT(LEY.pens)})</span><span class="num">${usd(c.pens)}</span></div>
       <div class="stat"><span>Seguro social, paro forzoso y FAOV</span><span class="num">${usd(c.patronal)}</span></div>
       <div class="stat"><span>Prestaciones, vacaciones y utilidades</span><span class="num">${usd(c.prov)}</span></div>
       <div class="stat"><b>Costo real</b><b class="num">${usd(c.total)}</b></div>
-      <div class="row" style="margin-top:12px"><button class="btn sm" data-act="toast" data-m="Constancia de trabajo de ${sel.n} lista en PDF">${ic('doc')}Constancia de trabajo</button><button class="btn sm" data-act="toast" data-m="AR-I de ${sel.n} listo para firmar">AR-I</button></div>
+      <div class="row" style="margin-top:12px"><button class="btn sm" data-act="toast" data-m="Constancia de trabajo de ${sel.n} lista en PDF">${ic('doc')}Constancia de trabajo</button><button class="btn sm" data-act="toast" data-m="AR-I de ${sel.n} listo para firmar">AR-I</button><button class="btn sm" data-act="liqde" data-id="${sel.id}">Calcular liquidación</button></div>
+      <h3 style="margin:16px 0 6px">Historial de cambios</h3>
+      ${sel.hist.length?`<div class="hist">${sel.hist.map(h=>`<div class="hi"><span class="num small muted">${h.f}</span><span><b style="font-weight:600">${h.t}</b><span class="small muted">${h.m?' · '+h.m:''} · ${h.u}</span></span></div>`).join('')}</div>`:'<p class="small muted" style="margin:0">Sin cambios desde que entró.</p>'}
     </div></section>
   </div>
   <div class="grid g2">
     <section class="panel"><div class="hd"><h2>Asistencia de hoy</h2><span class="muted small">Marcan con su PIN en la caja</span></div><div class="bd flush list">
       ${asis.map(a=>`<div class="it"><span class="av">${initials(a[0])}</span><div class="t"><b>${a[0]}</b><span class="small muted">${a[2]}</span></div><span class="pill ok">Entró ${a[1]}</span></div>`).join('')}</div></section>
     <section class="panel"><div class="hd"><h2>Documentos y avisos</h2></div><div class="bd flush list">
-      <div class="it"><div class="t"><b>Contratos de trabajo</b><span class="small muted">Firmados y guardados en PDF</span></div><span class="pill ok">4 de 4</span></div>
-      <div class="it"><div class="t"><b>AR-I del año</b><span class="small muted">Para la retención de ISLR</span></div><span class="pill ok">4 de 4</span></div>
+      <div class="it"><div class="t"><b>Contratos de trabajo</b><span class="small muted">Firmados y guardados en PDF</span></div><span class="pill ok">${A.length} de ${A.length}</span></div>
+      <div class="it"><div class="t"><b>AR-I del año</b><span class="small muted">Para la retención de ISLR</span></div><span class="pill ok">${A.length} de ${A.length}</span></div>
       <div class="it"><div class="t"><b>Inscripción en el IVSS y el FAOV</b><span class="small muted">Al ingresar cada trabajador</span></div><span class="pill ok">Al día</span></div>
       <div class="it"><div class="t"><b>Primeras vacaciones</b><span class="small muted">Lcda. Rosángela Paredes</span></div><span class="pill ghost">01/03/2027</span></div>
     </div></section>
   </div>`;
 };
 function reciboText(e){
-  const q = quincena(e), r = S.rate, up = x => String(x).toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
-  return [ctr('AZULLAB FARMACIA, C.A.'), ctr('RIF J-XXXXXXXX-X'), '', ctr('RECIBO DE PAGO'), ctr('2DA QUINCENA OCTUBRE 2026'), ctr('DEL 16-10-2026 AL 31-10-2026'), '',
+  const q = quincena(e), r = S.rate, v = q.v, up = UPN, ln = (c, l, x, u='Bs ') => c ? [pad(l, u+nf(x))] : [];
+  return [ctr(UPN(EMPRESA.razon)), ctr('RIF '+EMPRESA.rif), '', ctr('RECIBO DE PAGO'), ctr('2DA QUINCENA OCTUBRE 2026'), ctr('DEL 16-10-2026 AL 31-10-2026'), '',
     'TRABAJADOR: '+up(e.n.replace(/^Lcda?\.\s*/,'')), 'C.I.: '+e.ci.replace(/\./g,''), 'CARGO: '+up(e.cargo).slice(0,25), '-'.repeat(32),
-    'ASIGNACIONES', pad('SALARIO 15 DIAS', 'Bs '+nf(q.sal)), pad('BONO (NO SALARIAL)', '$ '+nf(q.bonos)), pad('CESTATICKET', '$ '+nf(q.cesta)), '-'.repeat(32),
-    'DEDUCCIONES', pad('SEGURO SOCIAL 4%', 'Bs '+nf(q.ivss)), pad('PARO FORZOSO 0,5%', 'Bs '+nf(q.rpe)), pad('FAOV 1%', 'Bs '+nf(q.faov)), pad('ISLR AR-I '+pctTxt(ariPct(e)).replace(' ',''), 'Bs '+nf(q.islr)), '-'.repeat(32),
-    pad('NETO SALARIO', 'Bs '+nf(q.netoBs)), pad('NETO TOTAL', '$ '+nf(q.netoUSD)), pad('TASA BCV', nf(r)), pad('PAGADO POR', up(e.pago).slice(0,20)), '', 'RECIBI CONFORME: ____________', '', '', '', '', '', ''].join('\n');
+    'ASIGNACIONES', pad('SALARIO 15 DIAS', 'Bs '+nf(q.sal)), ...ln(v.hed,'H. EXTRA DIURNAS',v.hed), ...ln(v.hen,'H. EXTRA NOCTURNAS',v.hen), ...ln(v.noc,'BONO NOCTURNO',v.noc), ...ln(v.fer,'FERIADO/DESCANSO',v.fer),
+    pad('BONO (NO SALARIAL)', '$ '+nf(q.bonos)), pad('CESTATICKET', '$ '+nf(q.cesta)), '-'.repeat(32),
+    'DEDUCCIONES', ...ln(v.fal,'FALTAS',v.fal), pad('SEGURO SOCIAL 4%', 'Bs '+nf(q.ivss)), pad('PARO FORZOSO 0,5%', 'Bs '+nf(q.rpe)), pad('FAOV 1%', 'Bs '+nf(q.faov)), pad('ISLR AR-I '+pctTxt(ariPct(e)).replace(' ',''), 'Bs '+nf(q.islr)), ...ln(q.adel,'ADELANTO',q.adel,'$ '), '-'.repeat(32),
+    pad('NETO SALARIO', 'Bs '+nf(q.netoBs)), pad('NETO TOTAL', '$ '+nf(q.netoUSD)), pad('TASA BCV', nf(r)), pad('PAGO', UPN(e.pago==='Transferencia' ? 'Transf. '+e.banco : e.pago==='Pago móvil' ? 'P. móvil '+e.banco : 'Efectivo $').slice(0,27)), '', 'RECIBI CONFORME: ____________', '', '', '', '', '', ''].join('\n');
 }
 V.payroll = () => {
-  const tab = S.nomTab || 'quincena', R = S.rate, pagada = S.nomEstado==='pagada';
-  const tabs = [['quincena','Quincena'],['aportes','Aportes y retenciones'],['prest','Prestaciones y vacaciones'],['cal','Calendario']];
-  const Q = EMP.map(e=>({e, ...quincena(e)})), T = k => Q.reduce((a,x)=>a+x[k],0);
-  const salT = EMP.reduce((a,e)=>a+e.sal,0), pens = EMP.reduce((a,e)=>a+costoMes(e).pens,0), islrM = EMP.reduce((a,e)=>a+e.sal*ariPct(e),0);
-  const ivssT = EMP.reduce((a,e)=>a+Math.min(e.sal,5*SM),0), rpeT = EMP.reduce((a,e)=>a+Math.min(e.sal,10*SM),0);
+  const tab = S.nomTab || 'quincena', R = S.rate, pagada = S.nomEstado==='pagada', A = activos();
+  const tabs = [['quincena','Quincena','Quincena'],['nov','Horas extra','Horas extra y novedades'],['aportes','Aportes','Aportes y retenciones'],['prest','Prestaciones','Prestaciones y vacaciones'],['liq','Liquidación','Liquidación'],['cal','Calendario','Calendario de pagos'],['param','Parámetros de ley','Parámetros de ley']];
+  const Q = A.map(e=>({e, ...quincena(e)})), T = k => Q.reduce((a,x)=>a+x[k],0);
+  const salT = A.reduce((a,e)=>a+e.sal,0), pens = A.reduce((a,e)=>a+costoMes(e).pens,0), islrM = A.reduce((a,e)=>a+e.sal*ariPct(e),0);
+  const ivssM = A.reduce((a,e)=>a+Math.min(e.sal,5*LEY.sm),0)*(0.04+LEY.ivssPat/100), rpeM = A.reduce((a,e)=>a+Math.min(e.sal,10*LEY.sm),0)*0.025, faovM = salT*0.03, ince = A.length>=5 ? salT*0.02 : null;
   let body = '';
   if (tab==='quincena'){
-    const st = [['Calcular',true],['Revisar',true],['Pagar',pagada],['Recibos',!!S.recibos]], now = st.findIndex(x=>!x[1]);
+    const st = [['Novedades',true],['Revisar',true],['Pagar',pagada],['Recibos',!!S.recibos]], now = st.findIndex(x=>!x[1]);
     body = `<div class="bd" style="display:grid;gap:12px"><div class="steps">${st.map(([t,d],i)=>`<span class="step ${d?'done':i===now?'now':''}"><b>${d?'✓':i+1}</b>${t}</span>`).join('')}</div></div>
-    <div class="bd flush tbl-wrap"><table><thead><tr><th>Empleado</th><th class="r">Salario Bs</th><th class="r">Deducciones Bs</th><th class="r">Neto salario Bs</th><th class="r">Bonos $</th><th class="r">Cesta $</th><th class="r">Total $</th><th></th></tr></thead>
-    <tbody>${Q.map(x=>`<tr><td style="min-width:200px"><div class="emp"><span class="av">${initials(x.e.n)}</span><div><b style="font-weight:600">${x.e.n}</b><div class="small muted">${x.e.pago}</div></div></div></td><td class="r">${nf(x.sal)}</td><td class="r">(${nf(x.ded)})</td><td class="r">${nf(x.netoBs)}</td><td class="r">${nf(x.bonos)}</td><td class="r">${nf(x.cesta)}</td><td class="r"><b>${nf(x.netoUSD)}</b></td><td><button class="btn sm" data-act="recibo" data-id="${x.e.id}">Recibo</button></td></tr>`).join('')}</tbody>
-    <tfoot><tr><td>Total de la quincena</td><td class="r"><span>${nf(T('sal'))}</span></td><td class="r"><span>(${nf(T('ded'))})</span></td><td class="r"><span>${nf(T('netoBs'))}</span></td><td class="r"><span>${nf(T('bonos'))}</span></td><td class="r"><span>${nf(T('cesta'))}</span></td><td class="r"><span>${nf(T('netoUSD'))}</span></td><td></td></tr></tfoot></table></div>
-    <div class="bd" style="border-top:1px solid var(--line)"><div class="row">${pagada?`<span class="pill ok">${ic('check')}Pagada el 30/10 · ${usd(T('netoUSD'))}</span><span class="spacer"></span><button class="btn primary" data-act="nomrecibos" ${S.recibos?'disabled':''}>${ic('wa')}${S.recibos?'Recibos enviados':'Enviar recibos por WhatsApp'}</button>`
-      :`<span class="small muted">Revisa los montos y aprueba. El pago queda registrado como gasto en Ganancias y gastos.</span><span class="spacer"></span><button class="btn primary" data-act="nompagar">${ic('check')}Aprobar y pagar ${usd(T('netoUSD'))}</button>`}</div></div>
-    <p class="base-legal">Al trabajador se le descuenta del salario: seguro social 4 % (tope de 5 salarios mínimos), paro forzoso 0,5 % (tope de 10), FAOV 1 % e ISLR según su AR-I. Los bonos y el cestaticket se pagan en dólares o en bolívares a la tasa BCV del día.</p>`;
+    <div class="bd flush tbl-wrap"><table><thead><tr><th>Empleado</th><th class="r">Salario 15 días</th><th class="r">Horas extra y otros</th><th class="r">Deducciones</th><th class="r">Neto Bs</th><th class="r">Bonos y cesta $</th><th class="r">Adelantos $</th><th class="r">Total $</th><th></th></tr></thead>
+    <tbody>${Q.map(x=>`<tr><td style="min-width:200px"><div class="emp"><span class="av">${initials(x.e.n)}</span><div><b style="font-weight:600">${x.e.n}</b><div class="small muted">${pagoTxt(x.e)}</div></div></div></td><td class="r">${nf(x.sal)}</td><td class="r" style="min-width:170px">${x.v.tot?`${x.v.tot>0?'+':''}${nf(x.v.tot)}<div class="small muted" style="white-space:normal">${novTxt(x.e)}</div>`:'-'}</td><td class="r">(${nf(x.ded)})</td><td class="r">${nf(x.netoBs)}</td><td class="r">${nf(x.bonos+x.cesta)}</td><td class="r">${x.adel?'('+nf(x.adel)+')':'-'}</td><td class="r"><b>${nf(x.netoUSD)}</b></td><td><button class="btn sm" data-act="recibo" data-id="${x.e.id}">Recibo</button></td></tr>`).join('')}</tbody>
+    <tfoot><tr><td>Total de la quincena</td><td class="r"><span>${nf(T('sal'))}</span></td><td class="r"><span>${nf(Q.reduce((a,x)=>a+x.v.tot,0))}</span></td><td class="r"><span>(${nf(T('ded'))})</span></td><td class="r"><span>${nf(T('netoBs'))}</span></td><td class="r"><span>${nf(T('bonos')+T('cesta'))}</span></td><td class="r"><span>${nf(T('adel'))}</span></td><td class="r"><span>${nf(T('netoUSD'))}</span></td><td></td></tr></tfoot></table></div>
+    <div class="bd" style="border-top:1px solid var(--renglon)"><div class="row">${pagada?`<span class="pill ok">${ic('check')}Pagada el 30/10 · ${usd(T('netoUSD'))}</span><span class="spacer"></span><button class="btn primary" data-act="nomrecibos" ${S.recibos?'disabled':''}>${ic('wa')}${S.recibos?'Recibos enviados':'Enviar recibos por WhatsApp'}</button>`
+      :`<button class="btn" data-act="nomtab" data-k="nov">${ic('edit')}Editar horas extra y novedades</button><span class="spacer"></span><button class="btn primary" data-act="nompagar">${ic('check')}Aprobar y pagar ${usd(T('netoUSD'))}</button>`}</div></div>
+    <p class="base-legal">Al trabajador se le descuenta: seguro social 4 % (tope de 5 salarios mínimos), paro forzoso 0,5 % (tope de 10), FAOV 1 % e ISLR según su AR-I, sobre el salario más las horas extra, el bono nocturno y los feriados. Los bonos y el cestaticket se pagan en dólares o en bolívares a la tasa BCV del día; el adelanto se descuenta de ahí.</p>`;
+  } else if (tab==='nov'){
+    const dis = pagada ? 'disabled' : '';
+    body = `<div class="bd"><p class="small muted" style="margin:0">Lo que pasó en la quincena y cambia el pago: horas extra, horas de noche, feriados o descansos trabajados (por ejemplo, cuando a la farmacia le toca turno), faltas y adelantos. ${pagada?'<b>Esta quincena ya se pagó: lo que anotes ahora va a la próxima.</b>':'Escribe el número y el monto se calcula solo.'}</p></div>
+    <div class="bd flush tbl-wrap"><table><thead><tr><th>Empleado</th>${NOV.map(([,,l,u])=>`<th class="r">${l}<div class="small muted" style="font-weight:400">${u}</div></th>`).join('')}<th class="r">Suma Bs</th><th>Límite de la ley</th></tr></thead>
+    <tbody>${A.map(e=>{ const n = S.nov[e.id] || {}, v = variables(e), hs = v.horasX;
+      const lim = hs>20 ? '<span class="pill bad">Pasa de 10 h por semana</span>' : e.hx+hs>100 ? '<span class="pill bad">Pasa de 100 h al año</span>' : `<span class="pill ok">${dd(e.hx+hs)} de 100 h al año</span>`;
+      return `<tr><td style="min-width:180px"><b style="font-weight:600">${e.n}</b><div class="small muted num">Hora normal ${bs(e.sal/30/8)}</div></td>${NOV.map(([k,l])=>`<td class="r"><input class="cell-in num" data-nov="${e.id}" data-f="${k}" value="${n[k]?dd(n[k]):''}" placeholder="0" inputmode="decimal" style="width:58px;text-align:right" aria-label="${l} de ${e.n}" ${dis}></td>`).join('')}<td class="r"><b>${v.tot?nf(v.tot):'-'}</b>${v.adel?`<div class="small muted">−${usd(v.adel)}</div>`:''}</td><td style="min-width:150px">${lim}</td></tr>`; }).join('')}</tbody></table></div>
+    <div class="bd" style="border-top:1px solid var(--renglon)"><div class="grid g2" style="gap:0 24px">
+      <div class="stat"><span>Hora extra de día</span><span class="num">hora normal + ${pcT(LEY.hx)}</span></div>
+      <div class="stat"><span>Hora extra de noche</span><span class="num">+ ${pcT(LEY.noct)} y + ${pcT(LEY.hx)}</span></div>
+      <div class="stat"><span>Bono nocturno, de 7 pm a 5 am</span><span class="num">+ ${pcT(LEY.noct)} por hora</span></div>
+      <div class="stat"><span>Feriado o descanso trabajado</span><span class="num">el día + ${pcT(LEY.fer)}</span></div>
+      <div class="stat"><span>Falta sin justificar</span><span>Se descuenta el día</span></div>
+      <div class="stat"><span>Adelanto o préstamo</span><span>Se descuenta en dólares</span></div></div></div>
+    <p class="base-legal">LOTTT: horas extra con 50 % de recargo como mínimo (art. 118); bono nocturno de 30 % como mínimo (art. 117); feriado o día de descanso trabajado con 50 % de recargo (art. 120), y se le da otro día libre; máximo 10 horas extra por semana, 100 al año y 10 horas de trabajo por día (art. 178). La hora normal es el salario diario entre 8. Con la asistencia por PIN, las horas extra y nocturnas salen solas de la hora de entrada y salida.</p>`;
   } else if (tab==='aportes'){
     const rows = [
-      ['Seguro social (IVSS)','4 %','9 % (riesgo mínimo)','Salario; tope de 5 salarios mínimos', ivssT*0.13, 'IVSS (TIUNA)'],
-      ['Paro forzoso (Régimen Prestacional de Empleo)','0,5 %','2 %','Salario; tope de 10 salarios mínimos', rpeT*0.025, 'IVSS'],
-      ['FAOV (vivienda)','1 %','2 %','Salario', salT*0.03, 'BANAVIH'],
-      ['INCES','0,5 % de las utilidades','2 %, desde 5 trabajadores','Nómina', null, 'INCES'],
-      ['Contribución para pensiones','—','9 %','Salario, bonos y cestaticket; mínimo $ 240 por trabajador', pens*R, 'SENIAT'],
+      ['Seguro social (IVSS)','4 %',`${pcT(LEY.ivssPat)} (riesgo ${{9:'mínimo',10:'medio',11:'máximo'}[LEY.ivssPat]||'según inscripción'})`,'Salario; tope de 5 salarios mínimos', ivssM, 'IVSS (TIUNA)'],
+      ['Paro forzoso (Régimen Prestacional de Empleo)','0,5 %','2 %','Salario; tope de 10 salarios mínimos', rpeM, 'IVSS'],
+      ['FAOV (vivienda)','1 %','2 %','Salario', faovM, 'BANAVIH'],
+      ['INCES','0,5 % de las utilidades','2 %, desde 5 trabajadores','Nómina', ince, 'INCES'],
+      ['Contribución para pensiones','—',pcT(LEY.pens),`Salario, bonos y cestaticket; mínimo $ ${nf(LEY.ingMin).replace(/,00$/,'')} por trabajador`, pens*R, 'SENIAT'],
       ['Retención de ISLR','Según su AR-I','—','Salario normal', islrM, 'SENIAT']];
     const tot = rows.reduce((a,r)=>a+(r[4]||0),0);
     body = `<div class="bd flush tbl-wrap"><table><thead><tr><th>Concepto</th><th>Trabajador</th><th>Patrono</th><th>Base</th><th class="r">Monto del mes</th><th>Se paga a</th></tr></thead>
-    <tbody>${rows.map(r=>`<tr><td style="min-width:190px"><b style="font-weight:600">${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td><td class="small" style="min-width:200px">${r[3]}</td><td class="r">${r[4]===null?'<span class="pill ghost">No aplica: 4 trabajadores</span>':`${bs(r[4])}<div class="small muted num">${usd(r[4]/R)}</div>`}</td><td>${r[5]}</td></tr>`).join('')}</tbody>
+    <tbody>${rows.map(r=>`<tr><td style="min-width:190px"><b style="font-weight:600">${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td><td class="small" style="min-width:200px">${r[3]}</td><td class="r">${r[4]===null?`<span class="pill ghost">No aplica: ${A.length} trabajadores</span>`:`${bs(r[4])}<div class="small muted num">${usd(r[4]/R)}</div>`}</td><td>${r[5]}</td></tr>`).join('')}</tbody>
     <tfoot><tr><td>Total del mes</td><td></td><td></td><td></td><td class="r"><span>${usd(tot/R)}</span></td><td></td></tr></tfoot></table></div>
-    <p class="base-legal">Ley del Seguro Social, Ley del Régimen Prestacional de Empleo, Ley de Vivienda y Hábitat, Ley del INCES y Ley de Protección de las Pensiones. Los topes del seguro social se calculan con el salario mínimo (Bs ${SM}), por eso dan montos pequeños; la contribución para pensiones es la carga grande. Confirmar los porcentajes con el contador.</p>`;
+    <p class="base-legal">Ley del Seguro Social, Ley del Régimen Prestacional de Empleo, Ley de Vivienda y Hábitat, Ley del INCES y Ley de Protección de las Pensiones. Los topes del seguro social se calculan con el salario mínimo (Bs ${nf(LEY.sm).replace(/,00$/,'')}), por eso dan montos pequeños; la contribución para pensiones es la carga grande. Los porcentajes se cambian en Parámetros de ley.</p>`;
   } else if (tab==='prest'){
-    body = `<div class="bd flush tbl-wrap"><table><thead><tr><th>Empleado</th><th>Antigüedad</th><th class="r">Salario diario Bs</th><th class="r">Garantía de prestaciones</th><th>Vacaciones y bono</th><th class="r">Utilidades 2026 (30 días)</th></tr></thead>
-    <tbody>${EMP.map(e=>{ const m = mesesDesde(e.ing), sd = e.sal/30, tri = Math.floor(m/3), mA = 12 - new Date(e.ing+'T00:00:00').getMonth(), du = 30*mA/12;
-      return `<tr><td style="min-width:200px"><b style="font-weight:600">${e.n}</b><div class="small muted">Ingreso ${fmtDate(e.ing)}</div></td><td class="num">${m} meses</td><td class="r">${nf(sd)}</td><td class="r">${nf(15*tri*sd)}<div class="small muted num">${15*tri} días · ${tri} trimestres</div></td><td class="small">${m>=12?'15 + 15 días':`Desde el ${aniv(e)}: 15 días de vacaciones y 15 de bono`}</td><td class="r">${nf(du*sd)}<div class="small muted num">${du.toFixed(1).replace('.',',')} días</div></td></tr>`; }).join('')}</tbody></table></div>
-    <p class="base-legal">LOTTT: garantía de prestaciones de 15 días por trimestre (art. 142); vacaciones de 15 días hábiles más 1 por año y bono vacacional de 15 días más 1 por año (arts. 190 y 192); utilidades de 30 días como mínimo (art. 131). Todo se calcula sobre el salario. El sistema lo lleva al día y avisa antes de cada pago.</p>`;
-  } else {
-    const items = [['30/10/2026','Segunda quincena de octubre', usd(T('netoUSD')), pagada?'ok':'warn', pagada?'Pagada':'En 4 días'],['31/10/2026','Cestaticket de octubre', usd(EMP.reduce((a,e)=>a+e.cesta,0)), 'ghost','Con la quincena'],
-      ['Noviembre','Seguro social y paro forzoso (IVSS)', bs(ivssT*0.13 + rpeT*0.025), 'ghost','Según calendario'],['Noviembre','FAOV (BANAVIH)', bs(salT*0.03), 'ghost','Según calendario'],
+    body = `<div class="bd flush tbl-wrap"><table><thead><tr><th>Empleado</th><th>Antigüedad</th><th class="r">Salario diario Bs</th><th class="r">Garantía de prestaciones</th><th>Vacaciones y bono</th><th class="r">Utilidades 2026 (${LEY.util} días)</th></tr></thead>
+    <tbody>${A.map(e=>{ const m = mesesDesde(e.ing), sd = e.sal/30, tri = Math.floor(m/3), mA = 12 - new Date(e.ing+'T00:00:00').getMonth(), du = LEY.util*mA/12;
+      return `<tr><td style="min-width:200px"><b style="font-weight:600">${e.n}</b><div class="small muted">Ingreso ${fmtDate(e.ing)}</div></td><td class="num">${m} meses</td><td class="r">${nf(sd)}</td><td class="r">${nf(15*tri*sd)}<div class="small muted num">${15*tri} días · ${tri} trimestres</div></td><td class="small">${m>=12?'15 + 15 días':`Desde el ${aniv(e)}: 15 días de vacaciones y 15 de bono`}</td><td class="r">${nf(du*sd)}<div class="small muted num">${dd(du)} días</div></td></tr>`; }).join('')}</tbody></table></div>
+    <p class="base-legal">LOTTT: garantía de prestaciones de 15 días por trimestre (art. 142); vacaciones de 15 días hábiles más 1 por año y bono vacacional de 15 días más 1 por año (arts. 190 y 192); utilidades de 30 a 120 días (art. 131). Todo se calcula sobre el salario. El sistema lo lleva al día y avisa antes de cada pago.</p>`;
+  } else if (tab==='liq'){
+    const L = S.liq || {id:(A[0]||EMP[0]).id, m:'Renuncia', f:'2026-10-31'}, e = EMP.find(x=>x.id===L.id) || EMP[0], r = liquidacion(e, L.m, L.f);
+    body = `<div class="bd"><div class="grid g3" style="gap:10px">
+      <div class="field"><label for="lq-e">Empleado</label><select id="lq-e" class="input">${fOpt(EMP.map(x=>[x.id,x.n]), e.id)}</select></div>
+      <div class="field"><label for="lq-m">Motivo</label><select id="lq-m" class="input">${fOpt(['Renuncia','Despido justificado','Despido injustificado','Mutuo acuerdo'], L.m)}</select></div>
+      <div class="field"><label for="lq-f">Fecha de egreso</label><input id="lq-f" class="input" type="date" value="${L.f}"></div></div></div>
+    <div class="bd flush tbl-wrap"><table><thead><tr><th>Concepto</th><th>Cómo sale</th><th class="r">Monto Bs</th><th class="r">En $</th><th>Base legal</th></tr></thead>
+    <tbody>${r.rows.map(x=>`<tr><td style="min-width:180px"><b style="font-weight:600">${x[0]}</b></td><td class="small" style="min-width:200px">${x[2]}</td><td class="r">${nf(x[1])}</td><td class="r">${nf(x[1]/R)}</td><td class="small">${x[3]}</td></tr>`).join('')}</tbody>
+    <tfoot><tr><td>Total a pagar</td><td></td><td class="r"><span>${nf(r.total)}</span></td><td class="r"><span>${nf(r.total/R)}</span></td><td></td></tr></tfoot></table></div>
+    <div class="bd" style="border-top:1px solid var(--renglon);display:grid;gap:10px"><p class="small" style="margin:0">Ojo: la liquidación sale sobre el salario en bolívares, que hoy es bajo, porque los bonos no cuentan. Por eso da ${usd(r.total/R)}. Si el contador define que parte del bono es salario, aquí se ve cuánto sube.</p><div class="row"><span class="small muted">${r.m} meses de servicio · salario diario ${bs(r.sd)} · salario integral ${bs(r.si)}</span><span class="spacer"></span><button class="btn" data-act="toast" data-m="Finiquito de ${e.n} listo en PDF para firmar">${ic('doc')}Finiquito en PDF</button>${e.est==='Egresado'?'<span class="pill bad">Ya egresó</span>':`<button class="btn primary" data-act="egreso" data-id="${e.id}">Registrar egreso</button>`}</div></div>
+    <p class="base-legal">LOTTT: prestaciones por la garantía trimestral o por el cálculo final de 30 días por año, lo que sea mayor (art. 142), con sus intereses (art. 143); vacaciones y bono vacacional fraccionados (art. 196); utilidades fraccionadas (art. 131); y si el despido es injustificado, una indemnización igual a las prestaciones (art. 92). Se usa el salario integral: salario más la parte de utilidades y de bono vacacional. Los bonos no salariales no entran. El contador lo revisa antes de pagar.</p>`;
+  } else if (tab==='cal'){
+    const nov = A.reduce((a,e)=>{ const x = conProg(e,'2026-11-15'); return a + x.bono/2 + x.sal/2/R; },0);
+    const items = [['30/10/2026','Segunda quincena de octubre', usd(T('netoUSD')), pagada?'ok':'warn', pagada?'Pagada':'En 4 días'],['31/10/2026','Cestaticket de octubre', usd(A.reduce((a,e)=>a+e.cesta,0)), 'ghost','Con la quincena'],
+      ['Noviembre','Seguro social y paro forzoso (IVSS)', bs(ivssM + rpeM), 'ghost','Según calendario'],['Noviembre','FAOV (BANAVIH)', bs(faovM), 'ghost','Según calendario'],
       ['Noviembre','Contribución para pensiones (SENIAT)', usd(pens), 'ghost','Según calendario'],['Noviembre','Retenciones de ISLR de sueldos (SENIAT)', bs(islrM), 'ghost','Según calendario'],
-      ['15/11/2026','Primera quincena de noviembre', usd(EMP.reduce((a,e)=>a+e.bono/2,0)+salT/2/R), 'ghost','En 20 días'],['Diciembre','Utilidades del año', bs(EMP.reduce((a,e)=>a+(30*(12-new Date(e.ing+'T00:00:00').getMonth())/12)*e.sal/30,0)), 'ghost','Antes de fin de año']];
+      ['15/11/2026','Primera quincena de noviembre', usd(nov), 'ghost', A.some(e=>(e.prog||[]).length)?'Con el aumento':'En 20 días'],['Diciembre','Utilidades del año', bs(A.reduce((a,e)=>a+(LEY.util*(12-new Date(e.ing+'T00:00:00').getMonth())/12)*e.sal/30,0)), 'ghost','Antes de fin de año']];
     body = `<div class="bd flush list">${items.map(x=>`<div class="it"><div class="t"><b>${x[1]}</b><span class="small muted num">${x[0]}</span></div><div style="text-align:right;display:grid;gap:4px;justify-items:end"><span class="num" style="font-weight:700">${x[2]}</span><span class="pill ${x[3]}">${x[4]}</span></div></div>`).join('')}</div>
     <p class="base-legal">El dueño recibe un aviso antes de cada fecha. Las fechas exactas del IVSS, el FAOV y el SENIAT salen de sus calendarios oficiales y se cargan al empezar el año.</p>`;
+  } else {
+    const fl = (id, l, v) => `<div class="field"><label for="${id}">${l}</label><input id="${id}" class="input num" inputmode="decimal" value="${nf(v).replace(/,00$/,'')}"></div>`;
+    body = `<form class="bd" id="leyForm" style="display:grid;gap:12px">
+      <p class="small muted" style="margin:0">Cuando sale un decreto (aumento del salario mínimo, nueva unidad tributaria, otro porcentaje), se cambia aquí y toda la nómina se recalcula: quincena, aportes, prestaciones y liquidaciones. No hace falta llamar al programador.</p>
+      <h3 class="fh">Montos oficiales</h3>
+      <div class="grid g3" style="gap:10px">${fl('ly-sm','Salario mínimo mensual Bs',LEY.sm)}${fl('ly-ing','Ingreso mínimo integral $',LEY.ingMin)}${fl('ly-cesta','Cestaticket mensual $',LEY.cesta)}</div>
+      <div class="grid g3" style="gap:10px">${fl('ly-ut','Unidad tributaria Bs',UT)}${fl('ly-tp','Interés de prestaciones, % anual (BCV)',LEY.tasaPrest)}<div class="field"><label for="ly-ivss">Riesgo del IVSS (patrono)</label><select id="ly-ivss" class="input">${fOpt([[9,'Mínimo · 9 %'],[10,'Medio · 10 %'],[11,'Máximo · 11 %']], LEY.ivssPat)}</select></div></div>
+      <h3 class="fh">Porcentajes y días</h3>
+      <div class="grid g3" style="gap:10px">${fl('ly-pens','Contribución para pensiones %',LEY.pens)}${fl('ly-hx','Recargo de horas extra % (mín. 50)',LEY.hx)}${fl('ly-noct','Bono nocturno % (mín. 30)',LEY.noct)}</div>
+      <div class="grid g3" style="gap:10px">${fl('ly-fer','Feriado o descanso trabajado % (mín. 50)',LEY.fer)}${fl('ly-util','Días de utilidades (30 a 120)',LEY.util)}</div>
+      <div class="row"><span class="small muted">Último cambio: ${LEY_HIST[0].f} · ${LEY_HIST[0].u}</span><span class="spacer"></span><button class="btn primary" type="submit">${ic('check')}Guardar y recalcular</button></div>
+      <h3 class="fh">Historial de cambios</h3>
+      <div class="hist">${LEY_HIST.map(h=>`<div class="hi"><span class="num small muted">${h.f}</span><span>${h.t}<span class="small muted"> · ${h.u}</span></span></div>`).join('')}</div>
+    </form>`;
   }
-  return `<div class="row"><p class="lead">La nómina en un solo lugar: se calcula sola, se aprueba, se paga y cada empleado recibe su recibo por WhatsApp. También lleva los aportes, las prestaciones y las fechas de pago.</p></div>
+  return `<div class="row"><p class="lead">La nómina en un solo lugar: se anotan las horas extra y novedades, se calcula sola, se aprueba, se paga por archivo del banco o pago móvil y cada empleado recibe su recibo por WhatsApp. También lleva los aportes, las prestaciones, las liquidaciones y las fechas de pago.</p></div>
   <div class="kpis">
     <div class="kpi hero"><span class="l">Esta quincena</span><span class="v">${usd(T('netoUSD'))}</span><span class="s">${pagada?'Pagada el 30/10':'Por pagar el 30/10'}</span></div>
-    <div class="kpi"><span class="l">Aportes y pensiones del mes</span><span class="v">${usd((ivssT*0.13 + rpeT*0.025 + salT*0.03)/R + pens)}</span><span class="s">Seguro social, FAOV y pensiones</span></div>
-    <div class="kpi"><span class="l">Retención de ISLR del mes</span><span class="v">${bs(islrM)}</span><span class="s">Según el AR-I de cada uno</span></div>
-    <div class="kpi"><span class="l">Prestaciones acumuladas</span><span class="v">${bs(EMP.reduce((a,e)=>a+15*Math.floor(mesesDesde(e.ing)/3)*e.sal/30,0))}</span><span class="s">Garantía de 15 días por trimestre</span></div>
+    <div class="kpi"><span class="l">Horas extra y otros</span><span class="v">${bs(Q.reduce((a,x)=>a+x.v.tot,0))}</span><span class="s">${dd(Q.reduce((a,x)=>a+x.v.horasX,0))} h extra en la quincena</span></div>
+    <div class="kpi"><span class="l">Aportes y pensiones del mes</span><span class="v">${usd((ivssM + rpeM + faovM)/R + pens)}</span><span class="s">Seguro social, FAOV y pensiones</span></div>
+    <div class="kpi"><span class="l">Prestaciones acumuladas</span><span class="v">${bs(A.reduce((a,e)=>a+15*Math.floor(mesesDesde(e.ing)/3)*e.sal/30,0))}</span><span class="s">Garantía de 15 días por trimestre</span></div>
   </div>
-  <section class="panel"><div class="hd"><h2>${tabs.find(t=>t[0]===tab)[1]}</h2><span class="muted small">Segunda quincena de octubre · del 16 al 31</span></div>
+  <section class="panel"><div class="hd"><h2>${tabs.find(t=>t[0]===tab)[2]}</h2><span class="muted small">Segunda quincena de octubre · del 16 al 31</span></div>
     <div class="tabs" role="tablist">${tabs.map(([k,t])=>`<button role="tab" data-act="nomtab" data-k="${k}" class="${tab===k?'on':''}" aria-selected="${tab===k}">${t}</button>`).join('')}</div>
     ${body}</section>`;
 };
+const PERMS = [['Vender, cobrar y emitir factura',1,1,1,0],['Registrar clientes nuevos',1,1,1,0],['Ver solo sus propias ventas y su cierre',1,1,1,0],['Ver ventas de todos los cajeros',1,0,0,0],['Anular venta / nota de crédito',1,1,0,0],['Ver récipes y fichas de pacientes',1,1,0,0],['Registrar récipes y despachar controlados',0,1,0,0],['Cierre del día y Reporte Z',1,1,1,0],['Anotar fallas',1,1,1,1],['Ver fallas y recibir la alerta',1,1,0,1],['Cambiar precios y tasa BCV',1,0,0,0],['Recibir facturas de droguería',1,1,0,1],['Crear y editar productos, ajustar inventario',1,1,0,1],['Ver costos y ganancias',1,0,0,0],['Crear usuarios y permisos',1,0,0,0],['Configuración de la farmacia',1,0,0,0],['Nómina y empleados (módulo aparte)',1,0,0,0]];
 V.users = () => {
-  const perms = [['Vender, cobrar y emitir factura',1,1,1,0],['Registrar clientes nuevos',1,1,1,0],['Ver solo sus propias ventas y su cierre',1,1,1,0],['Ver ventas de todos los cajeros',1,0,0,0],['Anular venta / nota de crédito',1,1,0,0],['Ver récipes y fichas de pacientes',1,1,0,0],['Registrar récipes y despachar controlados',0,1,0,0],['Cierre del día y Reporte Z',1,1,1,0],['Anotar fallas',1,1,1,1],['Ver fallas y recibir la alerta',1,1,0,1],['Cambiar precios y tasa BCV',1,0,0,0],['Recibir facturas de droguería',1,1,0,1],['Crear productos y ajustar inventario',1,1,0,1],['Ver costos y ganancias',1,0,0,0],['Crear usuarios y permisos',1,0,0,0],['Nómina y empleados (módulo aparte)',1,0,0,0]];
-  return `<div class="row"><p class="lead">Cada persona entra con su usuario. Todo lo que hace queda registrado con su nombre y la hora.</p><span class="spacer"></span><button class="btn primary" data-act="toast" data-m="Formulario de nuevo usuario (demostración)">${ic('plus')}Nuevo usuario</button></div>
-  <div class="grid g2">
-  <section class="panel"><div class="hd"><h2>Equipo</h2></div><div class="bd flush list">
-    ${[['Daniela Uzcátegui','Dueño','Hoy 07:58'],['Lcda. Rosángela Paredes','Farmacéutico regente','Hoy 08:02'],['Kevin Albarrán','Cajero · Caja 1','Hoy 08:05'],['Mariela Contreras','Cajero · Caja 2','Hoy 08:10'],['Wilmer Rivas','Almacén','Ayer 17:40']].map(u=>`<div class="it"><div class="t"><b>${u[0]}</b><span class="small muted">${u[1]}</span></div><span class="small muted">${u[2]}</span></div>`).join('')}</div></section>
-  <section class="panel"><div class="hd"><h2>Permisos por rol</h2></div><div class="bd flush tbl-wrap"><table class="matrix"><thead><tr><th>Acción</th><th class="c">Dueño</th><th class="c">Regente</th><th class="c">Cajero</th><th class="c">Almacén</th></tr></thead>
-  <tbody>${perms.map(p=>`<tr><td>${p[0]}</td>${p.slice(1).map(v=>`<td class="c ${v?'yes':'no'}">${v?'Sí':'—'}</td>`).join('')}</tr>`).join('')}</tbody></table></div></section></div>`;
+  const own = S.role==='Dueño', who = ['Dueño','Regente','Cajero','Almacén'];
+  return `<div class="row"><p class="lead">Cada persona entra con su usuario. Todo lo que hace queda registrado con su nombre y la hora. El dueño cambia roles, cajas y permisos cuando quiera.</p><span class="spacer"></span><button class="btn primary" data-act="usernew">${ic('plus')}Nuevo usuario</button></div>
+  <div class="grid g2" style="align-items:start">
+  <section class="panel"><div class="hd"><h2>Equipo</h2><span class="muted small">${USERS.filter(u=>u.est==='Activo').length} activos</span></div><div class="bd flush list">
+    ${USERS.map(u=>`<div class="it"><span class="av">${initials(u.n)}</span><div class="t"><b>${u.n}</b><span class="small muted">${ROL_TXT[u.rol]} · ${u.caja} · ${u.last}${u.est!=='Activo'?` · <span style="color:var(--bad)">${u.est}</span>`:''}</span></div>${u.rol==='Dueño'?'<span class="pill ghost">Acceso total</span>':`<button class="btn sm" data-act="useredit" data-id="${u.id}">${ic('edit')}Editar</button>`}</div>`).join('')}</div></section>
+  <section class="panel"><div class="hd"><h2>Permisos por rol</h2><span class="muted small">${own?'Toca un cuadro para dar o quitar el permiso':'Solo el dueño los cambia'}</span></div><div class="bd flush tbl-wrap"><table class="matrix"><thead><tr><th>Acción</th>${who.map(w=>`<th class="c">${w}</th>`).join('')}</tr></thead>
+  <tbody>${PERMS.map((p,i)=>`<tr><td>${p[0]}</td>${p.slice(1).map((v,j)=>`<td class="c ${v?'yes':'no'}">${own&&j>0?`<button class="permb" data-act="perm" data-i="${i}" data-j="${j+1}" aria-label="${p[0]}, ${who[j]}: ${v?'sí':'no'}">${v?'Sí':'—'}</button>`:(v?'Sí':'—')}</td>`).join('')}</tr>`).join('')}</tbody></table></div></section></div>`;
+};
+
+/* ======================= Configuración: todo lo que cambia con el tiempo ======================= */
+function tasaPrev(r){ return `<div class="tbl-wrap"><table><thead><tr><th>Ejemplo</th><th class="r">Precio $</th><th class="r">Precio Bs</th></tr></thead><tbody>${P.slice(0,3).map(p=>`<tr><td>${p.name}</td><td class="r">${nf(p.price)}</td><td class="r"><b>${nf(p.price*r)}</b></td></tr>`).join('')}</tbody></table></div>`; }
+function tasaModal(){
+  return `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="tst" style="max-width:520px"><div class="hd"><h2 id="tst">Tasa BCV</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div>
+  <form class="bd" id="tasaForm">
+    <div class="stat"><span class="muted">Tasa de hoy</span><span class="num"><b>${nf(S.rate)}</b> Bs/$</span></div>
+    <div class="grid g2" style="gap:10px">
+      <div class="field"><label for="t-val">Tasa nueva</label><input id="t-val" class="input num" inputmode="decimal" value="${nf(S.rate)}"></div>
+      <div class="field"><label for="t-modo">Cómo se actualiza</label><select id="t-modo" class="input">${fOpt([['auto','Sola, con la del BCV'],['manual','A mano, por el dueño']], CFG.tasaModo)}</select></div>
+    </div>
+    <div id="t-prev">${tasaPrev(S.rate)}</div>
+    <p class="small muted" style="margin:0">Los precios se guardan en dólares. Al cambiar la tasa, los precios en bolívares de la caja, los recibos y los reportes se recalculan solos. Queda registrado quién la cambió.</p>
+    <button class="btn primary big" type="submit">${ic('check')}Guardar tasa</button>
+  </form></div>`;
+}
+function clientModal(i){
+  const c = i==null ? {ci:'', name:'', tel:'', mail:'', dir:''} : CLIENTS[i];
+  return `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="clt" style="max-width:560px"><div class="hd"><h2 id="clt">${i==null?'Nuevo cliente':'Editar cliente'}</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div>
+  <form class="bd" id="cliForm" data-i="${i==null?'':i}">
+    <div class="grid g2" style="gap:10px">
+      <div class="field"><label for="cl-ci">Cédula o RIF</label><input id="cl-ci" class="input num" value="${c.ci}" placeholder="V-00.000.000 o J-00000000-0"></div>
+      <div class="field"><label for="cl-n">Nombre o razón social</label><input id="cl-n" class="input" value="${c.name}"></div>
+    </div>
+    <div class="grid g2" style="gap:10px">
+      <div class="field"><label for="cl-tel">Teléfono (WhatsApp)</label><input id="cl-tel" class="input num" value="${c.tel==='—'?'':c.tel}"></div>
+      <div class="field"><label for="cl-mail">Correo</label><input id="cl-mail" class="input" type="email" value="${c.mail||''}"></div>
+    </div>
+    <div class="field"><label for="cl-dir">Dirección fiscal, para facturas con RIF</label><input id="cl-dir" class="input" value="${c.dir||''}"></div>
+    <button class="btn primary big" type="submit">${ic('check')}Guardar cliente</button>
+  </form></div>`;
+}
+V.config = () => {
+  const fi = (id, l, v, cls='') => `<div class="field"><label for="${id}">${l}</label><input id="${id}" class="input ${cls}" value="${v}"></div>`;
+  return `<p class="lead">Todo lo que cambia con el tiempo se cambia aquí, sin llamar al programador: los datos de la farmacia, la tasa, los márgenes, las formas de cobro, las cuentas, las droguerías y los avisos. Cada cambio queda registrado con el usuario y la hora.</p>
+  <div class="grid g2" style="align-items:start"><div class="grid" style="align-content:start">
+    <section class="panel"><div class="hd"><h2>Datos de la farmacia</h2><span class="muted small">Salen en facturas, recibos y reportes</span></div>
+      <form class="bd" id="empresaForm" style="display:grid;gap:10px">
+        <div class="grid g2" style="gap:10px">${fi('cf-razon','Razón social',EMPRESA.razon)}${fi('cf-rif','RIF',EMPRESA.rif,'num')}</div>
+        ${fi('cf-dir','Dirección fiscal',EMPRESA.dir)}${fi('cf-mun','Municipio y estado',EMPRESA.mun)}
+        <div class="grid g2" style="gap:10px">${fi('cf-tel','Teléfono',EMPRESA.tel,'num')}${fi('cf-mail','Correo',EMPRESA.mail)}</div>
+        <button class="btn primary" type="submit">${ic('check')}Guardar datos</button>
+      </form></section>
+    <section class="panel"><div class="hd"><h2>Formas de cobro</h2><span class="muted small">Las que salen en la caja</span></div>
+      <div class="bd" style="display:grid;gap:0">${METHODS.map(m=>`<label class="tgl"><input type="checkbox" data-meth="${m.k}" ${CFG.mOff.includes(m.k)?'':'checked'}><span><b>${m.k}</b> <span class="small muted">· ${m.s}</span></span></label>`).join('')}</div></section>
+    <section class="panel"><div class="hd"><h2>Avisos</h2><span class="muted small">Qué avisa el sistema y cuándo</span></div>
+      <form class="bd" id="avisosForm" style="display:grid;gap:10px">
+        <div class="grid g2" style="gap:10px">
+          <div class="field"><label for="cf-venc">Avisar vencimientos con</label><select id="cf-venc" class="input">${fOpt([30,60,90,120,180].map(d=>[d,d+' días']), CFG.venc)}</select></div>
+          <div class="field"><label for="cf-aviso">Avisar pagos con</label><select id="cf-aviso" class="input">${fOpt([[1,'1 día'],[3,'3 días'],[5,'5 días'],[7,'7 días']], CFG.aviso)}</select></div>
+        </div>
+        ${fi('cf-wa','WhatsApp del dueño para las alertas',EMPRESA.wa,'num')}
+        <button class="btn primary" type="submit">${ic('check')}Guardar avisos</button>
+      </form></section>
+    <section class="panel"><div class="hd"><h2>Facturación y nómina</h2></div><div class="bd">
+      <div class="stat"><span>Medio de facturación</span><span class="row" style="gap:8px"><span>${S.medio==='digital'?'Imprenta digital':'Máquina fiscal'}</span><button class="btn sm" data-act="medio">Cambiar</button></span></div>
+      <div class="stat"><span>Contribuyente especial</span><span class="row" style="gap:8px"><span>${S.spe?'Sí: IGTF y retenciones de IVA':'No'}</span><button class="btn sm" data-act="spe">Cambiar</button></span></div>
+      <div class="stat"><span>Número de control</span><span class="small muted">Lo asigna la imprenta digital</span></div>
+      <div class="stat"><span>Parámetros de nómina: salario mínimo, UT y porcentajes</span><button class="btn sm" data-act="nomparam">Abrir</button></div>
+    </div></section>
+  </div><div class="grid" style="align-content:start">
+    <section class="panel"><div class="hd"><h2>Precios y tasa</h2><span class="muted small">Margen sobre el costo</span></div>
+      <form class="bd" id="preciosForm" style="display:grid;gap:10px">
+        <div class="stat"><span>Tasa BCV de hoy</span><span class="row" style="gap:8px"><b class="num">${nf(S.rate)}</b><span class="small muted">${CFG.tasaModo==='auto'?'se actualiza sola':'a mano'}</span><button type="button" class="btn sm" data-act="tasa">Cambiar</button></span></div>
+        <div class="field"><label for="cf-marg">Margen general, %</label><input id="cf-marg" class="input num" inputmode="decimal" value="${Math.round(MARGIN*100)}"></div>
+        <div class="tbl-wrap"><table><thead><tr><th>Sección</th><th class="r">Margen propio, %</th></tr></thead><tbody>${S.secs.map(s=>`<tr><td>${s}</td><td class="r"><input class="cell-in num" data-marg="${s}" value="${CFG.margSec[s]??''}" placeholder="${Math.round(MARGIN*100)}" style="width:80px;text-align:right" inputmode="decimal" aria-label="Margen de ${s}"></td></tr>`).join('')}</tbody></table></div>
+        <p class="small muted" style="margin:0">Con este margen, Compras propone el precio de venta al recibir la mercancía. Si una sección no tiene margen propio, usa el general.</p>
+        <button class="btn primary" type="submit">${ic('check')}Guardar márgenes</button>
+      </form></section>
+    <section class="panel"><div class="hd"><h2>Cuentas de la farmacia</h2><span class="muted small">Para cobros, pagos y nómina</span></div>
+      <div class="bd flush tbl-wrap"><table><thead><tr><th>Banco</th><th>Número</th><th>Para qué</th></tr></thead><tbody>${CUENTAS.map((c,i)=>`<tr><td><b>${c.b}</b><div class="small muted">${c.t}</div></td><td><input class="cell-in num" data-cta="${i}" data-f="n" value="${c.n}" aria-label="Número de la cuenta ${c.b}" style="min-width:210px"></td><td><input class="cell-in" data-cta="${i}" data-f="uso" value="${c.uso}" aria-label="Uso de la cuenta ${c.b}" style="min-width:190px"></td></tr>`).join('')}</tbody></table></div></section>
+    <section class="panel"><div class="hd"><h2>Droguerías</h2><span class="muted small">Los días de crédito mueven los avisos de pago</span></div>
+      <div class="bd flush tbl-wrap"><table><thead><tr><th>Droguería</th><th class="r">Días de crédito</th><th>Vendedor o contacto</th></tr></thead><tbody>${DROG.map((d,i)=>`<tr><td><b>${d.n}</b></td><td class="r"><input class="cell-in num" data-drog="${i}" data-f="cred" value="${d.cred}" style="width:70px;text-align:right" inputmode="numeric" aria-label="Días de crédito de ${d.n}"></td><td><input class="cell-in" data-drog="${i}" data-f="tel" value="${d.tel}" aria-label="Contacto de ${d.n}" style="min-width:190px"></td></tr>`).join('')}</tbody></table></div>
+      <div class="bd" style="border-top:1px solid var(--renglon)"><div class="row" style="flex-wrap:nowrap"><input id="drogname" class="input" style="flex:1;min-width:0" placeholder="Nueva droguería" aria-label="Nombre de la nueva droguería"><button class="btn" data-act="drogadd">${ic('plus')}Agregar</button></div></div></section>
+  </div></div>`;
 };
 
 /* --- Fase 2 --- */
@@ -1685,7 +2031,7 @@ V.branches = () => `<p class="lead">Cuando abran otra sede, todas las cajas repo
   <span>Ventas: ${usd(todayUSD())} (${todayN()} facturas)<br>${S.medio==='digital'?'Cierre del día hecho a las 20:01':'Reporte Z #00'+S.z+' hecho a las 20:01'}<br>Caja: faltan Bs 120,00 en efectivo<br>Reponer: Amoxicilina, Enalapril, Diclofenac<br>Por vencer: Pedialyte lote AB61205 (30/11)</span><span class="small muted">Enviado 26/10 · 20:05</span></div></div></section></div>`;
 
 V.scope = () => {
-  const f1 = ['Caja con búsqueda por nombre comercial, principio activo y código de barras: al pedir una marca muestra las otras con el mismo componente','Secciones del catálogo que el dueño puede agregar, con Psicotrópicos aparte','Fallas: el cajero anota lo que piden y no hay, y el dueño recibe la alerta','Notas de entrega para clientes a crédito, que luego se facturan','Vendedor en cada factura y búsqueda por número de factura para reclamos','Reporte Z o cierre del día desde la caja del cajero','Factura digital por imprenta autorizada, con número de control, QR y envío por WhatsApp; IVA exento y 16 %','Cierre del día, notas de crédito, libro de ventas, libro de compras y registro de inventario (art. 177) para el contador','Talonario de contingencia integrado: sin internet se registra y se reporta en PDF a la imprenta','Ganancias y gastos: utilidad bruta y neta del mes, gastos fijos con aviso antes de pagarlos','Cuentas y bancos: saldos, conciliación de pago móvil y punto, diferencial cambiario, por cobrar y por pagar','Cobro con Cashea: inicial en caja y cuotas por cobrar','Retenciones de ISLR al pagar alquiler, honorarios y servicios, con comprobante y ARCV','Precios en dólares y bolívares con la tasa BCV del día','Pagos mixtos: efectivo Bs y USD, pago móvil, punto de venta y Zelle','Inventario por lote y vencimiento, con alertas y bloqueo de vencidos','Recepción de compras de droguerías con precio de venta sugerido','Clientes por cédula o RIF','Cierre de caja y reportes de ventas','Modo sin conexión: la caja abre y se entra con PIN aunque amanezca sin internet, y se sincroniza sola','Usuarios con permisos por rol y registro de quién hizo qué'];
+  const f1 = ['Caja con búsqueda por nombre comercial, principio activo y código de barras: al pedir una marca muestra las otras con el mismo componente','Secciones del catálogo que el dueño puede agregar, con Psicotrópicos aparte','Fallas: el cajero anota lo que piden y no hay, y el dueño recibe la alerta','Notas de entrega para clientes a crédito, que luego se facturan','Vendedor en cada factura y búsqueda por número de factura para reclamos','Reporte Z o cierre del día desde la caja del cajero','Factura digital por imprenta autorizada, con número de control, QR y envío por WhatsApp; IVA exento y 16 %','Cierre del día, notas de crédito, libro de ventas, libro de compras y registro de inventario (art. 177) para el contador','Talonario de contingencia integrado: sin internet se registra y se reporta en PDF a la imprenta','Ganancias y gastos: utilidad bruta y neta del mes, gastos fijos con aviso antes de pagarlos','Cuentas y bancos: saldos, conciliación de pago móvil y punto, diferencial cambiario, por cobrar y por pagar','Cobro con Cashea: inicial en caja y cuotas por cobrar','Retenciones de ISLR al pagar alquiler, honorarios y servicios, con comprobante y ARCV','Precios en dólares y bolívares con la tasa BCV del día','Pagos mixtos: efectivo Bs y USD, pago móvil, punto de venta y Zelle','Inventario por lote y vencimiento, con alertas y bloqueo de vencidos','Recepción de compras de droguerías con precio de venta sugerido','Clientes por cédula o RIF','Cierre de caja y reportes de ventas','Modo sin conexión: la caja abre y se entra con PIN aunque amanezca sin internet, y se sincroniza sola','Usuarios con permisos por rol que el dueño ajusta, y registro de quién hizo qué','Configuración sin programador: datos de la farmacia, tasa BCV, márgenes por sección, formas de cobro, cuentas, droguerías y avisos','Todo editable: productos, precios, clientes, gastos, secciones y usuarios'];
   const f2 = ['Proveedores y cuentas por pagar con avisos de vencimiento','Programa de puntos Azul Puntos y recordatorios por WhatsApp','Tienda web con existencias reales y pedidos por WhatsApp','Base de datos de récipes: pacientes, médicos, despachos parciales, alertas de alergia y libro de controlados','Varias sedes, traslados y resumen diario al teléfono del dueño'];
   const inc = ['Instalación en la caja, conexión con la imprenta digital e impresora térmica','Carga inicial de productos e inventario','Capacitación al dueño, regente y cajeros','Soporte y actualizaciones mensuales','Respaldo diario en la nube'];
   const li = a => `<ul>${a.map(x=>`<li>${ic('check')}<span>${x}</span></li>`).join('')}</ul>`;
@@ -1697,7 +2043,7 @@ V.scope = () => {
       <h3 style="margin:16px 0 4px">Módulos adicionales, si aplican</h3>${li(['Contribuyente especial: IGTF 3 % en divisas y retenciones de IVA','Máquina fiscal, para quien ya tiene una homologada'])}</div></section>
   </div>
   <section class="panel"><div class="hd"><h2>Módulo de nómina y empleados</h2><span class="phase mod">Se cobra aparte</span></div>
-    <div class="bd grid g2" style="gap:0 24px">${li(['Ficha de cada empleado: contrato, cargo, salario, bonos, cargas familiares y documentos','Nómina quincenal en un paso: se calcula, se aprueba y se paga','Recibos de pago por WhatsApp, con lo que se le paga y lo que se le descuenta','Seguro social, paro forzoso, FAOV, INCES e ISLR (AR-I) calculados solos','Contribución para pensiones (9 %) con su aviso cada mes'])}${li(['Prestaciones sociales, vacaciones, bono vacacional y utilidades al día','Cuánto cuesta de verdad cada empleado al mes','Calendario de pagos con avisos al dueño','Asistencia con PIN en la caja (opcional)','Constancias de trabajo y liquidaciones en PDF'])}</div>
+    <div class="bd grid g2" style="gap:0 24px">${li(['Ficha de cada empleado editable: cargo, acceso al sistema, salario, bonos, cargas familiares, banco y cuenta, con historial de cambios','Aumentos de sueldo por porcentaje o monto, para todos o algunos, con fecha y cuánto más cuesta','Horas extra, bono nocturno, feriados y descansos trabajados, faltas y adelantos, con los límites de la LOTTT','Nómina quincenal: se calcula, se aprueba y se paga con archivo TXT para el banco, pago móvil o efectivo','Recibos de pago por WhatsApp, con cada asignación y cada descuento','Seguro social, paro forzoso, FAOV, INCES, pensiones e ISLR (AR-I) calculados solos'])}${li(['Prestaciones sociales, vacaciones, bono vacacional y utilidades al día','Liquidación al egresar: prestaciones, intereses, fraccionados e indemnización','Parámetros de ley editables: salario mínimo, UT y porcentajes, para cuando salga un decreto','Cuánto cuesta de verdad cada empleado al mes','Calendario de pagos con avisos al dueño','Asistencia con PIN en la caja (opcional), constancias y finiquitos en PDF'])}</div>
     <p class="base-legal">Se puede contratar desde el inicio o después. Si la nómina la lleva el contador, la farmacia no lo necesita: el pago se registra como un gasto más.</p></section>`;
 };
 
@@ -1802,10 +2148,39 @@ document.addEventListener('click', e => {
     case 'empsel': S.empSel = id; render(); break;
     case 'nomtab': S.nomTab = b.dataset.k; render(); break;
     case 'recibo': { const e = EMP.find(x=>x.id===id); openModal(`<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="rbt" style="max-width:440px"><div class="hd"><h2 id="rbt">Recibo de pago</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div><div class="bd"><div class="printer"></div><div class="tkwrap"><pre class="ticket printing">${reciboText(e)}</pre><span class="sello ${S.nomEstado==='pagada'?'verde':'ambar'} tk-sello estampar">${S.nomEstado==='pagada'?'Pagado':'Por pagar'}<small>${S.nomEstado==='pagada'?'30-10-2026':'Quincena del 30/10'}</small></span></div><div class="row"><button class="btn" style="flex:1" data-act="toast" data-m="Recibo enviado por WhatsApp a ${e.n}">${ic('wa')}WhatsApp</button><button class="btn" style="flex:1" data-act="close">Listo</button></div></div></div>`); break; }
-    case 'nompagar': { const tot = EMP.reduce((a,e)=>a+quincena(e).netoUSD,0); S.nomEstado = 'pagada';
-      S.gastos.push({f:'30/10/2026', cat:'Nómina', desc:'Segunda quincena (4 personas)', cta:'Banesco', usd:+tot.toFixed(2), fijo:true});
-      render(); toast(`Quincena pagada: ${usd(tot)}. Quedó registrada como gasto en Ganancias y gastos`); break; }
-    case 'nomrecibos': S.recibos = true; render(); toast('4 recibos enviados por WhatsApp, cada uno con su detalle'); break;
+    case 'nompagar': openModal(pagoModal()); break;
+    case 'nomtxt': openModal(txtModal()); break;
+    case 'txtdl': { const t = txtNomina(), data = t.txt.replace(/\n/g,'\r\n'), ok = () => toast(`${t.file} guardado: súbelo en la banca en línea de ${t.cta.b} y apruébalo con tu token`);
+      if (DL) { DL.save({filename:t.file, data}).then(ok).catch(err => toast(err && err.code==='declined' ? 'Descarga cancelada' : 'No se pudo descargar aquí: el archivo se ve arriba')); break; }
+      try { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([data], {type:'text/plain'})); a.download = t.file; document.body.appendChild(a); a.click(); a.remove(); ok(); } catch(err){ toast('No se pudo descargar aquí: el archivo se ve arriba'); }
+      break; }
+    case 'nomconfirm': { const A = activos(), tot = A.reduce((a,e)=>a+quincena(e).netoUSD,0); S.nomEstado = 'pagada'; A.forEach(e=>{ e.hx += variables(e).horasX; });
+      S.gastos.push({f:'30/10/2026', cat:'Nómina', desc:`Segunda quincena (${A.length} personas)`, cta:'Banesco', usd:+tot.toFixed(2), fijo:true});
+      closeModal(); render(); toast(`Quincena pagada: ${usd(tot)}. Quedó registrada como gasto en Ganancias y gastos`); break; }
+    case 'nomrecibos': S.recibos = true; render(); toast(`${activos().length} recibos enviados por WhatsApp, cada uno con su detalle`); break;
+    case 'nomparam': S.nomTab = 'param'; go('payroll'); break;
+    case 'empnew': openModal(empModal()); break;
+    case 'empedit': openModal(empModal(EMP.find(x=>x.id===id))); empHint(); break;
+    case 'aumento': openModal(aumModal()); break;
+    case 'liqde': S.liq = {id, m:'Renuncia', f:'2026-10-31'}; S.nomTab = 'liq'; go('payroll'); break;
+    case 'egreso': { const em = EMP.find(x=>x.id===id), L = S.liq || {m:'Renuncia', f:'2026-10-31'}; em.est = 'Egresado'; const us = userOf(em); if (us) us.est = 'Bloqueado';
+      em.hist.unshift({f:'26/10/2026', t:`Egreso por ${L.m.toLowerCase()} el ${fmtDate(L.f)}`, m:'', u:S.user}); render();
+      toast(`${em.n} egresó: sale de la nómina y su usuario quedó bloqueado. Para deshacerlo, cambia su estado en la ficha`); break; }
+    case 'usernew': openModal(userModal()); break;
+    case 'useredit': openModal(userModal(USERS.find(x=>x.id===id))); break;
+    case 'perm': { const i = +b.dataset.i, j = +b.dataset.j; PERMS[i][j] = PERMS[i][j] ? 0 : 1; render();
+      toast(`${['','Dueño','Regente','Cajero','Almacén'][j]}: ${PERMS[i][j]?'ahora puede':'ya no puede'} ${PERMS[i][0].charAt(0).toLowerCase()+PERMS[i][0].slice(1)}`); break; }
+    case 'tasa': openModal(tasaModal()); break;
+    case 'prodedit': openModal(prodModal(P.find(x=>x.id===id))); break;
+    case 'secdel': { const sx = b.dataset.s; if (P.some(p=>p.cat===sx)) { toast('Esa sección tiene productos: muévelos a otra antes de quitarla'); break; }
+      S.secs = S.secs.filter(x=>x!==sx); if (S.cat===sx) S.cat = 'Todos'; render(); toast(`Sección ${sx} quitada`); break; }
+    case 'clinew': openModal(clientModal()); break;
+    case 'cliedit': openModal(clientModal(+b.dataset.i)); break;
+    case 'gastoedit': openModal(gastoModal(S.gastos[+b.dataset.i], +b.dataset.i)); islrHint(); break;
+    case 'gastodel': { const gi = +b.dataset.i, g = S.gastos[gi]; S.gastos.splice(gi,1); closeModal(); render(); toast(`Gasto anulado: ${g.cat} · ${usd(g.usd)}. Queda en el registro de cambios con tu usuario`); break; }
+    case 'drogadd': { const nm = ($('#drogname').value||'').trim(); if (!nm) { toast('Escribe el nombre de la droguería'); $('#drogname').focus(); break; }
+      if (DROG.some(d=>norm(d.n)===norm(nm))) { toast(`${nm} ya está en la lista`); break; }
+      DROG.push({n:nm, cred:15, tel:'Vendedor de zona'}); render(); toast(`${nm} agregada: ya sale al recibir compras`); break; }
     case 'prodnew': openModal(prodModal()); break;
     case 'secadd': { const nm = ($('#secname').value||'').trim().replace(/\s+/g,' '); if (!nm) { toast('Escribe el nombre de la sección'); $('#secname').focus(); break; }
       if (S.secs.some(x=>norm(x)===norm(nm))) { toast(`La sección ${nm} ya existe`); break; }
@@ -1830,6 +2205,9 @@ document.addEventListener('input', e => {
     if (c) { $('#rx-pac').value = c.name; const h = $('#rx-hint'); if (h) h.textContent = `${c.name} ya es paciente: su historial y sus alertas se cargan solos.`; } }
   if (['g-monto','g-mon','g-islr'].includes(e.target.id)) islrHint();
   if (e.target.id==='p-act') actHint();
+  if (e.target.id==='au-val'){ const pv = $('#au-prev'); if (pv) pv.innerHTML = aumPrev(); }
+  if (e.target.id==='em-cta') empHint();
+  if (e.target.id==='t-val'){ const v = parseVE(e.target.value), pv = $('#t-prev'); if (pv && v) pv.innerHTML = tasaPrev(v); }
   if (e.target.dataset.pay!==undefined){ const i = +e.target.dataset.pay; const v = parseVE(e.target.value); S.pays[i].a = e.target.dataset.cur==='bs' ? v / S.rate : v;
     const sb = document.querySelector(`[data-sub="${i}"]`); if (sb) sb.textContent = paySub(S.pays[i]);
     const t = totals(); const due = document.querySelector('.due'); if (due){ due.className = 'due '+(t.rem>0?'pend':'done'); due.innerHTML = dueHtml(t); }
@@ -1837,6 +2215,14 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('change', e => {
   if (e.target.dataset.pay!==undefined) openModal(payModal());
+  if (e.target.dataset.nov!==undefined){ const nid = +e.target.dataset.nov, f = e.target.dataset.f; S.nov[nid] = S.nov[nid] || {}; S.nov[nid][f] = Math.max(0, parseVE(e.target.value));
+    setTimeout(()=>{ const ae = document.activeElement, k = ae && ae.dataset && ae.dataset.nov!==undefined ? `[data-nov="${ae.dataset.nov}"][data-f="${ae.dataset.f}"]` : null; render(); if (k){ const nx = document.querySelector(k); if (nx){ nx.focus(); nx.select && nx.select(); } } }, 0); }
+  if (['lq-e','lq-m','lq-f'].includes(e.target.id)){ S.liq = {id:+$('#lq-e').value, m:$('#lq-m').value, f:$('#lq-f').value || '2026-10-31'}; render(); }
+  if (['au-que','au-tipo'].includes(e.target.id) || e.target.classList.contains('au-emp')){ const pv = $('#au-prev'); if (pv) pv.innerHTML = aumPrev(); }
+  if (e.target.id==='em-banco') empHint();
+  if (e.target.dataset.meth!==undefined){ const k = e.target.dataset.meth; CFG.mOff = e.target.checked ? CFG.mOff.filter(x=>x!==k) : [...CFG.mOff, k]; toast(`${k} ${e.target.checked?'vuelve a salir':'ya no sale'} en la caja`); }
+  if (e.target.dataset.cta!==undefined){ const c = CUENTAS[+e.target.dataset.cta]; c[e.target.dataset.f] = e.target.value.trim(); toast(`Cuenta ${c.b} actualizada`); }
+  if (e.target.dataset.drog!==undefined){ const d = DROG[+e.target.dataset.drog], f = e.target.dataset.f; d[f] = f==='cred' ? (parseInt(e.target.value)||0) : e.target.value.trim(); toast(`${d.n}: ${f==='cred'?d.cred+' días de crédito':'contacto actualizado'}`); }
   if (['g-mon','g-islr'].includes(e.target.id)) islrHint();
   if (e.target.id==='vend') S.vend = e.target.value;
   if (e.target.id==='rx-med' && e.target.value==='new'){ e.target.value = '0'; toast('Se abre la ficha para agregar al médico con su MPPS'); }
@@ -1859,8 +2245,11 @@ document.addEventListener('submit', e => {
     const usdV = $('#g-mon').value==='bs' ? v/S.rate : v;
     const ri = $('#g-islr').value, ben = ($('#g-ben').value||'').trim();
     if (ri && !ben) { toast('Escribe a quién se le paga para hacer el comprobante de retención'); $('#g-ben').focus(); return; }
-    const ret = ri ? {k:ri.split('-')[0], pn:ri.endsWith('pn'), a:ben, tasa:S.rate, bs:$('#g-mon').value==='bs' ? v : v*S.rate, comp:'Por entregar'} : null;
-    S.gastos.push({f:'26/10/2026', cat:$('#g-cat').value, desc:d||$('#g-cat').value, cta:$('#g-cta').value, usd:+usdV.toFixed(2), fijo:$('#g-rec').value==='1', ret});
+    const gi = e.target.dataset.i, old = gi!=='' && gi!==undefined ? S.gastos[+gi] : null, tz = old && old.ret ? old.ret.tasa : S.rate;
+    const ret = ri ? {k:ri.split('-')[0], pn:ri.endsWith('pn'), a:ben, tasa:tz, bs:$('#g-mon').value==='bs' ? v : v*tz, comp:old && old.ret ? old.ret.comp : 'Por entregar'} : null;
+    const rg = {f:old?old.f:'26/10/2026', cat:$('#g-cat').value, desc:d||$('#g-cat').value, cta:$('#g-cta').value, usd:+usdV.toFixed(2), fijo:$('#g-rec').value==='1', ret};
+    if (old) { S.gastos[+gi] = rg; closeModal(); render(); toast(`Gasto actualizado: ${rg.cat} · ${usd(usdV)}. La utilidad del mes ya lo refleja`); return; }
+    S.gastos.push(rg);
     const rc = ret && islrCalc(ret.bs, ret.k, ret.pn);
     closeModal(); render(); toast(`Gasto registrado: ${usd(usdV)}.${rc&&rc.ret?` Retención de ISLR ${bs(rc.ret)}: comprobante listo para enviar.`:' La utilidad del mes ya lo descuenta.'}`); return; }
   if (e.target.id==='fallaForm'){ e.preventDefault(); const pn = ($('#fl-p').value||'').trim(); if (!pn) { toast('Escribe qué producto pidió el cliente'); $('#fl-p').focus(); return; }
@@ -1871,8 +2260,13 @@ document.addEventListener('submit', e => {
     if (!nm) { toast('Escribe el nombre comercial'); $('#p-name').focus(); return; }
     if (!act) { toast('Escribe el principio activo, o un guion si no tiene'); $('#p-act').focus(); return; }
     if (!price) { toast('Escribe el precio de venta'); $('#p-price').focus(); return; }
+    const pid = +e.target.dataset.id || 0;
+    if (pid){ const p = P.find(x=>x.id===pid), o = {...p}, rx0 = $('#p-rx').value, sm = P.find(x=>x.id!==pid && norm(x.act)===norm(act));
+      Object.assign(p, {name:nm, act:sm?sm.act:act, lab:($('#p-lab').value||'').trim()||'—', pres:($('#p-pres').value||'').trim()||'—', cat:$('#p-sec').value, iva:$('#p-iva').value, code:($('#p-code').value||'').trim()||'—', cost:cost||p.cost, price, min:parseInt($('#p-min').value)||p.min, rx:rx0!=='no', ctrl:rx0==='ctrl'});
+      const ch = [o.price!==p.price?`precio ${usd(o.price)} → ${usd(p.price)}`:'', o.cost!==p.cost?`costo ${usd(o.cost)} → ${usd(p.cost)}`:'', o.min!==p.min?`mínimo ${o.min} → ${p.min}`:'', o.cat!==p.cat?`sección ${p.cat}`:''].filter(Boolean);
+      closeModal(); render(); toast(`${nm} actualizado${ch.length?': '+ch.join(', '):''}. La caja ya lo usa así`); return; }
     const same = P.find(x=>norm(x.act)===norm(act)), rx = $('#p-rx').value, id = Math.max(...P.map(x=>x.id))+1;
-    P.push({id, code:($('#p-code').value||'').trim()||'—', name:nm, act:same?same.act:act, lab:($('#p-lab').value||'').trim()||'—', pres:($('#p-pres').value||'').trim()||'—', cat:$('#p-sec').value, iva:$('#p-iva').value, cost:cost||0, price, stock:0, min:5, rx:rx!=='no', ctrl:rx==='ctrl', lots:[]});
+    P.push({id, code:($('#p-code').value||'').trim()||'—', name:nm, act:same?same.act:act, lab:($('#p-lab').value||'').trim()||'—', pres:($('#p-pres').value||'').trim()||'—', cat:$('#p-sec').value, iva:$('#p-iva').value, cost:cost||0, price, stock:0, min:parseInt($('#p-min').value)||5, rx:rx!=='no', ctrl:rx==='ctrl', lots:[]});
     const eq = equivs(P[P.length-1]);
     closeModal(); render(); toast(`${nm} guardado con ${P[P.length-1].act}.${eq.length?` En la caja sale junto a ${eq.map(x=>x.name).join(', ')}.`:''} La existencia entra al cargar una compra`); return; }
   if (e.target.id==='neForm'){ e.preventDefault();
@@ -1907,12 +2301,82 @@ document.addEventListener('submit', e => {
       CTRL.splice(last+1, 0, ['26/10/2026', prod, 'Récipe especial N° '+num, `${tt} ${nm[0]}. ${ap.join(' ')} · ${MEDICOS[med].mpps}`, ciF, (prP.lots[0]||{l:'—'}).l, 0, desp]); }
     S.rxTab = 'lista'; S.rxq = ''; closeModal(); render();
     toast(`${rxNum(id)} guardado. ${desp<rec?`Quedan ${rec-desp} ${u} pendientes en la ficha del paciente`:'Despacho completo'}${ctrl&&desp?' · anotado en el libro de controlados':''}`); return; }
+  if (e.target.id==='empForm'){ e.preventDefault(); const id = +e.target.dataset.id || 0, old = id ? EMP.find(x=>x.id===id) : null;
+    const nm = ($('#em-n').value||'').trim(); if (!nm) { toast('Escribe el nombre'); $('#em-n').focus(); return; }
+    const sal = parseVE($('#em-sal').value); if (!sal) { toast('Escribe el salario mensual en bolívares'); $('#em-sal').focus(); return; }
+    const pg = $('#em-pago').value, cta = ($('#em-cta').value||'').trim(), tel = ($('#em-tel').value||'').trim();
+    if (pg==='Transferencia' && cta.replace(/\D/g,'').length!==20) { toast('Para pagarle por transferencia, la cuenta debe tener 20 dígitos'); $('#em-cta').focus(); return; }
+    if (pg==='Pago móvil' && !tel) { toast('Escribe el teléfono del pago móvil'); $('#em-tel').focus(); return; }
+    const ariV = ($('#em-ari').value||'').trim(), rol = $('#em-rol').value;
+    const nv = {n:nm, ci:($('#em-ci').value||'').trim(), cargo:($('#em-cargo').value||'').trim()||'—', jor:$('#em-jor').value, est:$('#em-est').value, ing:$('#em-ing').value||'2026-11-01', sal, bono:parseVE($('#em-bono').value), cesta:parseVE($('#em-cesta').value), cargas:parseInt($('#em-cargas').value)||0, ari:ariV===''?null:parseVE(ariV), pago:pg, banco:$('#em-banco').value, cta, tel};
+    if (old){ const ch = empDiff(old, nv, rol), mot = ($('#em-mot').value||'').trim();
+      if (!ch.length) { closeModal(); toast('No hubo cambios'); return; }
+      Object.assign(old, nv); syncUser(old, rol); ch.forEach(t => old.hist.unshift({f:'26/10/2026', t, m:mot, u:S.user}));
+      closeModal(); render(); toast(`Ficha de ${old.n}: ${ch.length} ${ch.length===1?'cambio guardado':'cambios guardados'}. ${ch.some(t=>/^(Salario|Bono|Cestaticket|Cargas|AR-I)/.test(t))?'La quincena ya sale con lo nuevo':'Quedó en su historial'}`); return; }
+    const nid = Math.max(...EMP.map(x=>x.id))+1, ne = {id:nid, ...nv, hx:0, hist:[{f:'26/10/2026', t:'Entró a la nómina', m:nv.cargo, u:S.user}]};
+    EMP.push(ne); syncUser(ne, rol); S.empSel = nid; S.nov[nid] = {};
+    closeModal(); render(); toast(`${nm} quedó en la nómina${rol?` y con su usuario de ${ROL_TXT[rol]}`:''}. Recuerda inscribirlo en el IVSS y el FAOV`); return; }
+  if (e.target.id==='aumForm'){ e.preventDefault(); const c = aumCalc();
+    if (!c.v) { toast('Escribe cuánto sube'); $('#au-val').focus(); return; }
+    if (!c.ids.length) { toast('Marca al menos un empleado'); return; }
+    const desde = $('#au-desde').value || '2026-11-01', mot = $('#au-mot').value, L = {sal:'Salario',bono:'Bono',cesta:'Cestaticket'}[c.q], fm = c.q==='sal' ? bs : usd, ya = desde <= '2026-10-26';
+    c.ids.forEach(i => { const em = EMP.find(x=>x.id===i), n = Math.round(c.nuevo(em[c.q])*100)/100, txt = `${L}: ${fm(em[c.q])} → ${fm(n)}`;
+      if (ya) em[c.q] = n; else { em.prog = (em.prog||[]).filter(p=>p.q!==c.q); em.prog.push({q:c.q, n, desde, txt}); }
+      em.hist.unshift({f:'26/10/2026', t: ya ? txt : `Aumento programado para el ${fmtDate(desde)}: ${txt}`, m:mot, u:S.user}); });
+    closeModal(); render(); const k = c.ids.length, q = `${k} ${k===1?'empleado':'empleados'}`;
+    toast(ya ? `Aumento aplicado a ${q}: la quincena ya sale con el monto nuevo` : `Aumento programado para el ${fmtDate(desde)}: ese día entra solo en la nómina de ${q}`); return; }
+  if (e.target.id==='leyForm'){ e.preventDefault(); const g = id => parseVE($('#'+id).value);
+    const n = {sm:g('ly-sm'), ingMin:g('ly-ing'), cesta:g('ly-cesta'), pens:g('ly-pens'), ivssPat:+$('#ly-ivss').value, hx:g('ly-hx'), noct:g('ly-noct'), fer:g('ly-fer'), util:g('ly-util'), tasaPrest:g('ly-tp')}, ut = g('ly-ut');
+    if (!n.sm || !ut) { toast('El salario mínimo y la unidad tributaria no pueden quedar en cero'); return; }
+    if (n.hx<50) { toast('La ley pide al menos 50 % de recargo en las horas extra (art. 118)'); $('#ly-hx').focus(); return; }
+    if (n.noct<30) { toast('La ley pide al menos 30 % de bono nocturno (art. 117)'); $('#ly-noct').focus(); return; }
+    if (n.fer<50) { toast('La ley pide al menos 50 % de recargo por feriado trabajado (art. 120)'); $('#ly-fer').focus(); return; }
+    if (n.util<30 || n.util>120) { toast('Las utilidades van de 30 a 120 días (art. 131)'); $('#ly-util').focus(); return; }
+    const lab = {sm:['Salario mínimo',bs], ingMin:['Ingreso mínimo integral',usd], cesta:['Cestaticket',usd], pens:['Contribución para pensiones',pcT], ivssPat:['IVSS del patrono',pcT], hx:['Recargo de horas extra',pcT], noct:['Bono nocturno',pcT], fer:['Recargo de feriados',pcT], util:['Días de utilidades',x=>x+' días'], tasaPrest:['Interés de prestaciones',pcT]};
+    const ch = Object.keys(n).filter(k=>n[k]!==LEY[k]).map(k=>`${lab[k][0]}: ${lab[k][1](LEY[k])} → ${lab[k][1](n[k])}`);
+    if (ut!==UT) ch.push(`Unidad tributaria: ${bs(UT)} → ${bs(ut)}`);
+    if (!ch.length) { toast('No hubo cambios'); return; }
+    if (n.cesta!==LEY.cesta) EMP.forEach(x=>{ if (x.cesta===LEY.cesta) x.cesta = n.cesta; });
+    Object.assign(LEY, n); UT = ut; ch.forEach(t=>LEY_HIST.unshift({f:'26/10/2026', t, u:S.user}));
+    render(); toast(`${ch.length} ${ch.length===1?'parámetro cambiado':'parámetros cambiados'}: la nómina, los aportes y las prestaciones ya se recalcularon`); return; }
+  if (e.target.id==='userForm'){ e.preventDefault(); const uid = e.target.dataset.id, rol = $('#us-rol').value, caja = rol==='Almacén' ? 'Almacén' : $('#us-caja').value, est = $('#us-est').value;
+    if (uid===''){ const nm = ($('#us-n').value||'').trim(); if (!nm) { toast('Escribe el nombre'); $('#us-n').focus(); return; }
+      const em = EMP.find(x=>norm(x.n)===norm(nm) && !userOf(x));
+      USERS.push({id:Math.max(...USERS.map(x=>x.id))+1, n:em?em.n:nm, rol, caja, est, last:'Nunca', emp:em?em.id:null});
+      if (em) em.hist.unshift({f:'26/10/2026', t:`Acceso al sistema: sin usuario → ${ROL_TXT[rol]}`, m:'', u:S.user});
+      closeModal(); render(); toast(`Usuario de ${nm} creado como ${ROL_TXT[rol]}. Su PIN le llega por WhatsApp`); return; }
+    const u = USERS.find(x=>x.id===+uid), ch = [];
+    if (u.rol!==rol) ch.push(`rol ${ROL_TXT[rol]}`); if (u.caja!==caja) ch.push(`${caja}`); if (u.est!==est) ch.push(est==='Bloqueado'?'usuario bloqueado':'usuario activo');
+    if (!ch.length) { closeModal(); toast('No hubo cambios'); return; }
+    const em = u.emp!=null && EMP.find(x=>x.id===u.emp); if (em && u.rol!==rol) em.hist.unshift({f:'26/10/2026', t:`Acceso al sistema: ${ROL_TXT[u.rol]} → ${ROL_TXT[rol]}`, m:'', u:S.user});
+    Object.assign(u, {rol, caja, est}); closeModal(); render(); toast(`${u.n}: ${ch.join(', ')}. Aplica desde su próximo inicio de sesión`); return; }
+  if (e.target.id==='tasaForm'){ e.preventDefault(); const v = parseVE($('#t-val').value); if (!v || v<1) { toast('Escribe la tasa en bolívares por dólar'); $('#t-val').focus(); return; }
+    const o = S.rate; S.rate = v; CFG.tasaModo = $('#t-modo').value; closeModal(); render();
+    toast(v===o ? 'La tasa quedó igual' : `Tasa ${nf(o)} → ${nf(v)}: precios en bolívares, recibos y reportes recalculados`); return; }
+  if (e.target.id==='cliForm'){ e.preventDefault(); const ci = ($('#cl-ci').value||'').trim().toUpperCase(), nm = ($('#cl-n').value||'').trim(), gi = e.target.dataset.i;
+    if (!ci) { toast('Escribe la cédula o el RIF'); $('#cl-ci').focus(); return; }
+    if (!nm) { toast('Escribe el nombre'); $('#cl-n').focus(); return; }
+    const d = {ci, name:nm, tel:($('#cl-tel').value||'').trim()||'—', mail:($('#cl-mail').value||'').trim(), dir:($('#cl-dir').value||'').trim()};
+    if (gi===''){ if (CLIENTS.some(c=>c.ci.replace(/[^0-9]/g,'')===ci.replace(/[^0-9]/g,''))) { toast('Ya hay un cliente con esa cédula o RIF'); return; } CLIENTS.unshift({...d, visits:0, total:0, last:'—', pts:0}); }
+    else Object.assign(CLIENTS[+gi], d);
+    closeModal(); render(); toast(gi==='' ? `${nm} registrado: en la caja aparece con solo poner la cédula` : `Datos de ${nm} actualizados`); return; }
+  if (e.target.id==='empresaForm'){ e.preventDefault(); const g = id => ($('#'+id).value||'').trim();
+    if (!g('cf-razon') || !g('cf-rif')) { toast('La razón social y el RIF no pueden quedar vacíos'); return; }
+    Object.assign(EMPRESA, {razon:g('cf-razon'), rif:g('cf-rif').toUpperCase(), dir:g('cf-dir'), mun:g('cf-mun'), tel:g('cf-tel'), mail:g('cf-mail')}); render();
+    toast('Datos guardados: las próximas facturas, recibos y reportes ya salen así'); return; }
+  if (e.target.id==='preciosForm'){ e.preventDefault(); const mg = parseVE($('#cf-marg').value); if (!mg) { toast('Escribe el margen general'); $('#cf-marg').focus(); return; }
+    MARGIN = mg/100; document.querySelectorAll('[data-marg]').forEach(x=>{ const v = (x.value||'').trim(); if (v==='') delete CFG.margSec[x.dataset.marg]; else CFG.margSec[x.dataset.marg] = parseVE(v); });
+    const k = Object.keys(CFG.margSec).length; render(); toast(`Márgenes guardados: general ${pcT(mg)}${k?` y ${k} ${k===1?'sección':'secciones'} con margen propio`:''}`); return; }
+  if (e.target.id==='avisosForm'){ e.preventDefault(); CFG.venc = +$('#cf-venc').value; CFG.aviso = +$('#cf-aviso').value; EMPRESA.wa = ($('#cf-wa').value||'').trim(); render();
+    toast(`Avisos guardados: vencimientos con ${CFG.venc} días y pagos con ${CFG.aviso} ${CFG.aviso===1?'día':'días'} de anticipación`); return; }
   if (e.target.id==='loginForm'){ e.preventDefault(); go('dashboard'); if (!S.online) toast(`Sesión abierta sin internet con PIN · ${S.user}`); } });
 document.addEventListener('keydown', e => { if (e.key==='Escape' && !$('#modal').hidden) closeModal(); if (e.key==='Enter' && e.target.id==='ci'){ e.preventDefault(); document.querySelector('[data-act="client"]').click(); }
   if (e.key==='Enter' && e.target.id==='scan'){ e.preventDefault(); scanAdd(); }
   if (e.key==='Enter' && e.target.id==='fq'){ e.preventDefault(); document.querySelector('[data-act="fbuscar"]').click(); }
   if (e.key==='Enter' && e.target.id==='secname'){ e.preventDefault(); document.querySelector('[data-act="secadd"]').click(); } });
 
+let DL = null;  /* descargas dentro de claude.ai; fuera de ahí se usa el enlace normal */
+(async()=>{ try { if (window.claude && window.claude.use) DL = await window.claude.use('downloads'); } catch(e){} })();
 (function init(){
   const h = (location.hash||'').slice(1);
   if (h && V[h] && h!=='login' && h!=='myShift') S.view = h;
