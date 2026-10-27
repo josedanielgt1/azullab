@@ -1,0 +1,81 @@
+/* Papel Fiscal — generated from tokens.json */
+:root, [data-theme="papel"] {
+  --mesa: #e8ebef;
+  --hoja: #ffffff;
+  --hoja-alt: #f4f6f9;
+  --renglon: #cbd8ea;
+  --linea: #6f7d94;
+  --margen: #d2453b;
+  --tinta: #1a2440;
+  --tinta-2: #4e5a73;
+  --tinta-3: #5d6882;
+  --acento: #2747c9;
+  --on-acento: #ffffff;
+  --acento-tinta: #2747c9;
+  --acento-suave: #e6ebfa;
+  --sello-verde: #1f7a43;
+  --sello-verde-suave: #e3f3e8;
+  --sello-rojo: #b3261e;
+  --sello-rojo-suave: #fbe6e4;
+  --sello-ambar: #8a5300;
+  --sello-ambar-suave: #fdf0d8;
+  --sello-violeta: #5b3aa6;
+  --sello-violeta-suave: #efe9fb;
+  --foco: #1a2440;
+  --sombra-hoja: 0 1px 2px rgba(26,36,64,0.08), 0 0 0 1px rgba(26,36,64,0.06);
+  --sombra-pila: 0 1px 2px rgba(26,36,64,0.08), 0 0 0 1px rgba(26,36,64,0.06), 5px 5px 0 -1px #ffffff, 5px 5px 0 0 #cbd8ea;
+  --sombra-flotante: 0 18px 48px rgba(13,18,32,0.28);
+}
+[data-theme="carbon"] {
+  --mesa: #0d1220;
+  --hoja: #161d2e;
+  --hoja-alt: #1c2438;
+  --renglon: #2a3650;
+  --linea: #6b7a95;
+  --margen: #e06a5f;
+  --tinta: #e7ecf5;
+  --tinta-2: #a3aec4;
+  --tinta-3: #8794ae;
+  --acento: #8fa5ff;
+  --on-acento: #0d1220;
+  --acento-tinta: #8fa5ff;
+  --acento-suave: #1e2a55;
+  --sello-verde: #5fd08e;
+  --sello-verde-suave: #12301f;
+  --sello-rojo: #ff8a7f;
+  --sello-rojo-suave: #3a1714;
+  --sello-ambar: #f0b54d;
+  --sello-ambar-suave: #33260d;
+  --sello-violeta: #b9a2ff;
+  --sello-violeta-suave: #251a45;
+  --foco: #e7ecf5;
+  --sombra-hoja: 0 1px 2px rgba(0,0,0,0.4), 0 0 0 1px rgba(231,236,245,0.06);
+  --sombra-pila: 0 1px 2px rgba(0,0,0,0.4), 0 0 0 1px rgba(231,236,245,0.06), 5px 5px 0 -1px #161d2e, 5px 5px 0 0 #2a3650;
+  --sombra-flotante: 0 18px 48px rgba(0,0,0,0.6);
+}
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --alto-renglon: 40px;
+  --radius-papel: 2px;
+  --radius-control: 4px;
+  --radius-sello: 3px;
+  --radius-pestana: 8px;
+  --font-forma: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --font-maquina: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+.titulo-hoja { font-family: var(--font-forma); font-size: 22px; line-height: 28px; font-weight: 700; }
+.titulo-seccion { font-family: var(--font-forma); font-size: 17px; line-height: 24px; font-weight: 700; }
+.cuerpo { font-family: var(--font-forma); font-size: 15px; line-height: 22px; font-weight: 400; }
+.cuerpo-fuerte { font-family: var(--font-forma); font-size: 15px; line-height: 22px; font-weight: 600; }
+.etiqueta { font-family: var(--font-forma); font-size: 11.5px; line-height: 14px; font-weight: 600; letter-spacing: 0.02em; }
+.nota { font-family: var(--font-forma); font-size: 13px; line-height: 18px; font-weight: 400; }
+.sello { font-family: var(--font-forma); font-size: 15px; line-height: 18px; font-weight: 800; letter-spacing: 0.08em; }
+.cifra-grande { font-family: var(--font-maquina); font-size: 32px; line-height: 36px; font-weight: 600; }
+.cifra { font-family: var(--font-maquina); font-size: 15px; line-height: 22px; font-weight: 500; }
+.cifra-chica { font-family: var(--font-maquina); font-size: 12px; line-height: 16px; font-weight: 400; }
+.ticket { font-family: var(--font-maquina); font-size: 12.5px; line-height: 18px; font-weight: 400; }
