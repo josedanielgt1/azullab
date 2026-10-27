@@ -7,7 +7,7 @@
 <style>
 /* =====================================================================
    PAPEL FISCAL · sistema de diseño de Cuadre
-   Capa 1: tokens (papel / carbón). Capa 2: color del cliente (Azullab Laboratorio).
+   Capa 1: tokens (papel / carbón). Capa 2: color del cliente (Azullab).
    Capa 3: componentes aplicados a esta maqueta.
    Diseño: mesa → separadores de archivador → carpeta abierta → hojas con folio.
    ===================================================================== */
@@ -20,7 +20,7 @@
   --sombra-hoja:0 1px 2px rgba(26,36,64,.08),0 0 0 1px rgba(26,36,64,.06);
   --sombra-pila:0 1px 2px rgba(26,36,64,.08),0 0 0 1px rgba(26,36,64,.06),5px 5px 0 -1px #ffffff,5px 5px 0 0 #cbd8ea;
   --sombra-flotante:0 18px 48px rgba(13,18,32,.28);
-  /* Color del cliente: Grupo Azullab (celeste y blanco) */
+  /* Color del cliente: Azullab Farmacia (celeste y blanco) */
   --acento:#3db2e8; --on-acento:#0b2340; --acento-tinta:#0a6fa8; --acento-suave:#e3f4fc;
   --font-forma:"Archivo","Arial Narrow",system-ui,-apple-system,"Segoe UI",sans-serif;
   --font-maquina:"IBM Plex Mono",ui-monospace,Consolas,monospace;
@@ -462,17 +462,41 @@ select.res-in{width:auto;min-width:170px;text-align:left;font-family:var(--font-
 @media (max-width:1180px){.board{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (max-width:980px){.split{grid-template-columns:minmax(0,1fr)}.informe .pdat{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:640px){.board{grid-template-columns:minmax(0,1fr)}.informe{padding:20px 16px}.informe .sello-inf{position:static;margin-top:8px}}
-.card .num{white-space:nowrap}
-.informe table{table-layout:fixed}
-.informe th:nth-child(1){width:36%}.informe th:nth-child(2){width:20%}.informe th:nth-child(3){width:16%}
-.exhd + .tbl-wrap table{table-layout:fixed;min-width:620px}
-.exhd + .tbl-wrap th:nth-child(1){width:26%}.exhd + .tbl-wrap th:nth-child(2){width:15%}.exhd + .tbl-wrap th:nth-child(3){width:12%}.exhd + .tbl-wrap th:nth-child(4){width:17%}.exhd + .tbl-wrap th:nth-child(5){width:14%}
 @media print{
   body{background:#fff!important}
   body *{visibility:hidden!important}
   .informe,.informe *{visibility:visible!important}
   .informe{position:absolute;left:0;top:0;box-shadow:none;max-width:none}
 }
+.card .num{white-space:nowrap}
+.informe table{table-layout:fixed}
+.informe th:nth-child(1){width:36%}.informe th:nth-child(2){width:20%}.informe th:nth-child(3){width:16%}
+.exhd + .tbl-wrap table{table-layout:fixed;min-width:620px}
+.exhd + .tbl-wrap th:nth-child(1){width:26%}.exhd + .tbl-wrap th:nth-child(2){width:15%}.exhd + .tbl-wrap th:nth-child(3){width:12%}.exhd + .tbl-wrap th:nth-child(4){width:17%}.exhd + .tbl-wrap th:nth-child(5){width:14%}
+/* Ficha del paciente */
+.ficha,.pform{display:grid;gap:10px}
+.pdat2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--linea);border:1px solid var(--linea);border-radius:4px;overflow:hidden}
+.pdat2.one{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.pdat2>div{background:var(--hoja);padding:6px 10px 7px;display:grid;gap:1px;min-width:0;align-content:start}
+.pdat2>div>span{font-size:11.5px;line-height:14px;font-weight:600;letter-spacing:.02em;color:var(--tinta-3)}
+.pdat2>div>b{font-weight:600;font-size:14.5px;overflow-wrap:anywhere}
+.fsec{font-size:12px;line-height:16px;letter-spacing:.06em;text-transform:uppercase;font-stretch:85%;color:var(--acento-tinta);border-bottom:1px dashed var(--renglon);padding:8px 0 4px}
+.fsec span{text-transform:none;letter-spacing:0;font-weight:500;color:var(--tinta-3);font-stretch:100%}
+.fgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.fgrid .field .input{min-height:26px}
+.chks{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px}
+.chk{display:flex;gap:8px;align-items:center;border:1px solid var(--renglon);border-radius:4px;padding:6px 10px;min-height:40px;cursor:pointer;font-size:14px;background:var(--hoja)}
+.chk:has(input:checked){border-color:var(--acento-tinta);background:var(--acento-suave);font-weight:600}
+.chk input{width:18px;height:18px;flex:none;accent-color:var(--acento-tinta)}
+.alertas{display:flex;flex-wrap:wrap;gap:6px}
+.al{--c:var(--sello-violeta);--cs:var(--sello-violeta-suave);display:inline-flex;gap:6px;align-items:flex-start;font-size:13px;line-height:18px;padding:4px 9px;border-radius:3px;border:1px solid var(--c);color:var(--tinta);background:var(--cs);font-weight:600}
+.al svg{width:15px;height:15px;color:var(--c);margin-top:1px}
+.al.bad{--c:var(--sello-rojo);--cs:var(--sello-rojo-suave)}
+.al.warn{--c:var(--sello-ambar);--cs:var(--sello-ambar-suave)}
+.al.ok{--c:var(--sello-verde);--cs:var(--sello-verde-suave)}
+.pipe+.pipe{margin-top:-4px}
+@media (max-width:1180px){.fgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:560px){.fgrid,.pdat2,.pdat2.one{grid-template-columns:minmax(0,1fr)}}
 </style>
 </head><body>
 <div id="app"></div>
@@ -672,8 +696,8 @@ const ROLES = {
   'Bioanalista':{user:'Lcda. Mariangel Rivas', login:'bioanalista', puesto:'Área técnica', views:['dashboard','muestras','resultados','validacion','entrega','pacientes','catalogo','reactivos','calidad','equipos'],
                  desc:'Carga y valida resultados, firma los informes y lleva reactivos y control de calidad. No ve dinero de caja.'},
   'Recepción':  {user:'Kevin Albarrán', login:'recepcion', puesto:'Recepción y caja', views:['dashboard','recepcion','entrega','pacientes'],
-                 desc:'Registra pacientes, crea órdenes, cobra con factura y entrega informes ya validados. No carga ni cambia resultados.'},
-  'Toma de muestras':{user:'Yusmely Torres', login:'toma', puesto:'Sala de toma', views:['dashboard','muestras'],
+                 desc:'Atiende al que llega: llena la ficha completa del paciente, crea órdenes, cobra con factura y entrega informes ya validados. No carga ni cambia resultados.'},
+  'Toma de muestras':{user:'Yusmely Torres', login:'toma', puesto:'Sala de toma', views:['muestras'],
                  desc:'Ve la lista de pacientes por atender, qué tubos sacar, imprime etiquetas y marca las muestras tomadas.'}
 };
 const can = v => ROLES[S.role].views==='all' || ROLES[S.role].views.includes(v);
@@ -681,14 +705,14 @@ const canMoney = () => S.role==='Dueño' || S.role==='Recepción';
 
 /* ======================= Navegación ======================= */
 const NAV = [
-  {g:'Operación', items:[['dash','dashboard','Inicio'],['clip','recepcion','Recepción y órdenes'],['tube','muestras','Toma de muestras'],['flask','resultados','Carga de resultados'],['shield','validacion','Validación'],['doc','entrega','Entrega de resultados']]},
+  {g:'Operación', items:[['clip','recepcion','Atender paciente'],['tube','muestras','Toma de muestras'],['flask','resultados','Carga de resultados'],['shield','validacion','Validación'],['doc','entrega','Entrega de resultados'],['dash','dashboard','Resumen del día']]},
   {g:'Archivo', items:[['users','pacientes','Pacientes'],['list','catalogo','Exámenes y precios'],['box','reactivos','Reactivos e insumos']]},
   {g:'Fiscal', items:[['receipt','caja','Caja y fiscal']]},
   {g:'Sistema', items:[['cloud','offline','Modo sin conexión'],['key','users','Usuarios y permisos']]},
   {g:'Fase 2', f2:true, items:[['phone','portal','Portal y WhatsApp'],['chip','equipos','Conexión con equipos'],['building','convenios','Seguros y convenios'],['chart','calidad','Control de calidad'],['branches','grupo','Grupo Azullab']]},
   {g:'Proyecto', items:[['doc','scope','Alcance de la propuesta']]}
 ];
-const TITLES = {dashboard:'Inicio',recepcion:'Recepción y órdenes',muestras:'Toma de muestras',resultados:'Carga de resultados',validacion:'Validación',entrega:'Entrega de resultados',pacientes:'Pacientes',catalogo:'Exámenes y precios',reactivos:'Reactivos e insumos',caja:'Caja y fiscal',offline:'Modo sin conexión',users:'Usuarios y permisos',portal:'Portal del paciente y WhatsApp',equipos:'Conexión con equipos',convenios:'Seguros y convenios',calidad:'Control de calidad',grupo:'Grupo Azullab',scope:'Alcance de la propuesta'};
+const TITLES = {dashboard:'Resumen del día',recepcion:'Atender paciente',muestras:'Toma de muestras',resultados:'Carga de resultados',validacion:'Validación',entrega:'Entrega de resultados',pacientes:'Pacientes',catalogo:'Exámenes y precios',reactivos:'Reactivos e insumos',caja:'Caja y fiscal',offline:'Modo sin conexión',users:'Usuarios y permisos',portal:'Portal del paciente y WhatsApp',equipos:'Conexión con equipos',convenios:'Seguros y convenios',calidad:'Control de calidad',grupo:'Grupo Azullab',scope:'Alcance de la propuesta'};
 const F2 = ['portal','equipos','convenios','calidad','grupo'];
 const CODE = {dashboard:'TB',recepcion:'OR',muestras:'TM',resultados:'CR',validacion:'VA',entrega:'EN',pacientes:'PA',catalogo:'EX',reactivos:'RI',caja:'CF',offline:'SC',users:'US',portal:'PP',equipos:'EQ',convenios:'SG',calidad:'CC',grupo:'GA',scope:'AL'};
 const folio = v => CODE[v] + '-' + String(Object.keys(CODE).indexOf(v)+1).padStart(2,'0');
@@ -783,7 +807,7 @@ V.login = () => `<div class="login">
       <h1>Del tubo al informe firmado, sin perder una muestra.</h1>
       <p>Órdenes con factura, etiquetas con código de barras, resultados con valores de referencia, validación del bioanalista y entrega por WhatsApp. Funciona aunque se vaya el internet.</p>
     </div>
-    <div class="facts"><span>Etiquetas por tubo</span><span>Marca valores fuera de rango</span><span>Firma del bioanalista</span><span>Informe con QR</span></div>
+    <div class="facts"><span>Ficha completa del paciente</span><span>Etiquetas por tubo</span><span>Marca valores fuera de rango</span><span>Firma del bioanalista</span><span>Informe con QR</span></div>
   </section>
   <section class="formside">
     ${S.online?'':`<div class="aviso-off" role="status">${ic('cloudoff')}<span><b>Amaneció sin internet.</b> Este equipo tiene guardados los pacientes, el catálogo de exámenes y la tasa BCV de ayer. Entra con tu PIN; todo se sincroniza cuando vuelva la conexión.</span></div>`}
@@ -960,7 +984,7 @@ V.muestras = () => {
         <div class="row"><b style="font-size:16px">${p.n}</b><span class="num small muted">${o.n} · ${p.ci} · ${ageOf(p.b)} años · ${sexTxt(p.s)}</span>${o.urg?'<span class="pill bad">Urgente</span>':''}<span class="spacer"></span><span class="small muted">Llegó ${o.t}</span></div>
         <div class="small" style="color:var(--tinta-2)">${itemsTxt(o)}</div>
         <div class="tubos">${tubesSorted(o).map(tuboH).join('')}</div>
-        ${ayunoOf(o)?`<p class="small" style="color:var(--warn)">${ic('clock')} Confirmar ayuno de 8 a 12 horas antes de sacar la sangre.</p>`:''}
+        ${alertsH(p,o.vis,ayunoOf(o))}${o.vis.dx?`<p class="small muted">Motivo: ${o.vis.dx}${o.vis.obs?' · '+o.vis.obs:''}</p>`:''}
         ${o.casa?`<p class="small" style="color:var(--sello-violeta)">${ic('alert')} Trae las muestras de casa: revisa que los frascos tengan nombre y que sean de hoy.</p>`:''}
         <div class="row"><button class="btn sm" data-act="etq" data-o="${o.n}">${ic('tag')}Etiquetas</button><button class="btn primary sm" data-act="tomada" data-o="${o.n}">${ic('check')}Muestras tomadas</button></div></div>`; }).join('')
       : '<div class="empty"><b>No hay pacientes en sala</b><span>Cuando recepción cobre una orden, aparece aquí.</span></div>'}</div></section>
@@ -1031,10 +1055,10 @@ function informe(o){
     <div class="memb"><div class="row" style="gap:12px">${LOGO(44)}<div style="display:grid;gap:2px"><b style="font-size:18px">Azullab Laboratorio Clínico</b><span style="font-size:12px;color:#4e5a73">RIF J-XXXXXXXX-X · La Azulita, municipio Andrés Bello, Mérida</span><span style="font-size:12px;color:#4e5a73">Grupo Empresarial Azullab · @grupoempresarialazullab</span></div></div>
       <div class="dat"><b style="font-size:15px;color:#1a2440">Informe de resultados</b><br>Orden <span class="num">${o.n}</span> · Factura <span class="num">${o.fac}</span><br>Emitido ${HOY} ${o.val.t}</div></div>
     <div class="pdat"><div><span>Paciente</span><b>${p.n}</b></div><div><span>Cédula</span><b class="num">${p.ci}</b></div><div><span>Edad y sexo</span><b>${ageOf(p.b)} años · ${sexTxt(p.s)}</b></div><div><span>Médico</span><b>${medTxt(o.med)}</b></div>
-      <div><span>Toma de muestra</span><b class="num">${HOY} ${o.toma}</b></div><div><span>Validado</span><b class="num">${HOY} ${o.val.t}</b></div><div><span>Ayuno</span><b>${ayunoOf(o)?'Sí, 10 horas':'No requerido'}</b></div><div><span>Teléfono</span><b class="num">${p.tel}</b></div></div>
+      <div><span>Toma de muestra</span><b class="num">${HOY} ${o.toma}</b></div><div><span>Validado</span><b class="num">${HOY} ${o.val.t}</b></div><div><span>Ayuno</span><b>${(o.vis&&o.vis.ay)||'No indicado'}</b></div><div><span>Motivo o diagnóstico</span><b>${(o.vis&&o.vis.dx)||'—'}</b></div></div>
     ${exOf(o).map(c => { const e = exBy(c); return `<h3>${e.n}</h3><table><thead><tr><th>Prueba</th><th class="r">Resultado</th><th>Unidad</th><th>Valores de referencia</th></tr></thead><tbody>
       ${e.ps.map(pr => { const v = o.res[pr.k], f = flagOf(pr, v, p.s); return `<tr><td>${pr.n}</td><td class="r ${f?(f==='L'||f==='CL'?'v-l':'v-h'):''}">${vtxt(pr,v)}${f==='H'||f==='CH'?' ↑':f==='L'||f==='CL'?' ↓':f==='X'?' *':''}</td><td>${pr.u||''}</td><td class="num">${refTxt(pr,p.s)}</td></tr>`; }).join('')}</tbody></table>`; }).join('')}
-    <p class="obs">${fl.length?`↑ Por encima de la referencia · ↓ Por debajo · * Fuera de lo esperado. ${fl.length} ${fl.length===1?'valor fuera de rango':'valores fuera de rango'}: consulte a su médico.`:'Todos los valores dentro de la referencia.'} Valores de referencia para adultos según sexo; el médico interpreta los resultados con la historia del paciente.</p>
+    <p class="obs">${o.vis&&o.vis.emb==='Sí'?'Paciente embarazada'+(o.vis.fur?' (FUR '+fmtDate(o.vis.fur)+')':'')+'. ':''}${ayunoOf(o)&&o.vis&&(o.vis.ay==='No está en ayunas'||o.vis.ay==='Menos de 8 horas')?'Muestra tomada sin el ayuno indicado ('+o.vis.ay.toLowerCase()+'). ':''}${fl.length?`↑ Por encima de la referencia · ↓ Por debajo · * Fuera de lo esperado. ${fl.length} ${fl.length===1?'valor fuera de rango':'valores fuera de rango'}: consulte a su médico.`:'Todos los valores dentro de la referencia.'} Valores de referencia para adultos según sexo; el médico interpreta los resultados con la historia del paciente.</p>
     <div class="pie"><div class="qr2">${qrSvg(parseInt(o.n.slice(2)))}<span>Verifique este informe con el código QR. Cualquier cambio después de la firma invalida el código.</span></div>
       ${o.st==='Entregado'?`<span class="sello">Entregado<small>${o.ent}</small></span>`:`<span class="sello verde">Validado<small>${HOY} ${o.val.t}</small></span>`}
       <div class="firma2"><div class="ln">${firmaSvg()}</div><b>${o.val.by}</b><span>Licenciada en Bioanálisis</span><span class="num">Colegio N° XXXXX · MPPS N° XXXXX</span></div></div>
@@ -1214,7 +1238,7 @@ V.grupo = () => `<p class="lead">La farmacia y el laboratorio son del mismo grup
 V.scope = () => `<p class="lead">Lo que entra en esta propuesta para Azullab Laboratorio Clínico. Mismo sistema y mismo diseño que la farmacia del grupo.</p>
   <div class="grid g2">
     <section class="panel"><div class="hd"><h2>Fase 1 · para arrancar</h2><span class="phase f1">Fase 1</span></div><div class="bd scope"><ul>
-      ${['Pacientes por cédula, con edad y sexo para los valores de referencia','Orden nueva con perfiles y exámenes sueltos, médico referente y urgencias','Cobro en dólares y bolívares con factura por imprenta digital (servicios exentos)','Etiquetas con código de barras para cada tubo','Lista de la sala de toma con el orden de llenado de tubos','Carga de resultados con marca automática de valores fuera de rango y críticos','Validación del bioanalista con resultado anterior al lado y aviso obligatorio de críticos','Informe en PDF con membrete, firma, sello y QR; impreso o por WhatsApp','Reactivos e insumos con lote, vencimiento y días que alcanzan','Caja, libro de ventas y cierre del día','Usuarios por rol y bitácora que no se puede borrar','Trabaja sin internet en la red del laboratorio'].map(x=>`<li>${ic('check')}<span>${x}</span></li>`).join('')}</ul></div></section>
+      ${['Ficha completa del paciente: identificación, contacto, antecedentes, medicamentos, alergias, contacto de emergencia y representante','Datos de cada visita: ayuno, medicamentos del día, embarazo y motivo del médico, con avisos para la sala y el bioanalista','Atención sin cita por orden de llegada: perfiles y exámenes sueltos, médico referente y urgencias','Cobro en dólares y bolívares con factura por imprenta digital (servicios exentos)','Etiquetas con código de barras para cada tubo','Lista de la sala de toma con el orden de llenado de tubos','Carga de resultados con marca automática de valores fuera de rango y críticos','Validación del bioanalista con resultado anterior al lado y aviso obligatorio de críticos','Informe en PDF con membrete, firma, sello y QR; impreso o por WhatsApp','Reactivos e insumos con lote, vencimiento y días que alcanzan','Caja, libro de ventas y cierre del día','Usuarios por rol y bitácora que no se puede borrar','Trabaja sin internet en la red del laboratorio'].map(x=>`<li>${ic('check')}<span>${x}</span></li>`).join('')}</ul></div></section>
     <section class="panel"><div class="hd"><h2>Fase 2 · para crecer</h2><span class="phase f2">Fase 2</span></div><div class="bd scope"><ul>
       ${['Portal del paciente y aviso automático por WhatsApp','Conexión directa con los equipos (según marca y modelo)','Seguros y convenios con factura mensual','Control de calidad con Levey-Jennings y Westgard','Grupo Azullab: farmacia y laboratorio en un mismo tablero','Toma de muestras a domicilio con agenda'].map(x=>`<li>${ic('check')}<span>${x}</span></li>`).join('')}</ul></div></section>
   </div>
@@ -1222,16 +1246,265 @@ V.scope = () => `<p class="lead">Lo que entra en esta propuesta para Azullab Lab
     ${['Lista de exámenes y perfiles con sus precios','Valores de referencia que usan con sus reactivos y equipos','Nombre, número de colegio y MPPS de cada bioanalista que firma','Logo, RIF y dirección para el membrete y la factura','Autorización de la imprenta digital (la tramita su contador)','Marca y modelo de los equipos, si quieren la conexión de la fase 2'].map(x=>`<li>${ic('doc')}<span>${x}</span></li>`).join('')}</ul></div>
     <p class="base-legal">Maqueta navegable con datos de muestra. Los valores de referencia, el tratamiento fiscal y los requisitos del informe se confirman con el bioanalista responsable y el contador del laboratorio.</p></section>`;
 
+
+/* ======================= Ficha completa del paciente y datos de la visita ======================= */
+const MUNIS = ['Andrés Bello','Antonio Pinto Salinas','Campo Elías','Libertador','Sucre','Julio César Salas','Otro'];
+const ANTS = ['Diabetes','Hipertensión','Enfermedad renal','Enfermedad de tiroides','Anemia','Problemas de coagulación','Toma anticoagulantes','Asma o EPOC','Enfermedad del corazón'];
+const SANGRE = ['No sabe','O +','O −','A +','A −','B +','B −','AB +','AB −'];
+const SEGUROS = ['Particular','Cooperativa cafetalera (convenio)','Póliza colectiva de salud','Unidad educativa (convenio)'];
+const ORIGEN = ['','Lo mandó su médico','Recomendado por alguien','Farmacia Azullab','Instagram','Pasó por el frente'];
+const AYUNO = ['No está en ayunas','Menos de 8 horas','8 a 12 horas','Más de 12 horas'];
+const HOME = {'Dueño':'recepcion','Recepción':'recepcion','Bioanalista':'resultados','Toma de muestras':'muestras'};
+const ANTICO = /warfarina|aspirina|clopidogrel|rivaroxab|apixab|heparina|acenocumarol/i;
+const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+
+const PX = {
+ P1:{mail:'maria.rondon@gmail.com', dir:'Calle 3, casa 14', sector:'Centro', ocup:'Docente jubilada', sangre:'O +', ant:['Hipertensión'], meds:'Losartán 50 mg en la mañana', emer:{n:'Luis Rondón',par:'Hijo',tel:'0414-7320011'}, orig:'Farmacia Azullab', alta:'10-03-2026'},
+ P2:{dir:'Finca El Paraíso', sector:'La Culata', ocup:'Agricultor (café)', sangre:'A +', ant:['Diabetes','Hipertensión'], meds:'Metformina 850 mg, losartán 50 mg', alerg:'Penicilina', emer:{n:'Ana de Peña',par:'Esposa',tel:'0416-6750093'}, seg:'Cooperativa cafetalera (convenio)', orig:'Lo mandó su médico', alta:'15-04-2026'},
+ P3:{mail:'yorbeq94@gmail.com', dir:'Calle Los Naranjos, casa 7', sector:'Los Naranjos', ocup:'Comerciante', meds:'Ácido fólico', emer:{n:'Jhonny Quintero',par:'Esposo',tel:'0424-7193380'}, orig:'Instagram'},
+ P4:{dir:'Vía principal, sector La Playa', sector:'Jají', mun:'Campo Elías', ocup:'Chofer de carga', sangre:'O +', emer:{n:'Marbelys Dávila',par:'Hermana',tel:'0414-7451102'}, orig:'Recomendado por alguien'},
+ P5:{dir:'Calle 2, casa 30', sector:'El Molino', ocup:'Ama de casa', ant:['Enfermedad de tiroides'], meds:'Levotiroxina 50 mcg', emer:{n:'Ramón Zambrano',par:'Esposo',tel:'0426-3300125'}, orig:'Lo mandó su médico', alta:'05-05-2026'},
+ P6:{mail:'andres.rangel@ula.ve', dir:'Residencias Los Próceres', sector:'Mérida', mun:'Libertador', ocup:'Estudiante (ULA)', emer:{n:'Gladys Rangel',par:'Madre',tel:'0414-5530870'}, orig:'Instagram'},
+ P7:{dir:'Urb. Santa Elena, casa 4', sector:'Santa Elena', ocup:'Enfermera', sangre:'B +', alerg:'Látex', emer:{n:'Elena Moreno',par:'Madre',tel:'0424-7011462'}, orig:'Recomendado por alguien'},
+ P8:{dir:'Calle Bolívar, casa 2', sector:'Centro', ocup:'Jubilado', sangre:'O +', ant:['Diabetes','Enfermedad renal'], meds:'Insulina NPH, aspirina 100 mg', emer:{n:'Daniela Uzcátegui',par:'Hija',tel:'0414-7400212'}, orig:'Lo mandó su médico', alta:'02-09-2026'},
+ P9:{dir:'Sector San José, casa 19', sector:'San José', ocup:'Estudiante', ant:['Anemia'], meds:'Sulfato ferroso', rep:{n:'Rosángela Paredes',ci:'V-15.234.876',par:'Madre',tel:'0414-7660931'}, orig:'Lo mandó su médico'},
+ P10:{dir:'Sector San José, casa 3', sector:'San José', ocup:'Albañil', ant:['Toma anticoagulantes'], meds:'Warfarina 5 mg en la noche', emer:{n:'Carmen de Contreras',par:'Esposa',tel:'0416-2771208'}, orig:'Lo mandó su médico'}
+};
+PATS.forEach(p => { const w = p.n.split(' ');
+  Object.assign(p, {nom:w.slice(0,-1).join(' '), ape:w[w.length-1], tel2:'', mail:'', dir:'', sector:'', mun:'Andrés Bello', ocup:'', sangre:'No sabe', ant:[], meds:'', alerg:'', emer:null, rep:null, seg:'Particular', orig:'', alta:HOY}, PX[p.id]||{}); });
+
+const blankVis = () => ({ay:'', medsHoy:'', emb:'', fur:'', dx:'', obs:''});
+const VX = {
+ 'L-0412':{ay:'8 a 12 horas', medsHoy:'Ninguno todavía', dx:'Control de diabetes tipo 2'},
+ 'L-0413':{ay:'8 a 12 horas', medsHoy:'Losartán a las 6:00', dx:'Chequeo anual'},
+ 'L-0414':{ay:'8 a 12 horas', medsHoy:'Levotiroxina a las 6:00', dx:'Hipotiroidismo en control'},
+ 'L-0415':{ay:'Menos de 8 horas', medsHoy:'Insulina a las 7:00 y aspirina', dx:'Diabetes e insuficiencia renal', obs:'Tomó café con pan a las 5:30'},
+ 'L-0416':{ay:'8 a 12 horas', dx:'Chequeo general'},
+ 'L-0417':{ay:'8 a 12 horas', medsHoy:'Ácido fólico', emb:'Sí', fur:'2026-08-18', dx:'Control prenatal, 10 semanas'},
+ 'L-0418':{ay:'No está en ayunas', dx:'Requisito de la universidad'},
+ 'L-0419':{ay:'No está en ayunas', emb:'No sabe', fur:'2026-09-10', dx:'Retraso menstrual'},
+ 'L-0420':{ay:'No está en ayunas', medsHoy:'Warfarina anoche', dx:'Control de anticoagulación', obs:'Dice que le sangran las encías'},
+ 'L-0421':{dx:'Dolor abdominal', obs:'Viene con su mamá'}
+};
+ORD.forEach(o => o.vis = Object.assign(blankVis(), VX[o.n]||{}));
+const newOrd = () => ({pat:null, draft:null, edit:null, items:[], med:0, urg:false, vis:blankVis()});
+S.ord = newOrd(); S.pform = null;
+
+/* Avisos que salen de la ficha y de la visita */
+function alertsOf(p, v, needAy){
+  const a = []; v = v || {};
+  if (p.alerg) a.push(['bad','alert',`Alergia: ${p.alerg}`]);
+  if (p.ant.includes('Toma anticoagulantes') || p.ant.includes('Problemas de coagulación') || ANTICO.test(p.meds+' '+(v.medsHoy||''))) a.push(['warn','alert','Anticoagulado o sangra fácil: presionar 3 a 5 minutos después de la punción']);
+  if (ageOf(p.b) < 18) a.push(['info','users', p.rep ? `Menor de edad · viene con ${p.rep.n} (${p.rep.par.toLowerCase()})` : 'Menor de edad: falta el representante']);
+  if (v.emb==='Sí') a.push(['info','check', `Embarazada${v.fur?' · FUR '+fmtDate(v.fur):''}`]);
+  if (v.emb==='No sabe') a.push(['warn','alert', `Posible embarazo${v.fur?' · FUR '+fmtDate(v.fur):''}`]);
+  if (needAy){ if (!v.ay) a.push(['warn','clock','Pide ayuno: pregunta cuántas horas lleva']);
+    else if (v.ay==='No está en ayunas' || v.ay==='Menos de 8 horas') a.push(['bad','clock',`Pide ayuno y dijo: ${v.ay.toLowerCase()}. Se anota en el informe`]);
+    else a.push(['ok','clock',`Ayuno: ${v.ay.toLowerCase()}`]); }
+  if (p.ant.includes('Diabetes')) a.push(['info','flask','Diabético']);
+  return a;
+}
+const alertsH = (p, v, needAy) => { const a = alertsOf(p, v, needAy); return a.length ? `<div class="alertas">${a.map(([c,i,t])=>`<span class="al ${c}">${ic(i)}<span>${t}</span></span>`).join('')}</div>` : ''; };
+
+/* ---------- Ficha ---------- */
+const kv = (l, v) => `<div><span>${l}</span><b>${v || '<i class="muted" style="font-style:normal;font-weight:400">—</i>'}</b></div>`;
+function patCard(p, inRec){
+  const age = ageOf(p.b);
+  const resp = age < 18 && p.rep ? kv('Representante', `${p.rep.n} (${p.rep.par}) · ${p.rep.ci} · ${p.rep.tel}`) : kv('Contacto de emergencia', p.emer ? `${p.emer.n} (${p.emer.par}) · ${p.emer.tel}` : '');
+  return `<div class="ficha">
+    <div class="row"><b style="font-size:17px">${p.n}</b><span class="num small muted">${p.ci}</span><span class="spacer"></span>
+      ${inRec ? `<button class="btn sm" data-act="pedit">Actualizar datos</button><button class="btn sm" data-act="patclear">Cambiar paciente</button>` : `<button class="btn sm" data-act="pedit2" data-p="${p.id}">Editar ficha</button>`}</div>
+    <div class="pdat2">${kv('Edad y sexo', `${age} años · ${sexTxt(p.s)}`)}${kv('Nacimiento', fmtDate(p.b))}${kv('Teléfono', p.tel+(p.tel2?' · '+p.tel2:''))}${kv('Correo', p.mail)}
+      ${kv('Dirección', [p.dir,p.sector,p.mun].filter(Boolean).join(', '))}${kv('Ocupación', p.ocup)}${kv('Tipo de sangre', p.sangre)}${kv('Seguro o convenio', p.seg)}</div>
+    <div class="pdat2 one">${kv('Antecedentes', p.ant.length ? p.ant.join(' · ') : 'Ninguno conocido')}${kv('Medicamentos que toma', p.meds || 'Ninguno')}
+      ${kv('Alergias', p.alerg ? `<span style="color:var(--bad)">${p.alerg}</span>` : 'Ninguna conocida')}${resp}</div>
+    ${inRec ? `<p class="small muted">Paciente desde ${p.alta}. Confirma con él que el teléfono y los medicamentos siguen iguales.</p>` : `<p class="small muted">Paciente desde ${p.alta}${p.orig?' · llegó por: '+p.orig.toLowerCase():''}.</p>`}
+  </div>`;
+}
+const fi = (k, l, v, at='') => `<div class="field"><label for="pf-${k}">${l}</label><input id="pf-${k}" class="input" data-pf="${k}" value="${esc(v)}" ${at}></div>`;
+const fsel = (k, l, v, opts, attr='pf') => `<div class="field"><label for="${attr}-${k}">${l}</label><select id="${attr}-${k}" class="input" data-${attr}="${k}">${opts.map(o=>{ const [val,lab] = Array.isArray(o)?o:[o,o||'Escoge…']; return `<option value="${esc(val)}" ${val===v?'selected':''}>${lab}</option>`; }).join('')}</select></div>`;
+const draftFrom = p => ({ci:p.ci, nom:p.nom, ape:p.ape, s:p.s, b:p.b, tel:p.tel, tel2:p.tel2, mail:p.mail, dir:p.dir, sector:p.sector, mun:p.mun, ocup:p.ocup, sangre:p.sangre, ant:[...p.ant], meds:p.meds, alerg:p.alerg,
+  emer:p.emer?p.emer.n:'', emerPar:p.emer?p.emer.par:'', emerTel:p.emer?p.emer.tel:'', repN:p.rep?p.rep.n:'', repCi:p.rep?p.rep.ci:'', repPar:p.rep?p.rep.par:'', repTel:p.rep?p.rep.tel:'', seg:p.seg, orig:p.orig});
+const blankDraft = ci => ({ci, nom:'', ape:'', s:'', b:'', tel:'', tel2:'', mail:'', dir:'', sector:'', mun:'Andrés Bello', ocup:'', sangre:'No sabe', ant:[], meds:'', alerg:'', emer:'', emerPar:'', emerTel:'', repN:'', repCi:'', repPar:'', repTel:'', seg:'Particular', orig:''});
+function patForm(d, edit){
+  return `<div class="pform">
+    <div class="row"><b>${edit ? 'Actualizar datos de '+esc(d.nom+' '+d.ape) : esc(d.ci)+' no está registrado: llena su ficha una sola vez'}</b><span class="spacer"></span><span class="small muted">* obligatorio</span></div>
+    <h3 class="fsec">Identificación</h3>
+    <div class="fgrid">${fi('ci','Cédula *',d.ci)}${fi('nom','Nombres *',d.nom,'autocomplete="off"')}${fi('ape','Apellidos *',d.ape,'autocomplete="off"')}
+      ${fsel('s','Sexo *',d.s,[['','Escoge…'],['F','Femenino'],['M','Masculino']])}${fi('b','Fecha de nacimiento *',d.b,'type="date"')}${fi('ocup','Ocupación',d.ocup)}</div>
+    <h3 class="fsec">Contacto</h3>
+    <div class="fgrid">${fi('tel','Teléfono con WhatsApp *',d.tel,'inputmode="tel" placeholder="0414-0000000"')}${fi('tel2','Otro teléfono',d.tel2,'inputmode="tel"')}${fi('mail','Correo',d.mail,'type="email"')}
+      ${fi('dir','Dirección',d.dir,'placeholder="Calle, casa o una referencia"')}${fi('sector','Sector o caserío',d.sector)}${fsel('mun','Municipio',d.mun,MUNIS)}</div>
+    <h3 class="fsec">Salud</h3>
+    <div class="fgrid">${fsel('sangre','Tipo de sangre',d.sangre,SANGRE)}${fi('meds','Medicamentos que toma',d.meds,'placeholder="Nombre y dosis, o ninguno"')}${fi('alerg','Alergias',d.alerg,'placeholder="Medicamentos, látex, yodo… o ninguna"')}</div>
+    <div class="grid" style="gap:4px"><span class="small" style="font-weight:600;color:var(--tinta-3)">Antecedentes: marca los que tenga</span>
+      <div class="chks">${ANTS.map(a=>`<label class="chk"><input type="checkbox" data-pfa="${a}" ${d.ant.includes(a)?'checked':''}>${a}</label>`).join('')}</div></div>
+    <h3 class="fsec">Contacto de emergencia</h3>
+    <div class="fgrid">${fi('emer','Nombre',d.emer)}${fi('emerPar','Parentesco',d.emerPar,'placeholder="Esposa, hijo…"')}${fi('emerTel','Teléfono',d.emerTel,'inputmode="tel"')}</div>
+    <h3 class="fsec">Representante <span>· obligatorio si es menor de 18 años</span></h3>
+    <div class="fgrid">${fi('repN','Nombre',d.repN)}${fi('repCi','Cédula',d.repCi)}${fi('repPar','Parentesco',d.repPar,'placeholder="Madre, padre…"')}${fi('repTel','Teléfono',d.repTel,'inputmode="tel"')}</div>
+    <h3 class="fsec">Administración</h3>
+    <div class="fgrid">${fsel('seg','Seguro o convenio',d.seg,SEGUROS)}${fsel('orig','¿Cómo supo de nosotros?',d.orig,ORIGEN)}</div>
+    <div class="row"><button class="btn primary" data-act="psave">${ic('check')}${edit?'Guardar cambios':'Guardar paciente'}</button><button class="btn" data-act="pcancel">Cancelar</button></div>
+  </div>`;
+}
+
+/* ---------- Atender paciente ---------- */
+function patBox(){
+  const o = S.ord;
+  if (o.draft) return patForm(o.draft, !!o.edit);
+  if (o.pat) return patCard(patBy(o.pat), true);
+  return `<div class="row" style="flex-wrap:nowrap;gap:8px"><select id="doct" class="input" style="width:72px;flex:none" aria-label="Tipo de documento"><option>V</option><option>E</option></select>
+    <div class="search" style="flex:1">${ic('search')}<input id="ci" class="input" placeholder="Cédula: 4321987" inputmode="numeric" aria-label="Cédula del paciente"></div><button class="btn primary" data-act="pbuscar">Buscar</button></div>
+    <p class="small muted">Prueba con 4321987 (ya es paciente) o con cualquier otra cédula (paciente nuevo). Niño sin cédula: la del representante seguida de -1, -2…</p>`;
+}
+function visitBox(){
+  const o = S.ord, p = o.pat && patBy(o.pat); if (!p) return '';
+  const v = o.vis, age = ageOf(p.b), fem = p.s==='F' && age>=10 && age<=55;
+  const vf = (k, l, at='') => `<div class="field"><label for="vis-${k}">${l}</label><input id="vis-${k}" class="input" data-vis="${k}" value="${esc(v[k])}" ${at}></div>`;
+  return `<section class="panel"><div class="hd"><h2>2 · Datos de esta visita</h2><span class="small muted">Se pregunta cada vez que viene</span></div><div class="bd" style="display:grid;gap:10px">
+    <div class="fgrid">${fsel('ay','¿Cuántas horas de ayuno?',v.ay,['',...AYUNO],'vis')}${vf('medsHoy','Medicamentos que tomó hoy',`placeholder="${esc(p.meds||'Ninguno')}"`)}
+      <div class="field"><label for="med">Médico que lo refiere</label><select id="med" class="input">${MEDICOS.map((m,i)=>`<option value="${i}" ${o.med==i?'selected':''}>${m}</option>`).join('')}</select></div>
+      ${fem ? fsel('emb','¿Está embarazada?',v.emb,['','No','Sí','No sabe'],'vis') + vf('fur','Fecha de última regla (FUR)','type="date"') : ''}
+      ${vf('dx','Motivo o diagnóstico del médico','placeholder="Lo que dice la orden médica"')}${vf('obs','Observaciones','placeholder="Ej.: comió a las 5:00"')}</div>
+    <label class="row small" style="gap:8px;cursor:pointer"><input type="checkbox" id="urg" ${o.urg?'checked':''} style="width:18px;height:18px"> Urgente: pasa primero en la sala y en el área técnica</label>
+  </div></section>`;
+}
+function ordBox(){
+  const o = S.ord, t = ordTotal(), p = o.pat && patBy(o.pat), fake = {items:o.items};
+  const hrs = o.items.length ? exOf(fake).map(c=>exBy(c).h) : [];
+  const ent = hrs.includes('24 horas') ? 'Mañana después de las 10:00' : hrs.includes('Mismo día') ? 'Hoy después de las 14:00' : hrs.length ? 'Hoy en unas 2 horas' : '—';
+  const needAy = o.items.length && ayunoOf(fake);
+  return `<section class="panel cart"><div class="hd"><h2>Orden nueva</h2><span class="muted">${nextN()}</span></div>
+    ${p ? `<div style="padding:10px 16px 12px;border-bottom:1px dashed var(--renglon);display:grid;gap:6px"><b>${p.n}</b><span class="small muted num">${p.ci} · ${ageOf(p.b)} años · ${p.s} · ${medTxt(o.med)}</span>${alertsH(p, o.vis, needAy)}</div>` : ''}
+    ${o.items.length ? `<div class="items">${o.items.map((it,i)=>{ const pf = it.k==='perf' ? perfBy(it.c) : null; const e = pf ? null : exBy(it.c);
+      return `<div class="ci"><div><div class="nm">${pf?pf.n:e.n}</div><div class="sub">${pf?`Perfil: ${pf.ex.join(' · ')}`:`${e.a} · ${TUBOS[e.t].n}`}</div></div>
+      <div style="display:grid;justify-items:end;gap:4px"><b class="num">${usd(pf?pf.p:e.p)}</b><button class="x" style="width:34px;height:34px" data-act="rmit" data-i="${i}" aria-label="Quitar">${ic('x')}</button></div></div>`; }).join('')}</div>`
+      : '<div class="empty"><b>Sin exámenes todavía</b><span>Toca un perfil o un examen para agregarlo.</span></div>'}
+    ${o.items.length ? `<div class="tot">
+      <div class="ln"><span>Servicios exentos de IVA (E)</span><span>${usd(t)}</span></div>
+      <div class="ln"><span>Equivale a</span><span>${bs(t*S.rate)}</span></div>
+      <div class="ln grand"><span>Total</span><span>${usd(t)}</span></div>
+      <div class="ln small muted"><span>Entrega estimada</span><span style="font-family:var(--font-forma)">${ent}</span></div></div>` : ''}
+    <div style="padding:12px 16px 4px"><button class="btn primary big" data-act="cobrar" ${o.items.length&&p?'':'disabled'}>${ic('receipt')}Cobrar y crear orden</button>
+    ${!p ? '<p class="small muted" style="margin-top:6px;text-align:center">Primero busca o registra al paciente.</p>' : !o.items.length ? '<p class="small muted" style="margin-top:6px;text-align:center">Agrega los exámenes que trae en la orden.</p>' : ''}</div></section>`;
+}
+V.recepcion = () => `<div class="rolebar">${ic('clip')}<span><b>Sin cita: se atiende por orden de llegada.</b> 1) Cédula y ficha · 2) Datos de esta visita · 3) Exámenes · 4) Cobrar, y el paciente pasa a la sala.</span></div>
+  <div class="pos"><div class="grid" style="gap:16px">
+    <section class="panel"><div class="hd"><h2>1 · Paciente</h2><span class="small muted">Se busca por cédula</span></div><div class="bd" id="patbox" style="display:grid;gap:8px">${patBox()}</div></section>
+    <div id="visbox">${visitBox()}</div>
+    <section class="panel"><div class="hd"><h2>3 · Exámenes</h2><span class="small muted">Perfiles con precio especial o exámenes sueltos</span></div><div class="bd" style="display:grid;gap:14px">
+      <div class="perfs">${PERF.map(p=>`<button class="perf" data-act="addperf" data-c="${p.c}"><b>${p.n}</b><span class="cods">${p.ex.join(' · ')}</span><span class="pr"><b>${usd(p.p)}</b><s>${usd(sumEx(p.ex))}</s></span></button>`).join('')}</div>
+      <div class="search">${ic('search')}<input id="q" class="input" placeholder="Buscar examen: hematología, TSH, orina…" value="${esc(S.q)}" aria-label="Buscar examen"></div>
+      <div class="cats">${AREAS.map(a=>`<button data-act="area" data-c="${a}" class="${S.area===a?'on':''}">${a}</button>`).join('')}</div>
+      <div class="prods" id="exgrid">${exGrid()}</div></div></section>
+  </div>
+  <div id="ordbox">${ordBox()}</div></div>`;
+function rerenderRec(){
+  const pb = $('#patbox'); if (pb) pb.innerHTML = patBox();
+  const vb = $('#visbox'); if (vb) vb.innerHTML = visitBox();
+  const g = $('#exgrid'); if (g) g.innerHTML = exGrid();
+  const ob = $('#ordbox'); if (ob) ob.innerHTML = ordBox();
+  stampFolios();
+}
+
+/* ---------- Contexto clínico para el área técnica ---------- */
+function ordHead(o){ const p = patBy(o.pat), v = o.vis || {};
+  return `<div class="pipe"><div><span>Paciente</span><b>${p.n}</b></div><div><span>Edad y sexo</span><b>${ageOf(p.b)} años · ${p.s}</b></div><div><span>Orden</span><b class="num">${o.n}</b></div><div><span>Médico</span><b>${medTxt(o.med)}</b></div><div><span>Toma</span><b class="num">${o.toma||'—'}</b></div></div>
+  <div class="pipe"><div><span>Ayuno</span><b>${v.ay||'No indicado'}</b></div><div><span>Tomó hoy</span><b>${v.medsHoy||'Nada'}</b></div><div><span>Toma siempre</span><b>${p.meds||'Nada'}</b></div><div><span>Antecedentes</span><b>${p.ant.join(', ')||'Ninguno'}</b></div><div><span>Motivo</span><b>${v.dx||'—'}</b></div></div>
+  ${alertsH(p, v, ayunoOf(o))}`; }
+
+/* ---------- Pacientes ---------- */
+V.pacientes = () => {
+  const p = patBy(S.pat), os = ORD.filter(o=>o.pat===p.id), h = HIST[p.id]||{}, keys = Object.keys(h);
+  const visits = x => (HIST[x.id] ? Math.max(...Object.values(HIST[x.id]).map(a=>a.length)) : 0) + ORD.filter(o=>o.pat===x.id).length;
+  const charts = keys.slice(0,2).map(k => { let pr; EX.forEach(e=>e.ps.forEach(x=>{ if (x.k===k) pr = x; }));
+    const pts = h[k].map(([dt,v])=>[dt.slice(0,5)+'-'+dt.slice(8), v, !!flagOf(pr,v,p.s)]);
+    const cur = os.find(o=>o.res[k]!==undefined && o.st!=='En proceso'); if (cur) pts.push(['Hoy', cur.res[k], !!flagOf(pr,cur.res[k],p.s)]);
+    return `<div style="display:grid;gap:4px"><b>${pr.n} <span class="small muted">(${pr.u} · franja verde = referencia)</span></b>${spark(pts, refOf(pr,p.s), pr.d||0, pr.u)}</div>`; }).join('');
+  const old = [...new Set(keys.flatMap(k=>h[k].map(x=>x[0])))].sort((a,b)=>b.split('-').reverse().join().localeCompare(a.split('-').reverse().join()));
+  return `<p class="lead">La ficha se llena una sola vez y se actualiza cuando el paciente vuelve. Sus resultados quedan guardados y el bioanalista ve cómo van cambiando de una visita a otra.</p>
+  <section class="panel"><div class="hd"><h2>Pacientes</h2><span class="small muted">${PATS.length} registrados · toca uno para ver su ficha</span></div><div class="bd flush tbl-wrap"><table><thead><tr><th>Cédula</th><th>Nombre</th><th class="r">Edad</th><th>Sexo</th><th>Teléfono</th><th>Municipio</th><th>Seguro</th><th class="r">Visitas</th><th>Hoy</th></tr></thead>
+    <tbody>${PATS.map(x=>{ const o = ORD.find(y=>y.pat===x.id);
+      return `<tr data-act="patsel" data-p="${x.id}" style="cursor:pointer${x.id===S.pat?';background:var(--acento-suave)':''}"><td class="num">${x.ci}</td><td><b>${x.n}</b>${x.alerg?' <span class="flag h">Alergia</span>':''}</td><td class="r">${ageOf(x.b)}</td><td>${x.s}</td><td class="num">${x.tel}</td><td>${x.mun}</td><td class="small">${x.seg.replace(' (convenio)','')}</td><td class="r">${visits(x)}</td><td>${o?stPill(o.st):''}</td></tr>`; }).join('')}</tbody></table></div></section>
+  <div class="grid g-dash">
+    <div class="grid" style="gap:20px;align-content:start">
+      <section class="panel"><div class="hd"><h2>Ficha de ${p.n}</h2></div><div class="bd">${S.pform && S.pform.id===p.id ? patForm(S.pform.d, true) : patCard(p, false)}</div></section>
+      <section class="panel"><div class="hd"><h2>Evolución</h2></div><div class="bd" style="display:grid;gap:18px">${charts || '<p class="muted">La gráfica aparece desde la segunda visita.</p>'}</div></section>
+    </div>
+    <section class="panel"><div class="hd"><h2>Historial de visitas</h2><span class="small muted">${p.ci}</span></div><div class="bd flush list">
+      ${os.map(o=>`<div class="it"><div class="t"><b>${HOY} · ${o.n}</b><span class="small muted">${itemsTxt(o)}${o.vis.dx?' · '+o.vis.dx:''}</span></div>${stPill(o.st)}</div>`).join('')}
+      ${old.map(dt=>`<div class="it"><div class="t"><b>${dt}</b><span class="small muted">${keys.filter(k=>h[k].some(x=>x[0]===dt)).map(k=>{let n;EX.forEach(e=>e.ps.forEach(x=>{if(x.k===k)n=x.n;}));return n;}).join(' · ')}</span></div><span class="pill">${ic('check')}Entregado</span></div>`).join('')}
+      ${!os.length && !old.length ? '<div class="it"><span class="muted">Sin visitas todavía.</span></div>' : ''}
+    </div></section>
+  </div>`;
+};
+
+/* ---------- Resumen del día: lo que dicen los datos del paciente ---------- */
+const _dash = V.dashboard;
+V.dashboard = () => { const h = _dash(); if (S.role!=='Dueño') return h;
+  const by = f => { const m = {}; ORD.forEach(o=>{ const k = f(patBy(o.pat)) || 'Sin dato'; m[k] = (m[k]||0)+1; }); return Object.entries(m).sort((a,b)=>b[1]-a[1]); };
+  const bars = rows => { const mx = rows[0][1]; return rows.map(([k,v])=>`<div class="hbar"><span>${k}</span><div class="trk"><div class="fill" style="width:${v/mx*100}%"></div></div><span class="val">${v} ${v===1?'paciente':'pacientes'}</span></div>`).join(''); };
+  return h + `<div class="grid g2"><section class="panel"><div class="hd"><h2>De dónde vienen los pacientes</h2><span class="small muted">Hoy, por municipio</span></div><div class="bd hbars">${bars(by(p=>p.mun))}</div></section>
+    <section class="panel"><div class="hd"><h2>Cómo supieron de nosotros</h2><span class="small muted">Sirve para saber dónde anunciarse</span></div><div class="bd hbars">${bars(by(p=>p.orig))}</div></section></div>`; };
+
+/* ---------- Eventos de la ficha y la visita ---------- */
+const curDraft = () => S.view==='pacientes' ? (S.pform && S.pform.d) : S.ord.draft;
+const normCi = s => String(s).replace(/^[VE]-?/i,'').replace(/\./g,'');
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const a = b.dataset.act;
+  if (a==='pbuscar'){
+    const raw = ($('#ci').value||'').trim(), [main, suf] = raw.split('-'), dg = (main||'').replace(/\D/g,'');
+    if (!dg) { toast('Escribe la cédula'); $('#ci').focus(); return; }
+    const ci = $('#doct').value + '-' + dg.replace(/\B(?=(\d{3})+(?!\d))/g,'.') + (suf && suf.replace(/\D/g,'') ? '-'+suf.replace(/\D/g,'') : '');
+    const p = PATS.find(x=>normCi(x.ci)===normCi(ci));
+    if (p) { S.ord.pat = p.id; S.ord.draft = null; toast(`${p.n} ya es paciente: confirma sus datos`); }
+    else { S.ord.draft = blankDraft(ci); S.ord.edit = null; }
+    rerenderRec(); const f = $('#pf-nom') || $('#vis-ay'); f && f.focus(); return;
+  }
+  if (a==='pedit'){ S.ord.draft = draftFrom(patBy(S.ord.pat)); S.ord.edit = S.ord.pat; rerenderRec(); return; }
+  if (a==='pedit2'){ S.pform = {id:b.dataset.p, d:draftFrom(patBy(b.dataset.p))}; render(); return; }
+  if (a==='pcancel'){ if (S.view==='pacientes') { S.pform = null; render(); } else { S.ord.draft = null; S.ord.edit = null; rerenderRec(); } return; }
+  if (a==='patclear'){ S.ord.draft = null; S.ord.edit = null; S.ord.items = []; S.ord.med = 0; S.ord.urg = false; S.ord.vis = blankVis(); return; }
+  if (a==='patsel'){ S.pform = null; return; }
+  if (a==='psave'){
+    const inPac = S.view==='pacientes', d = curDraft(), id = inPac ? S.pform.id : S.ord.edit;
+    const miss = []; if (!d.ci.trim()) miss.push('cédula'); if (!d.nom.trim()) miss.push('nombres'); if (!d.ape.trim()) miss.push('apellidos'); if (!d.s) miss.push('sexo'); if (!d.b) miss.push('fecha de nacimiento'); if (!d.tel.trim()) miss.push('teléfono');
+    if (d.b && ageOf(d.b) < 18 && (!d.repN.trim() || !d.repTel.trim())) miss.push('representante con teléfono (es menor de edad)');
+    if (miss.length) { toast('Falta: ' + miss.join(', ')); return; }
+    const t = s => String(s||'').trim();
+    const data = {ci:t(d.ci), nom:t(d.nom), ape:t(d.ape), n:t(d.nom)+' '+t(d.ape), s:d.s, b:d.b, tel:t(d.tel), tel2:t(d.tel2), mail:t(d.mail), dir:t(d.dir), sector:t(d.sector), mun:d.mun, ocup:t(d.ocup), sangre:d.sangre, ant:[...d.ant], meds:t(d.meds), alerg:/^ningun/i.test(t(d.alerg))?'':t(d.alerg),
+      emer: t(d.emer) ? {n:t(d.emer), par:t(d.emerPar)||'—', tel:t(d.emerTel)||'—'} : null, rep: t(d.repN) ? {n:t(d.repN), ci:t(d.repCi)||'—', par:t(d.repPar)||'Representante', tel:t(d.repTel)} : null, seg:d.seg, orig:d.orig};
+    if (id) { Object.assign(patBy(id), data); toast('Ficha actualizada'); }
+    else { const nid = 'P' + (PATS.length+1); PATS.push(Object.assign({id:nid, alta:HOY}, data)); S.ord.pat = nid; toast(`${data.n} quedó registrado. La próxima vez aparece con solo poner la cédula`); }
+    if (inPac) { S.pform = null; render(); } else { S.ord.draft = null; S.ord.edit = null; rerenderRec(); const f = $('#vis-ay'); f && f.focus(); }
+    return;
+  }
+});
+function refreshOrd(){ const ob = $('#ordbox'); if (ob) { ob.innerHTML = ordBox(); stampFolios(); } }
+document.addEventListener('input', e => {
+  const t = e.target;
+  if (t.dataset.pf !== undefined) { const d = curDraft(); if (d) d[t.dataset.pf] = t.value; }
+  if (t.dataset.vis !== undefined) S.ord.vis[t.dataset.vis] = t.value;
+});
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset.pf !== undefined) { const d = curDraft(); if (d) d[t.dataset.pf] = t.value; }
+  if (t.dataset.pfa !== undefined) { const d = curDraft(); if (!d) return; const k = t.dataset.pfa; d.ant = t.checked ? [...new Set([...d.ant, k])] : d.ant.filter(x=>x!==k); }
+  if (t.dataset.vis !== undefined) { S.ord.vis[t.dataset.vis] = t.value; refreshOrd(); }
+  if (t.id==='med') { S.ord.med = +t.value; refreshOrd(); }
+  if (t.id==='urg') S.ord.urg = t.checked;
+});
 /* ======================= Arranque y eventos ======================= */
 function render(){
   $('#app').innerHTML = S.view==='login' ? V.login() : shell(V[S.view]());
   if (S.view!=='login') stampFolios();
 }
-function rerenderRec(){ const pb = $('#patbox'); if (pb) pb.innerHTML = patBox(); const g = $('#exgrid'); if (g) g.innerHTML = exGrid(); const ob = $('#ordbox'); if (ob) { ob.innerHTML = ordBox(); stampFolios(); } }
 function openModal(html){ const m = $('#modal'); m.innerHTML = html; m.hidden = false; const f = m.querySelector('button,input'); f && f.focus(); }
 function closeModal(){ const m = $('#modal'); m.hidden = true; m.innerHTML = ''; }
 let tt; function toast(msg){ const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(tt); tt = setTimeout(()=>t.hidden = true, 2800); }
-function go(v){ if (v!=='login' && !can(v)) { toast('Tu usuario no tiene acceso a esa sección'); v = 'dashboard'; } S.view = v; S.sidebar = false; render(); window.scrollTo(0,0); }
+function go(v){ if (v!=='login' && !can(v)) { toast('Tu usuario no tiene acceso a esa sección'); v = HOME[S.role]; } S.view = v; S.sidebar = false; render(); window.scrollTo(0,0); }
 const nextN = () => 'L-' + String(Math.max(...ORD.map(o=>+o.n.slice(2)))+1).padStart(4,'0');
 function waModal(o){ const p = patBy(o.pat);
   return `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="wt" style="max-width:460px"><div class="hd"><h2 id="wt">Enviar por WhatsApp</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div>
@@ -1273,9 +1546,9 @@ document.addEventListener('click', e => {
     case 'cobrar': S.pay = null; openModal(payModal()); break;
     case 'pm': S.pay = b.dataset.k; openModal(payModal()); break;
     case 'emit': { const fac = String(S.inv).padStart(8,'0'); const cont = !S.online; const ce = $('#contnum');
-      const no = {n:nextN(), pat:S.ord.pat, items:S.ord.items.slice(), st:'Por tomar', t:nowT(), med:+S.ord.med, urg:S.ord.urg, by:S.user, pay:S.pay, usd:ordTotal(), fac, ctrl: cont ? ((ce&&ce.value.trim())||'00-'+String(S.cont).padStart(7,'0')) : '00-'+fac, cont, res:{}};
+      const no = {n:nextN(), pat:S.ord.pat, items:S.ord.items.slice(), st:'Por tomar', t:nowT(), med:+S.ord.med, urg:S.ord.urg, vis:{...S.ord.vis}, by:S.user, pay:S.pay, usd:ordTotal(), fac, ctrl: cont ? ((ce&&ce.value.trim())||'00-'+String(S.cont).padStart(7,'0')) : '00-'+fac, cont, res:{}};
       if (cont) { S.cont++; S.queue.push(no.n); }
-      ORD.push(no); S.inv++; S.ord = {pat:null, newPat:null, items:[], med:0, urg:false}; S.q = '';
+      ORD.push(no); S.inv++; S.ord = newOrd(); S.q = '';
       render(); openModal(ticketModal(no)); break; }
     case 'close': closeModal(); break;
     case 'etq': openModal(`<div class="sheet" style="max-width:520px"><div class="hd"><h2>Etiquetas de ${o.n}</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div><div class="bd">${etiquetas(o)}<button class="btn primary" data-act="toast" data-m="Etiquetas enviadas a la impresora">${ic('printer')}Imprimir</button></div></div>`); break;
@@ -1317,7 +1590,7 @@ document.addEventListener('change', e => {
   if (e.target.id==='urg') S.ord.urg = e.target.checked;
   if (e.target.dataset.res!==undefined && e.target.tagName==='SELECT') updFlag(e.target);
 });
-document.addEventListener('submit', e => { if (e.target.id==='loginForm'){ e.preventDefault(); go('dashboard'); if (!S.online) toast(`Sesión abierta sin internet con PIN · ${S.user}`); } });
+document.addEventListener('submit', e => { if (e.target.id==='loginForm'){ e.preventDefault(); go(HOME[S.role]); if (!S.online) toast(`Sesión abierta sin internet con PIN · ${S.user}`); } });
 document.addEventListener('keydown', e => { if (e.key==='Escape' && !$('#modal').hidden) closeModal(); if (e.key==='Enter' && e.target.id==='ci'){ e.preventDefault(); document.querySelector('[data-act="buscar"]').click(); } });
 (function init(){
   const h = (location.hash||'').slice(1);
