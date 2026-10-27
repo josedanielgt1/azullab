@@ -695,13 +695,13 @@ const ROLES = {
                  desc:'Ve todo: órdenes, ingresos por día y por usuario, fiscal, reactivos, usuarios y la fase 2.'},
   'Bioanalista':{user:'Lcda. Mariangel Rivas', login:'bioanalista', puesto:'Área técnica', views:['dashboard','muestras','resultados','validacion','entrega','pacientes','catalogo','reactivos','calidad','equipos'],
                  desc:'Carga y valida resultados, firma los informes y lleva reactivos y control de calidad. No ve dinero de caja.'},
-  'Recepción':  {user:'Kevin Albarrán', login:'recepcion', puesto:'Recepción y caja', views:['dashboard','recepcion','entrega','pacientes'],
+  'Atención':   {user:'Kevin Albarrán', login:'atencion', puesto:'Atención y caja', views:['dashboard','recepcion','entrega','pacientes'],
                  desc:'Atiende al que llega: llena la ficha completa del paciente, crea órdenes, cobra con factura y entrega informes ya validados. No carga ni cambia resultados.'},
   'Toma de muestras':{user:'Yusmely Torres', login:'toma', puesto:'Sala de toma', views:['muestras'],
                  desc:'Ve la lista de pacientes por atender, qué tubos sacar, imprime etiquetas y marca las muestras tomadas.'}
 };
 const can = v => ROLES[S.role].views==='all' || ROLES[S.role].views.includes(v);
-const canMoney = () => S.role==='Dueño' || S.role==='Recepción';
+const canMoney = () => S.role==='Dueño' || S.role==='Atención';
 
 /* ======================= Navegación ======================= */
 const NAV = [
@@ -714,7 +714,7 @@ const NAV = [
 ];
 const TITLES = {dashboard:'Resumen del día',recepcion:'Atender paciente',muestras:'Toma de muestras',resultados:'Carga de resultados',validacion:'Validación',entrega:'Entrega de resultados',pacientes:'Pacientes',catalogo:'Exámenes y precios',reactivos:'Reactivos e insumos',caja:'Caja y fiscal',offline:'Modo sin conexión',users:'Usuarios y permisos',portal:'Portal del paciente y WhatsApp',equipos:'Conexión con equipos',convenios:'Seguros y convenios',calidad:'Control de calidad',grupo:'Grupo Azullab',scope:'Alcance de la propuesta'};
 const F2 = ['portal','equipos','convenios','calidad','grupo'];
-const CODE = {dashboard:'TB',recepcion:'OR',muestras:'TM',resultados:'CR',validacion:'VA',entrega:'EN',pacientes:'PA',catalogo:'EX',reactivos:'RI',caja:'CF',offline:'SC',users:'US',portal:'PP',equipos:'EQ',convenios:'SG',calidad:'CC',grupo:'GA',scope:'AL'};
+const CODE = {dashboard:'TB',recepcion:'AP',muestras:'TM',resultados:'CR',validacion:'VA',entrega:'EN',pacientes:'PA',catalogo:'EX',reactivos:'RI',caja:'CF',offline:'SC',users:'US',portal:'PP',equipos:'EQ',convenios:'SG',calidad:'CC',grupo:'GA',scope:'AL'};
 const folio = v => CODE[v] + '-' + String(Object.keys(CODE).indexOf(v)+1).padStart(2,'0');
 const DOCS = /^(Orden nueva|Informe de resultados|Cierre de caja|Libro de ventas)/;
 function stampFolios(){
@@ -725,13 +725,13 @@ function stampFolios(){
     if (DOCS.test(h.textContent.replace(/^Folio \S+/,'').trim())) p.classList.add('doc');
   });
 }
-const mine = () => S.role==='Recepción' && S.view==='dashboard';
+const mine = () => S.role==='Atención' && S.view==='dashboard';
 function shell(inner){
   const nav = NAV.map(g => { const its = g.items.filter(([,v])=>can(v)); if (!its.length) return '';
     return `<div class="grp"><span>${g.g}</span>${g.f2?'<span class="phase f2">Fase 2</span>':''}</div>` +
-    its.map(([i,v,t]) => `<a href="#${v}" data-act="nav" data-v="${v}" class="${S.view===v?'on':''}">${ic(i)}<span>${v==='dashboard'&&S.role==='Recepción'?'Mi turno':v==='dashboard'&&S.role==='Toma de muestras'?'Mi lista':t}</span><span class="cod">${CODE[v]}</span></a>`).join(''); }).join('');
+    its.map(([i,v,t]) => `<a href="#${v}" data-act="nav" data-v="${v}" class="${S.view===v?'on':''}">${ic(i)}<span>${v==='dashboard'&&S.role==='Atención'?'Mi turno':v==='dashboard'&&S.role==='Toma de muestras'?'Mi lista':t}</span><span class="cod">${CODE[v]}</span></a>`).join(''); }).join('');
   const phase = S.view==='scope' ? '' : F2.includes(S.view) ? '<span class="phase f2">Fase 2</span>' : '<span class="phase f1">Fase 1</span>';
-  const ttl = S.view==='dashboard'&&S.role==='Recepción' ? 'Mi turno' : S.view==='dashboard'&&S.role==='Toma de muestras' ? 'Mi lista de hoy' : TITLES[S.view];
+  const ttl = S.view==='dashboard'&&S.role==='Atención' ? 'Mi turno' : S.view==='dashboard'&&S.role==='Toma de muestras' ? 'Mi lista de hoy' : TITLES[S.view];
   return `<div class="shell">
   <aside class="side ${S.sidebar?'open':''}" aria-label="Menú principal">
     <div class="logo">${LOGO(38)}${WORD()}</div>
@@ -754,7 +754,7 @@ function shell(inner){
     <main class="content" id="content">${inner}</main>
   </div></div>`;
 }
-const offText = () => `<b>Sin internet.</b> Recepción sigue creando órdenes y cobrando con el talonario de contingencia, y el área técnica sigue cargando y validando en la red del laboratorio. ${S.queue.length} ${S.queue.length===1?'orden guardada':'órdenes guardadas'} en este equipo; los informes por WhatsApp salen cuando vuelva la conexión.`;
+const offText = () => `<b>Sin internet.</b> Atención sigue creando órdenes y cobrando con el talonario de contingencia, y el área técnica sigue cargando y validando en la red del laboratorio. ${S.queue.length} ${S.queue.length===1?'orden guardada':'órdenes guardadas'} en este equipo; los informes por WhatsApp salen cuando vuelva la conexión.`;
 
 /* ======================= Piezas comunes ======================= */
 const ST = ['Por tomar','En proceso','Por validar','Validado','Entregado'];
@@ -831,9 +831,9 @@ V.dashboard = () => {
   const c = st => ORD.filter(o=>o.st===st).length;
   const crits = ORD.filter(o=>o.st==='Por validar' && critOf(o).length);
   const reac = REAC.map(r=>({...r, dl:daysTo(r.e), cov:r.q/r.d})).filter(r=>r.dl<=45 || r.cov<=10).sort((a,b)=>Math.min(a.dl,a.cov)-Math.min(b.dl,b.cov));
-  if (S.role==='Recepción'){
+  if (S.role==='Atención'){
     const my = ORD.filter(o=>o.by===S.user), ready = ORD.filter(o=>o.st==='Validado');
-    return `<div class="rolebar">${ic('clip')}<span>Vista de recepción: tus órdenes, lo que cobraste y los informes listos para entregar. Los resultados no se pueden cambiar desde aquí.</span></div>
+    return `<div class="rolebar">${ic('clip')}<span>Vista de atención: tus órdenes, lo que cobraste y los informes listos para entregar. Los resultados no se pueden cambiar desde aquí.</span></div>
     <div class="kpis">
       <div class="kpi hero"><span class="l">Cobrado por ti hoy</span><span class="v num">${usd(my.reduce((a,o)=>a+o.usd,0))}</span><span class="s num">${bs(my.reduce((a,o)=>a+o.usd,0)*S.rate)}</span></div>
       <div class="kpi"><span class="l">Órdenes que creaste</span><span class="v num">${my.length}</span><span class="s">${my.filter(o=>o.items.some(i=>i.k==='perf')).length} con perfil</span></div>
@@ -871,7 +871,7 @@ V.dashboard = () => {
   </div>`;
 };
 
-/* ---------- Recepción ---------- */
+/* ---------- Atender paciente ---------- */
 function patBox(){
   const o = S.ord;
   if (o.pat){ const p = patBy(o.pat); const prev = ORD.filter(x=>x.pat===p.id).length + (HIST[p.id]?1:0);
@@ -987,7 +987,7 @@ V.muestras = () => {
         ${alertsH(p,o.vis,ayunoOf(o))}${o.vis.dx?`<p class="small muted">Motivo: ${o.vis.dx}${o.vis.obs?' · '+o.vis.obs:''}</p>`:''}
         ${o.casa?`<p class="small" style="color:var(--sello-violeta)">${ic('alert')} Trae las muestras de casa: revisa que los frascos tengan nombre y que sean de hoy.</p>`:''}
         <div class="row"><button class="btn sm" data-act="etq" data-o="${o.n}">${ic('tag')}Etiquetas</button><button class="btn primary sm" data-act="tomada" data-o="${o.n}">${ic('check')}Muestras tomadas</button></div></div>`; }).join('')
-      : '<div class="empty"><b>No hay pacientes en sala</b><span>Cuando recepción cobre una orden, aparece aquí.</span></div>'}</div></section>
+      : '<div class="empty"><b>No hay pacientes en sala</b><span>Cuando se cobre una orden en Atender paciente, aparece aquí.</span></div>'}</div></section>
   <section class="panel"><div class="hd"><h2>Tomadas hoy</h2></div><div class="bd flush tbl-wrap"><table><thead><tr><th>Orden</th><th>Paciente</th><th>Tubos</th><th>Toma</th><th>Estado</th></tr></thead>
     <tbody>${done.map(o=>`<tr><td class="num">${o.n}</td><td><b>${patBy(o.pat).n}</b></td><td><div class="tubos">${tubesSorted(o).map(t=>`<span class="tubo ${TUBOS[t].f?'frasco':''}" style="--t:${TUBOS[t].c}" title="${TUBOS[t].n}"><i></i></span>`).join('')}</div></td><td class="num">${o.toma}</td><td>${stPill(o.st)}</td></tr>`).join('')}</tbody></table></div></section>`;
 };
@@ -1068,7 +1068,7 @@ V.entrega = () => {
   const list = ORD.filter(o=>o.st==='Validado'||o.st==='Entregado').sort((a,b)=>a.st.localeCompare(b.st)*-1);
   if (!list.find(o=>o.n===S.sel.entrega)) S.sel.entrega = list[0] ? list[0].n : null;
   const o = ordBy(S.sel.entrega);
-  return `<p class="lead">Solo salen informes firmados por el bioanalista. Se imprimen en carta o se mandan en PDF por WhatsApp; recepción los entrega pero no los puede cambiar.</p>
+  return `<p class="lead">Solo salen informes firmados por el bioanalista. Se imprimen en carta o se mandan en PDF por WhatsApp; atención al paciente los entrega pero no los puede cambiar.</p>
   <div class="split"><div>${pickList(list, S.sel.entrega, 'entrega')}</div>
   ${o ? `<div style="display:grid;gap:14px;min-width:0"><div class="row"><button class="btn" data-act="print">${ic('printer')}Imprimir</button><button class="btn" data-act="wa" data-o="${o.n}">${ic('wa')}Enviar por WhatsApp</button><span class="spacer"></span>
     ${o.st==='Validado'?`<button class="btn primary" data-act="entregar" data-o="${o.n}">${ic('check')}Marcar entregado en mano</button>`:`<span class="pill">${ic('check')}Entregado ${o.ent}</span>`}</div>${informe(o)}</div>`
@@ -1164,8 +1164,8 @@ V.caja = () => {
 /* ---------- Sin conexión ---------- */
 V.offline = () => `<p class="lead">En La Azulita se va la luz y el internet. El laboratorio no puede parar: hay pacientes en ayunas esperando.</p>
   <div class="flow">
-    <div class="st"><b>Se va el internet</b><span class="small">El sistema corre en un equipo del laboratorio. Recepción, sala y área técnica siguen conectados por la red interna.</span></div>
-    <div class="st"><b>Recepción sigue cobrando</b><span class="small">Crea órdenes y factura con el talonario autorizado. Las etiquetas salen igual.</span></div>
+    <div class="st"><b>Se va el internet</b><span class="small">El sistema corre en un equipo del laboratorio. Atención, sala y área técnica siguen conectados por la red interna.</span></div>
+    <div class="st"><b>Atención sigue cobrando</b><span class="small">Crea órdenes y factura con el talonario autorizado. Las etiquetas salen igual.</span></div>
     <div class="st"><b>Se sigue procesando</b><span class="small">El bioanalista carga, valida y firma. El informe se imprime en el laboratorio.</span></div>
     <div class="st"><b>Vuelve la conexión</b><span class="small">Se respalda en la nube, se reportan las facturas de contingencia y salen los WhatsApp pendientes.</span></div>
   </div>
@@ -1186,7 +1186,7 @@ V.users = () => {
 };
 
 /* ---------- Fase 2 ---------- */
-V.portal = () => `<p class="lead">El paciente recibe un mensaje cuando su informe está firmado y lo abre desde el teléfono. Menos gente esperando en recepción solo para buscar un papel.</p>
+V.portal = () => `<p class="lead">El paciente recibe un mensaje cuando su informe está firmado y lo abre desde el teléfono. Menos gente esperando en el laboratorio solo para buscar un papel.</p>
   <div class="grid g2"><div style="display:grid;gap:16px;justify-items:center">
     <div class="phone"><div class="ph-top"><div class="row" style="gap:8px">${LOGO(28,true)}<b style="font-size:15px">Azullab Laboratorio</b></div><span style="font-size:13px">Hola, María. Tus resultados</span></div>
       <div style="padding:12px;display:grid;gap:8px;font-size:13px">
@@ -1254,7 +1254,7 @@ const SANGRE = ['No sabe','O +','O −','A +','A −','B +','B −','AB +','AB �
 const SEGUROS = ['Particular','Cooperativa cafetalera (convenio)','Póliza colectiva de salud','Unidad educativa (convenio)'];
 const ORIGEN = ['','Lo mandó su médico','Recomendado por alguien','Farmacia Azullab','Instagram','Pasó por el frente'];
 const AYUNO = ['No está en ayunas','Menos de 8 horas','8 a 12 horas','Más de 12 horas'];
-const HOME = {'Dueño':'recepcion','Recepción':'recepcion','Bioanalista':'resultados','Toma de muestras':'muestras'};
+const HOME = {'Dueño':'recepcion','Atención':'recepcion','Bioanalista':'resultados','Toma de muestras':'muestras'};
 const ANTICO = /warfarina|aspirina|clopidogrel|rivaroxab|apixab|heparina|acenocumarol/i;
 const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
 
@@ -1560,7 +1560,7 @@ document.addEventListener('click', e => {
     case 'aviso': o.aviso = {to: o.med ? medTxt(o.med) : 'El paciente', t: nowT(), by: S.role==='Bioanalista' ? S.user : BIO}; toast('Aviso registrado en la orden'); render(); break;
     case 'repetir': o.st = 'En proceso'; S.sel.resultados = o.n; toast(`${o.n} devuelta: se repite la prueba`); render(); break;
     case 'validar': o.st = 'Validado'; o.val = {by:BIO, t:nowT()}; S.sel.entrega = o.n; render();
-      openModal(`<div class="sheet" style="max-width:420px"><div class="hd"><h2>${o.n} firmada</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div><div class="bd" style="justify-items:center;text-align:center"><span class="sello verde grande estampar">Validado<small>${BIO} · ${o.val.t}</small></span><p>El informe de ${patBy(o.pat).n} ya puede entregarse. Recepción lo ve en Entrega de resultados.</p><button class="btn primary" data-act="close">Listo</button></div></div>`); break;
+      openModal(`<div class="sheet" style="max-width:420px"><div class="hd"><h2>${o.n} firmada</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div><div class="bd" style="justify-items:center;text-align:center"><span class="sello verde grande estampar">Validado<small>${BIO} · ${o.val.t}</small></span><p>El informe de ${patBy(o.pat).n} ya puede entregarse. Atención lo ve en Entrega de resultados.</p><button class="btn primary" data-act="close">Listo</button></div></div>`); break;
     case 'print': window.print(); break;
     case 'wa': openModal(waModal(o)); break;
     case 'wasend': closeModal(); if (!S.online) { toast('En cola: sale apenas vuelva el internet'); break; }
