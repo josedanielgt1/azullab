@@ -1,26 +1,40 @@
-# Farmacia con impresora fiscal y tasa BCV automática
+# Impresora fiscal y tasa BCV automática (Grupo Azullab)
 
 Revisado el 28-10-2026. Esto no sustituye al contador ni al distribuidor de la máquina. Lo marcado *confirmar* depende de ellos.
 
-## 1. Por qué la farmacia usa impresora fiscal
+## 1. Por qué el grupo usa impresora fiscal
+
+Los tres negocios (farmacia, laboratorio y CrossFit) facturan con **impresora fiscal**, **una por RIF**:
+
+| Negocio | Impresora (muestra) | Dónde |
+| --- | --- | --- |
+| Farmacia | HKA80, registro `Z7C0012345` | Caja 1 |
+| Laboratorio | HKA80, registro `Z7C0012346` | Atención |
+| CrossFit | HKA80, registro `Z7C0012347` | Recepción del box |
+
+Una máquina tiene grabado en su memoria fiscal **un solo RIF**: no se puede compartir entre negocios aunque estén en el mismo local.
 
 - La **Providencia 0071** (art. 8) obliga a usar máquina fiscal a quien **vende productos farmacéuticos** al consumidor final. Rige hasta el 18-04-2027.
 - La **Providencia SNAT/2026/00093** (G.O. 43.484), que rige desde el 19-04-2027, deja elegir el medio, y la **máquina fiscal sigue siendo válida** (art. 4.2).
 - Las reglas técnicas de la máquina son las de la **Providencia SNAT/2018/0141** (G.O. 41.518), que reemplazó a la 0592.
 
-Con la impresora fiscal la farmacia cumple la norma de hoy y la de abril de 2027, no paga por cada factura y **factura sin internet**, porque la máquina va por cable a la caja.
+El laboratorio y el box no están obligados por la 0071, pero la máquina fiscal es un medio válido para cualquier contribuyente. Usar la misma en los tres simplifica el soporte y el entrenamiento.
+
+Con la impresora fiscal el grupo cumple la norma de hoy y la de abril de 2027, no paga por cada factura y **factura sin internet**, porque la máquina va por cable a la caja.
 
 *Confirmar con el distribuidor:* que se pueda comprar el equipo. En julio de 2026 se informó que el SENIAT había pausado la venta de máquinas nuevas (ver el documento 02).
 
 ## 2. Qué hace el sistema y qué norma cubre
 
-| Exigencia | Qué hace la farmacia en Cuadre |
+Es igual en los tres sistemas (el motor fiscal es común). Los ejemplos son de la farmacia.
+
+| Exigencia | Qué hace Cuadre |
 | --- | --- |
 | Máquina de un modelo homologado, con número de registro y logotipo fiscal **MH** (0141) | Configuración → Datos fiscales: marca, modelo, **número de registro** (ej. `Z7C0012345`) y distribuidor o servicio técnico autorizado. El ticket termina con `MH` y el registro. |
 | El RIF del usuario queda grabado en la memoria fiscal (0141) | El RIF sale de Datos fiscales. Si el RIF cambia, lo tramita el servicio técnico con el SENIAT; el sistema lo advierte. |
 | Factura impresa por la máquina, con número consecutivo, fecha y hora (0071, 0141) | La factura la imprime la impresora. Lleva "SENIAT" arriba, el número, fecha y hora, cliente (RIF o cédula, o "consumidor final"), renglones con (E) o (G), base, IVA, total, formas de pago, la referencia en dólares con la tasa BCV usada, y `MH` con el registro. **No lleva número de control**: ese es de la imprenta. |
 | Notas de crédito y de débito por la misma máquina, citando la factura (0071) | Cada nota tiene su propio número y cita el número de la factura, su fecha y el registro de la máquina que la emitió. Resta o suma en el Reporte Z del día y en el Libro de Ventas. La devolución vuelve al inventario. |
-| **Reporte Z** por cada día de operación, que cierra la jornada (0141) | Botón "Reporte Z" en Facturas y notas, Módulo fiscal y Mi turno. Se hace **una vez al día**; si se intenta otra vez, el sistema dice a qué hora y quién lo hizo. Lleva facturas desde y hasta, cantidad, notas, exento, base, IVA y total neto. |
+| **Reporte Z** por cada día de operación, que cierra la jornada (0141) | Botón "Reporte Z" en Facturas y notas, y además: en la farmacia, en Módulo fiscal y Mi turno; en el laboratorio, en Caja y fiscal; en el CrossFit, en Membresías y pagos. Se hace **una vez al día**; si se intenta otra vez, el sistema dice a qué hora y quién lo hizo. Lleva facturas desde y hasta, cantidad, notas, exento, base, IVA y total neto. |
 | **Reporte X** (lectura sin cierre) | Botón "Reporte X": muestra lo vendido hasta el momento sin cerrar. |
 | Libro de Ventas: facturas con RIF una por una y consumidor final por **Reporte Z** con el registro de la máquina (Reglamento de la Ley del IVA, art. 77) | El Libro de Ventas pone un renglón por día "Reporte Z N.° 0086 · consumidor final", del primer al último número, con el registro de la máquina en la columna "N.° de control o registro de máquina". Las facturas con RIF van aparte. Se exporta a Excel con las columnas de `Libro de Ventas IVA.xlsx`. |
 | **Libro de Control de Reparación y Mantenimiento** en el local (0141) | El libro físico va junto a la máquina. El sistema lleva una copia: instalación, inspecciones y reparaciones, con fecha y técnico. Es un punto del Checklist del SENIAT. |
@@ -39,7 +53,7 @@ Con la impresora fiscal la farmacia cumple la norma de hoy y la de abril de 2027
 
 La maqueta simula la impresora. En producción:
 
-1. La impresora (por ejemplo The Factory HKA80, Bixolon o Aclas, de un modelo homologado) va por USB o serial a la PC de la Caja 1.
+1. Cada impresora (por ejemplo The Factory HKA80, Bixolon o Aclas, de un modelo homologado) va por USB o serial a la PC de su caja: Caja 1 de la farmacia, Atención del laboratorio y recepción del box.
 2. En esa PC corre un **servicio local pequeño** con el SDK o la librería del fabricante (por ejemplo `tfhka` de The Factory). La caja web le manda la factura por `http://localhost`.
 3. El servicio manda los comandos a la impresora y devuelve número de factura, número de Reporte Z y estado (sin papel, tapa abierta, error de memoria).
 4. Cuadre guarda en la nube lo que devolvió la impresora. **Cuadre nunca numera una factura por su cuenta**: el número sale de la memoria fiscal.

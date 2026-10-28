@@ -958,7 +958,7 @@ function shell(inner){
     <main class="content" id="content">${inner}</main>
   </div></div>`;
 }
-const offText = () => `<b>Sin internet.</b> Atención sigue creando órdenes y cobrando con el talonario de contingencia, y el área técnica sigue cargando y validando en la red del laboratorio. ${S.queue.length} ${S.queue.length===1?'orden guardada':'órdenes guardadas'} en este equipo; los informes por WhatsApp salen cuando vuelva la conexión.`;
+const offText = () => `<b>Sin internet.</b> Atención sigue creando órdenes y la impresora fiscal sigue facturando (va por cable), y el área técnica sigue cargando y validando en la red del laboratorio. ${S.queue.length} ${S.queue.length===1?'orden guardada':'órdenes guardadas'} en este equipo; los informes por WhatsApp salen cuando vuelva la conexión.`;
 
 /* ======================= Piezas comunes ======================= */
 const ST = ['Por tomar','En proceso','Por validar','Validado','Entregado'];
@@ -1012,7 +1012,7 @@ V.login = () => `<div class="login">
       <h1>Experiencia, tecnología y comodidad a su alcance.</h1>
       <p>Órdenes con factura, etiquetas con código de barras, resultados con valores de referencia, validación del bioanalista y entrega por WhatsApp. Funciona aunque se vaya el internet.</p>
     </div>
-    <div class="facts"><span>Ficha completa del paciente</span><span>Etiquetas por tubo</span><span>Marca valores fuera de rango</span><span>Firma del bioanalista</span><span>Informe con QR</span></div>
+    <div class="facts"><span>Ficha completa del paciente</span><span>Etiquetas por tubo</span><span>Marca valores fuera de rango</span><span>Firma del bioanalista</span><span>Informe con QR</span><span>Impresora fiscal</span></div>
   </section>
   <section class="formside">
     ${S.online?'':`<div class="aviso-off" role="status">${ic('cloudoff')}<span><b>Amaneció sin internet.</b> Este equipo tiene guardados los pacientes, el catálogo de exámenes y la tasa BCV de ayer. Entra con tu PIN; todo se sincroniza cuando vuelva la conexión.</span></div>`}
@@ -1144,32 +1144,22 @@ function payModal(){
     <div><div class="muted small">${patBy(S.ord.pat).n} · ${S.ord.items.length} ${S.ord.items.length===1?'servicio':'servicios'}</div><div style="font-size:1.6rem;font-weight:700" class="num">${usd(t)}</div><div class="muted num">${bs(t*S.rate)} · tasa ${nf(S.rate)}</div></div>
     <div><div class="small" style="font-weight:700;margin-bottom:6px;color:var(--ink-2)">Forma de pago</div>
       <div class="methods">${METHODS.map(m=>`<button data-act="pm" data-k="${m.k}" style="${S.pay===m.k?'border-color:var(--tinta);box-shadow:inset 0 0 0 2px var(--tinta)':''}"><b>${m.k}</b><small>${m.s}</small></button>`).join('')}</div></div>
-    ${S.online?'':`<div class="field"><label for="contnum">N° de control de la factura de contingencia (talonario)</label><input id="contnum" class="input num" value="${FX.talNext()}"></div>
-    <p class="small" style="color:var(--warn)">Sin internet: llena la factura del talonario con este número. Se reporta a la imprenta cuando vuelva la conexión.</p>`}
-    <button class="btn primary big" data-act="emit" ${S.pay?'':'disabled'}>${ic('receipt')}${S.online?'Emitir factura y crear orden':'Registrar factura de contingencia'}</button>
+    ${FX.mf.ok?'':`<div class="field"><label for="contnum">N° de control preimpreso del formato del talonario</label><input id="contnum" class="input num" value="${FX.talNext()}"></div>
+    <p class="small" style="color:var(--warn)">La impresora fiscal está en falla: llena a mano la factura del talonario de imprenta autorizada con este número de control. El sistema la registra y va una por una en el Libro de Ventas.</p>`}
+    <button class="btn primary big" data-act="emit" ${S.pay?'':'disabled'}>${FX.mf.ok?ic('printer')+'Imprimir factura y crear orden':ic('receipt')+'Registrar factura del talonario'}</button>
+    ${S.online?'':'<p class="small" style="color:var(--warn)">Sin internet: la impresora fiscal factura igual y la orden queda guardada para respaldarla después.</p>'}
   </div></div>`;
 }
 const pad = (a,b,w=32) => { a=String(a); b=String(b); const sp = Math.max(1, w-a.length-b.length); return a + ' '.repeat(sp) + b; };
 const ctr = (s,w=32) => { s=String(s); const l = Math.max(0, Math.floor((w-s.length)/2)); return ' '.repeat(l)+s; };
 function ticketText(o){
-  /* La factura sale del motor fiscal común (FX), con los datos fiscales de Configuración */
-  if (o.doc) return FX.ticketText(FX.byId(o.doc), {head:[pad('ORDEN:', o.n)], foot:['', ctr('RESULTADOS: '+(exOf(o).some(c=>exBy(c).h==='24 horas')?'MANANA 10:00':'HOY 14:00')), ctr('O POR WHATSAPP')]});
-  const r = S.rate, p = patBy(o.pat), L = [];
-  L.push(ctr(up(FX.F.razon)), ctr('RIF '+FX.F.rif), ctr('LABORATORIO CLINICO'), ctr(up(FX.F.dom).slice(0,32)), ctr(FX.F.tel), '');
-  L.push(ctr(o.cont?'FACTURA DE CONTINGENCIA':'FACTURA'), pad('FACTURA N:', o.fac), pad(o.cont?'N CONTROL TALONARIO:':'N DE CONTROL:', o.ctrl));
-  L.push(pad('FECHA: '+HOY, 'HORA: '+o.t), 'C.I.: '+p.ci.replace(/\./g,''), 'NOMBRE: '+up(p.n).slice(0,24), pad('ORDEN:', o.n), '-'.repeat(32));
-  o.items.forEach(it => { const n = it.k==='perf' ? (/^perfil/i.test(perfBy(it.c).n) ? '' : 'PERFIL ')+up(perfBy(it.c).n) : up(exBy(it.c).n); const v = it.k==='perf' ? perfBy(it.c).p : exBy(it.c).p;
-    L.push(n.slice(0,32)); L.push(pad('  1 x '+nf(v*r), nf(v*r)+' (E)')); });
-  L.push('-'.repeat(32), pad('EXENTO (E)', 'Bs '+nf(o.usd*r)), pad('BI G16,00%', 'Bs 0,00'), pad('IVA G16,00%', 'Bs 0,00'));
-  L.push('='.repeat(32), pad('TOTAL', 'Bs '+nf(o.usd*r)), '='.repeat(32), pad(up(o.pay), 'Bs '+nf(o.usd*r)), '', pad('REF. USD', nf(o.usd)), pad('TASA BCV', nf(r)), '');
-  L.push(...(o.cont ? [ctr('SE REPORTA A LA IMPRENTA'), ctr('AL VOLVER LA CONEXION')] : [ctr('IMPRENTA DIGITAL AUTORIZADA'), ctr('POR EL SENIAT'), ctr('VERIFIQUE CON EL CODIGO QR')]));
-  L.push('', ctr('RESULTADOS: '+(exOf(o).some(c=>exBy(c).h==='24 horas')?'MANANA 10:00':'HOY 14:00')), ctr('O POR WHATSAPP'), '', '', '');
-  return L.join('\n');
+  /* La factura la imprime la impresora fiscal (o sale del talonario si falla): el texto viene del motor fiscal común (FX) */
+  return FX.ticketText(FX.byId(o.doc), {head:[pad('ORDEN:', o.n)], foot:['', ctr('RESULTADOS: '+(exOf(o).some(c=>exBy(c).h==='24 horas')?'MANANA 10:00':'HOY 14:00')), ctr('O POR WHATSAPP')]});
 }
 function ticketModal(o){
   return `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="tt" style="max-width:520px"><div class="hd"><h2 id="tt">Orden ${o.n} creada</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div>
   <div class="bd">
-    <p class="envio">${o.cont?ic('clock')+'Factura guardada en este equipo <span class="pill warn">Se reporta al volver internet</span>':ic('check')+`Factura ${o.fac} enviada a la imprenta digital <span class="pill ok">Control ${o.ctrl}</span>`}</p>
+    <p class="envio">${o.cont?ic('alert')+`Impresora fiscal en falla <span class="pill warn">Formato del talonario ${o.ctrl}</span>`:ic('printer')+`Factura ${o.fac} impresa en la ${FX.F.mfModelo} <span class="pill ok">Registro ${o.ctrl}</span>`}</p>
     <div class="printer"></div><div class="tkwrap"><pre class="ticket printing">${ticketText(o)}</pre><span class="sello tk-sello estampar verde">Pagado<small>${o.pay}</small></span></div>
     ${o.doc?`<button class="btn" data-act="fx-ver" data-id="${o.doc}">${ic('receipt')}Ver la factura completa</button>`:''}
     <div style="display:grid;gap:8px"><h3>Etiquetas para los tubos</h3><p class="small muted">Una por tubo, en el orden en que se llenan. Se imprimen en la etiquetadora o en una térmica de 80 mm.</p>${etiquetas(o)}</div>
@@ -1343,7 +1333,7 @@ V.reactivos = () => {
 function cierreText(){
   const r = S.rate, by = {}; ORD.forEach(o=>by[o.pay]=(by[o.pay]||0)+o.usd); const t = ORD.reduce((a,o)=>a+o.usd,0);
   const nc = FX.docs.filter(d=>d.fecha===FX.Y.hoy && d.tipo==='NC'), ncT = nc.reduce((a,d)=>a+d.t.total,0)/r;
-  const L = [ctr(up(FX.F.razon)), ctr('RIF '+FX.F.rif), ctr('LABORATORIO CLINICO'), ctr('CIERRE DE CAJA'), ctr(HOY+'  18:00'), '-'.repeat(32), pad('FACTURAS', ORD.length), pad('DESDE', ORD[0].fac), pad('HASTA', ORD[ORD.length-1].fac), pad('CONTINGENCIA (TALONARIO)', ORD.filter(o=>o.cont).length), pad('NOTAS DE CREDITO', nc.length), '-'.repeat(32)];
+  const L = [ctr(up(FX.F.razon)), ctr('RIF '+FX.F.rif), ctr('LABORATORIO CLINICO'), ctr('CIERRE DE CAJA'), ctr(HOY+'  18:00'), '-'.repeat(32), pad('FACTURAS', ORD.length), pad('DESDE', ORD[0].fac), pad('HASTA', ORD[ORD.length-1].fac), pad('TALONARIO (IMPRESORA EN FALLA)', ORD.filter(o=>o.cont).length), pad('NOTAS DE CREDITO', nc.length), '-'.repeat(32)];
   Object.entries(by).forEach(([k,v])=>L.push(pad(up(k), 'Bs '+nf(v*r))));
   if (nc.length) L.push(pad('MENOS NOTAS DE CREDITO', '-Bs '+nf(ncT*r)));
   L.push('='.repeat(32), pad('TOTAL EXENTO', 'Bs '+nf((t-ncT)*r)), pad('IVA', 'Bs 0,00'), pad('TOTAL', 'Bs '+nf((t-ncT)*r)), pad('REF. USD', nf(t-ncT)), '='.repeat(32), '', ctr('RECIBE: DANIELA UZCATEGUI'), '', '', '');
@@ -1355,18 +1345,19 @@ V.caja = () => {
     <div class="kpi hero"><span class="l">Facturado hoy</span><span class="v num">${usd(t)}</span><span class="s num">${bs(t*r)}</span></div>
     <div class="kpi"><span class="l">Facturas emitidas</span><span class="v num">${ORD.length}</span><span class="s num">${ORD[0].fac} a ${ORD[ORD.length-1].fac}</span></div>
     <div class="kpi"><span class="l">IVA cobrado</span><span class="v num">Bs 0,00</span><span class="s">Servicios exentos</span></div>
-    <div class="kpi"><span class="l">Medio de facturación</span><span class="v" style="font-size:20px;line-height:34px">Imprenta digital</span><span class="s">Talonario si se va el internet</span></div></div>
-  <div class="row"><button class="btn primary" data-act="cierre">${ic('printer')}Cierre de caja del día</button><button class="btn" data-act="nav" data-v="libros">${ic('book')}Libros y declaración del mes</button><button class="btn" data-act="nav" data-v="docs">Facturas y notas</button></div>
-  <section class="panel"><div class="hd"><h2>Libro de ventas · ${HOY}</h2></div><div class="bd flush tbl-wrap"><table><thead><tr><th>Factura</th><th>N° de control</th><th>C.I.</th><th>Paciente</th><th>Pago</th><th class="r">Exento Bs</th><th class="r">IVA Bs</th><th class="r">Total Bs</th></tr></thead>
-    <tbody>${ORD.map(o=>`<tr><td class="num">${o.fac}</td><td class="num">${o.ctrl||'00-'+o.fac}</td><td class="num">${patBy(o.pat).ci}</td><td>${patBy(o.pat).n}</td><td>${o.pay}${o.cont?' <span class="pill warn">Talonario</span>':''}${o.anul?` <span class="pill bad">Anulada · NC ${o.anul}</span>`:''}</td><td class="r">${nf(o.usd*r)}</td><td class="r">0,00</td><td class="r">${nf(o.usd*r)}</td></tr>`).join('')}</tbody>
+    <div class="kpi"><span class="l">Medio de facturación</span><span class="v" style="font-size:20px;line-height:34px">Impresora fiscal</span><span class="s">${FX.F.mfModelo} · ${FX.F.mfSerial}</span></div></div>
+  <div class="row"><button class="btn" data-act="fx-x">${ic('receipt')}Reporte X</button><button class="btn primary" data-act="fx-z">${ic('printer')}Reporte Z (cierre del día)</button><button class="btn" data-act="cierre">${ic('doc')}Cierre de caja por forma de pago</button><button class="btn" data-act="nav" data-v="libros">${ic('book')}Libros y declaración del mes</button><button class="btn" data-act="nav" data-v="docs">Facturas y notas</button></div>
+  <section class="panel"><div class="hd"><h2>Libro de ventas · ${HOY}</h2></div><div class="bd flush tbl-wrap"><table><thead><tr><th>Factura</th><th>Registro o control</th><th>C.I.</th><th>Paciente</th><th>Pago</th><th class="r">Exento Bs</th><th class="r">IVA Bs</th><th class="r">Total Bs</th></tr></thead>
+    <tbody>${ORD.map(o=>`<tr><td class="num">${o.fac}</td><td class="num">${o.ctrl}</td><td class="num">${patBy(o.pat).ci}</td><td>${patBy(o.pat).n}</td><td>${o.pay}${o.cont?' <span class="pill warn">Talonario</span>':''}${o.anul?` <span class="pill bad">Anulada · NC ${o.anul}</span>`:''}</td><td class="r">${nf(o.usd*r)}</td><td class="r">0,00</td><td class="r">${nf(o.usd*r)}</td></tr>`).join('')}</tbody>
     <tfoot><tr><td colspan="5">Total del día</td><td class="r"><span>${nf(t*r)}</span></td><td class="r">0,00</td><td class="r"><span>${nf(t*r)}</span></td></tr></tfoot></table></div>
-    <p class="base-legal">Facturas del día de ${FX.F.razon} (RIF ${FX.F.rif}). El Libro de Ventas del mes, con su propio RIF, está en <b>Libros y declaración</b>: facturas con RIF una por una, consumidor final agrupado por día, contingencia y notas de crédito.</p></section>
+    <p class="base-legal">Facturas del día de ${FX.F.razon} (RIF ${FX.F.rif}). El Libro de Ventas del mes, con su propio RIF, está en <b>Libros y declaración</b>: facturas con RIF una por una, consumidor final por Reporte Z, facturas del talonario y notas de crédito.</p></section>
+  ${FX.mfPanel()}
   <div class="grid g2">
     <section class="panel"><div class="hd"><h2>Por forma de pago</h2></div><div class="bd hbars">${Object.entries(by).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="hbar"><span>${k}</span><div class="trk"><div class="fill" style="width:${v/t*100}%"></div></div><span class="val">${usd(v)}</span></div>`).join('')}</div></section>
     <section class="panel"><div class="hd"><h2>Lo fiscal del laboratorio</h2></div><div class="bd scope"><ul>
       <li>${ic('check')}<span><b>Exentos de IVA.</b> La Ley de IVA exonera los servicios médico-asistenciales; la factura los marca con (E). <i>Confirmar con el contador que aplica a este laboratorio.</i></span></li>
-      <li>${ic('check')}<span><b>Factura por imprenta digital</b>, igual que la farmacia: número de control, QR y PDF por WhatsApp. Sin máquina fiscal.</span></li>
-      <li>${ic('check')}<span><b>Sin internet:</b> talonario autorizado de contingencia; el sistema guarda el número y lo reporta después.</span></li>
+      <li>${ic('check')}<span><b>Factura por impresora fiscal</b>, igual que la farmacia: registro de la máquina y logotipo MH, Reporte X y un Reporte Z por día. Copia por WhatsApp.</span></li>
+      <li>${ic('check')}<span><b>Sin internet</b> factura igual: la impresora va por cable. Solo si la impresora falla se usa el talonario de imprenta autorizada.</span></li>
       <li>${ic('check')}<span><b>Contribuyente especial</b> (IGTF y retenciones): va como módulo aparte si algún día aplica.</span></li></ul></div></section>
   </div>`;
 };
@@ -1375,12 +1366,12 @@ V.caja = () => {
 V.offline = () => `<p class="lead">En La Azulita se va la luz y el internet. El laboratorio no puede parar: hay pacientes en ayunas esperando.</p>
   <div class="flow">
     <div class="st"><b>Se va el internet</b><span class="small">El sistema corre en un equipo del laboratorio. Atención, sala y área técnica siguen conectados por la red interna.</span></div>
-    <div class="st"><b>Atención sigue cobrando</b><span class="small">Crea órdenes y factura con el talonario autorizado. Las etiquetas salen igual.</span></div>
+    <div class="st"><b>Atención sigue cobrando</b><span class="small">Crea órdenes y la impresora fiscal factura igual, porque va por cable. Las etiquetas salen igual.</span></div>
     <div class="st"><b>Se sigue procesando</b><span class="small">El bioanalista carga, valida y firma. El informe se imprime en el laboratorio.</span></div>
-    <div class="st"><b>Vuelve la conexión</b><span class="small">Se respalda en la nube, se reportan las facturas de contingencia y salen los WhatsApp pendientes.</span></div>
+    <div class="st"><b>Vuelve la conexión</b><span class="small">Se respalda en la nube y salen los WhatsApp pendientes.</span></div>
   </div>
   <section class="panel"><div class="hd"><h2>Qué funciona sin internet</h2></div><div class="bd flush tbl-wrap"><table class="matrix"><thead><tr><th>Función</th><th class="c">Con internet</th><th class="c">Sin internet</th></tr></thead><tbody>
-    ${[['Registrar pacientes y crear órdenes',1,1],['Cobrar y facturar','Imprenta digital','Talonario'],['Imprimir etiquetas',1,1],['Cargar, validar y firmar resultados',1,1],['Imprimir el informe',1,1],['Enviar informe por WhatsApp',1,'Al volver'],['Respaldo en la nube',1,'Al volver'],['Ver el tablero desde el teléfono del dueño',1,0]].map(([f,a,b])=>`<tr><td>${f}</td><td class="c">${a===1?'<span class="yes">Sí</span>':a}</td><td class="c">${b===1?'<span class="yes">Sí</span>':b===0?'<span class="no">No</span>':`<span class="pill warn">${b}</span>`}</td></tr>`).join('')}</tbody></table></div></section>
+    ${[['Registrar pacientes y crear órdenes',1,1],['Cobrar y facturar (impresora fiscal)',1,1],['Imprimir etiquetas',1,1],['Cargar, validar y firmar resultados',1,1],['Imprimir el informe',1,1],['Enviar informe por WhatsApp',1,'Al volver'],['Respaldo en la nube',1,'Al volver'],['Ver el tablero desde el teléfono del dueño',1,0]].map(([f,a,b])=>`<tr><td>${f}</td><td class="c">${a===1?'<span class="yes">Sí</span>':a}</td><td class="c">${b===1?'<span class="yes">Sí</span>':b===0?'<span class="no">No</span>':`<span class="pill warn">${b}</span>`}</td></tr>`).join('')}</tbody></table></div></section>
   <div class="row"><button class="btn" data-act="net">${S.online?ic('cloudoff')+'Simular corte de internet':ic('sync')+'Volver a tener internet'}</button></div>`;
 
 /* ---------- Usuarios ---------- */
@@ -1449,7 +1440,7 @@ V.grupo = () => `<p class="lead">La farmacia y el laboratorio son del mismo grup
 V.scope = () => `<p class="lead">Lo que entra en esta propuesta para Azullab Laboratorio Clínico. Mismo sistema y mismo diseño que la farmacia del grupo.</p>
   <div class="grid g2">
     <section class="panel"><div class="hd"><h2>Fase 1 · para arrancar</h2><span class="phase f1">Fase 1</span></div><div class="bd scope"><ul>
-      ${['Ficha completa del paciente: identificación, contacto, antecedentes, medicamentos, alergias, contacto de emergencia y representante','Datos de cada visita: ayuno, medicamentos del día, embarazo y motivo del médico, con avisos para la sala y el bioanalista','Atención sin cita por orden de llegada: perfiles y exámenes sueltos, médico referente y urgencias','Cobro en dólares y bolívares con factura por imprenta digital (servicios exentos)','Etiquetas con código de barras para cada tubo','Lista de la sala de toma con el orden de llenado de tubos','Carga de resultados con marca automática de valores fuera de rango y críticos','Validación del bioanalista con resultado anterior al lado y aviso obligatorio de críticos','Informe en PDF con membrete, firma, sello y QR; impreso o por WhatsApp','Reactivos e insumos con lote, vencimiento y días que alcanzan','Caja, libro de ventas y cierre del día','Usuarios por rol y bitácora que no se puede borrar','Trabaja sin internet en la red del laboratorio'].map(x=>`<li>${ic('check')}<span>${x}</span></li>`).join('')}</ul></div></section>
+      ${['Ficha completa del paciente: identificación, contacto, antecedentes, medicamentos, alergias, contacto de emergencia y representante','Datos de cada visita: ayuno, medicamentos del día, embarazo y motivo del médico, con avisos para la sala y el bioanalista','Atención sin cita por orden de llegada: perfiles y exámenes sueltos, médico referente y urgencias','Cobro en dólares y bolívares con factura por impresora fiscal (servicios exentos)','Etiquetas con código de barras para cada tubo','Lista de la sala de toma con el orden de llenado de tubos','Carga de resultados con marca automática de valores fuera de rango y críticos','Validación del bioanalista con resultado anterior al lado y aviso obligatorio de críticos','Informe en PDF con membrete, firma, sello y QR; impreso o por WhatsApp','Reactivos e insumos con lote, vencimiento y días que alcanzan','Caja, libro de ventas y cierre del día','Usuarios por rol y bitácora que no se puede borrar','Trabaja sin internet en la red del laboratorio'].map(x=>`<li>${ic('check')}<span>${x}</span></li>`).join('')}</ul></div></section>
     <section class="panel"><div class="hd"><h2>Fase 2 · para crecer</h2><span class="phase f2">Fase 2</span></div><div class="bd scope"><ul>
       ${['Portal del paciente y aviso automático por WhatsApp','Conexión directa con los equipos (según marca y modelo)','Seguros y convenios con factura mensual','Control de calidad con Levey-Jennings y Westgard','Grupo Azullab: farmacia y laboratorio en un mismo tablero','Toma de muestras a domicilio con agenda'].map(x=>`<li>${ic('check')}<span>${x}</span></li>`).join('')}</ul></div></section>
   </div>
@@ -1734,7 +1725,7 @@ document.addEventListener('click', e => {
     case 'logout': go('login'); break;
     case 'menu': S.sidebar = !S.sidebar; render(); break;
     case 'net': S.online = !S.online; closeModal();
-      if (S.online){ const n = S.queue.length, k = FX.onNet(); S.queue = []; toast(n||k?`Conexión restablecida · ${n} ${n===1?'orden respaldada':'órdenes respaldadas'}${k?` y ${k} ${k===1?'factura de contingencia reportada':'facturas de contingencia reportadas'} en PDF a la imprenta`:''}`:'Conexión restablecida'); }
+      if (S.online){ const n = S.queue.length; S.queue = []; toast(n?`Conexión restablecida · ${n} ${n===1?'orden respaldada':'órdenes respaldadas'} en la nube`:'Conexión restablecida'); }
       else toast('Sin internet: el laboratorio sigue trabajando');
       render(); break;
     case 'open': openOrder(b.dataset.o); break;
@@ -1757,11 +1748,11 @@ document.addEventListener('click', e => {
     case 'cobrar': S.pay = null; openModal(payModal()); break;
     case 'pm': S.pay = b.dataset.k; openModal(payModal()); break;
     case 'emit': { const ce = $('#contnum'), nn = nextN(), pt = patBy(S.ord.pat), usdT = ordTotal(), div = ['Efectivo USD','Zelle'].includes(S.pay) ? usdT : 0;
-      /* La factura la emite el motor fiscal común: número consecutivo del RIF y número de control de la imprenta (o del talonario sin internet) */
+      /* La factura la imprime la impresora fiscal por medio del motor fiscal común; si la impresora falla, se registra la del talonario */
       const doc = FX.emitir({cli:{n:pt.n, id:pt.ci, tel:pt.tel}, ctrl:ce?ce.value:'', tasa:S.rate, div, u:S.user, lines:S.ord.items.map(it=>FX_SYS.itemLine(it, S.rate)), origen:{ord:nn}});
       doc.pagos = div ? [{k:S.pay, usd:div}] : [{k:S.pay, bs:doc.t.total}];
       const no = {n:nn, pat:S.ord.pat, items:S.ord.items.slice(), st:'Por tomar', t:doc.hora, med:+S.ord.med, urg:S.ord.urg, vis:{...S.ord.vis}, by:S.user, pay:S.pay, usd:usdT, fac:doc.num, ctrl:doc.ctrl, cont:doc.cont, doc:doc.id, res:{}};
-      if (doc.cont) S.queue.push(no.n);
+      if (!S.online) S.queue.push(no.n);
       ORD.push(no); S.inv = FX.n.FAC; S.ord = newOrd(); S.q = '';
       render(); openModal(ticketModal(no)); break; }
     case 'close': closeModal(); break;
@@ -1825,10 +1816,13 @@ const FX_SYS = (() => {
     {neg:'CrossFit', razon:'Fitness Lab Evolution, C.A.', rif:'J-XXXXXXXX-2', v:521743.94, iva:71964.69}];
   return {
     negocio:'Azullab Laboratorio', hoy:'2026-10-27',
+    /* El laboratorio factura con impresora fiscal, igual que la farmacia (Providencia SNAT/2018/0141) */
+    medio:'maquina',
     fiscal:{razon:'Grupo Empresarial Azullab, C.A.', rif:'J-50134578-3', dom:'La Azulita, municipio Andrés Bello, estado Mérida', tel:'0424-7535017 / 0424-7723883',
-      impNom:'Imprenta digital por elegir (muestra)', impRif:'J-00000000-0', serie:'00', prov:'SNAT/XXXX/2026 (muestra)', provFecha:'',
+      mfMarca:'The Factory HKA', mfModelo:'HKA80', mfSerial:'Z7C0012346', mfDist:'Distribuidor autorizado en Mérida (muestra)', mfInsp:'2026-09-30', mfCaja:'Atención',
       talNum:'T-0001', talSerie:'01', talDesde:1, talHasta:50, contador:'Por asignar'},
     num:{FAC:1, NC:1, ND:1, ctrl:1},
+    mf:{z:1, x:1, libro:[{f:'30-09-2026', tipo:'Instalación y fiscalización', d:'Se grabó el RIF en la memoria fiscal, se probó la impresora y se puso el precinto', tec:'Distribuidor autorizado en Mérida (muestra)'}]},
     online:() => S.online,
     rate:() => S.rate,
     nav:[{g:'Fiscal', items:[['fxdoc','docs','Facturas y notas'],['book','libros','Libros y declaración'],['chk','checklist','Checklist SENIAT']]},
@@ -1960,7 +1954,10 @@ const FX = (() => {
     if (M.MAQ) { h.clo = h.chi = 0; if (fecha < Y.hoy) h.z = M.mf.z++; } else M.n.ctrl += n;
     M.n.FAC += n; M.hist.push(h); return h;
   };
-  M.zDe = fecha => fecha === Y.hoy ? (M.mf.zHoy ? M.mf.zHoy.n : null) : (M.hist.find(h => h.fecha === fecha && h.z) || {}).z || null;
+  M.zDe = fecha => fecha === Y.hoy ? (M.mf.zHoy ? M.mf.zHoy.n : null) : (M.hist.find(h => h.fecha === fecha && h.z) || {}).z || (M.mf.zDias || {})[fecha] || null;
+  /* Días cerrados que solo tienen facturas sueltas (sin resumen en M.hist): cada uno recibe su Reporte Z, en orden */
+  M.zSeed = () => { if (!M.MAQ) return; M.mf.zDias = {};
+    [...new Set(M.docs.filter(d => d.mf && d.fecha < Y.hoy).map(d => d.fecha))].filter(f => !M.hist.some(h => h.fecha === f && h.z)).sort().forEach(f => { M.mf.zDias[f] = M.mf.z++; }); };
   /* ---------- Notas de crédito y de débito: la factura no se borra ni se edita ---------- */
   M.notasDe = fac => M.docs.filter(x => x.afecta && x.afecta.id === fac.id);
   M.credQ = (fac, i) => M.notasDe(fac).filter(x => x.tipo === 'NC').reduce((a, x) => a + x.lines.filter(l => l.ref === i).reduce((b, l) => b + l.q, 0), 0);
@@ -2480,7 +2477,7 @@ const FX = (() => {
     V.docs = M.vDocs; V.libros = M.vLibros; V.checklist = M.vCheck;
     if (!V.config) V.config = M.cfgView;
     const d0 = V.dashboard; V.dashboard = () => d0() + (S.role === 'Dueño' ? M.ownerPanels() : '');
-    Y.seed(M); if (Y.after) Y.after(M);
+    Y.seed(M); M.zSeed(); if (Y.after) Y.after(M);
     const h = (location.hash || '').slice(1);
     if (['docs', 'libros', 'checklist', 'config'].includes(h) && can(h)) S.view = h;
     render();

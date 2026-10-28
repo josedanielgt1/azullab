@@ -1,5 +1,7 @@
 # Facturación sin máquina fiscal: imprenta digital
 
+> **Decisión del 28-10-2026:** el Grupo Azullab factura con **impresora fiscal** en los tres negocios, no con imprenta digital. Ver `07 - Impresora fiscal y tasa BCV.md`. Este documento queda como estudio de la opción de imprenta digital.
+
 Revisado el 27-10-2026. Esto cambió **la semana pasada**; vuelve a revisar las fuentes antes de cada propuesta.
 
 ---

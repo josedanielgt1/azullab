@@ -970,7 +970,7 @@ function shell(inner){
         ${S.role==='Dueño'?`<button class="chip ${S.online===false?'off':''}" data-act="net" title="Simular corte de internet"><span class="dot"></span>${S.online===false?'Sin conexión':'En línea'}</button>`:''}
       </div>
     </header>
-    ${S.online===false?`<div class="offbar" role="status">${ic('cloudoff')}<span><b>Sin internet.</b> Los cobros siguen con el talonario de contingencia. ${FX.contPend().length} ${FX.contPend().length===1?'factura guardada':'facturas guardadas'} en este equipo; al volver la conexión se reportan en PDF a la imprenta.</span></div>`:''}
+    ${S.online===false?`<div class="offbar" role="status">${ic('cloudoff')}<span><b>Sin internet.</b> Los cobros siguen y la impresora fiscal factura igual, porque va por cable a la recepción. Lo nuevo se respalda en la nube al volver la conexión.</span></div>`:''}
     <main class="content" id="content">${inner}</main>
   </div></div>`;
 }
@@ -1135,7 +1135,7 @@ function fichaModal(id){
 /* ---------- Membresías y pagos ---------- */
 V.pagos = () => {
   const tot = PAGOS.reduce((a,p)=>a+(p.tot??p.usd),0);
-  return `<div class="row"><p class="lead" style="flex:1">Cada pago renueva la membresía sola y sale con su factura por la imprenta digital, con IVA de 16 %.</p><button class="btn primary" data-act="cobrar">${ic('card')}Registrar pago</button></div>
+  return `<div class="row"><p class="lead" style="flex:1">Cada pago renueva la membresía sola y sale con su factura por la impresora fiscal, con IVA de 16 %.</p>${S.role==='Dueño'?`<button class="btn" data-act="fx-x">${ic('receipt')}Reporte X</button><button class="btn" data-act="fx-z">${ic('printer')}Reporte Z</button>`:''}<button class="btn primary" data-act="cobrar">${ic('card')}Registrar pago</button></div>
   <section class="panel"><div class="hd"><h2>Planes y precios</h2><span class="small muted">El dueño los cambia cuando quiera</span></div>
     <div class="bd flush tbl-wrap"><table><thead><tr><th>Plan</th><th class="r">Días</th><th class="r">Precio $</th><th class="r">IVA 16 % $</th><th class="r">Total $</th><th class="r">Total Bs</th><th class="r">Socios</th></tr></thead>
     <tbody>${PLANES.map(p=>`<tr><td><b>${p.n}</b></td><td class="r">${p.d}</td><td class="r">${nf(p.p)}</td><td class="r">${nf(p.p*0.16)}</td><td class="r">${nf(p.p*1.16)}</td><td class="r">${nf(p.p*1.16*RATE)}</td><td class="r">${SOCIOS.filter(s=>s.plan===p.id).length}</td></tr>`).join('')}</tbody></table></div>
@@ -1151,10 +1151,10 @@ function payModal(done){
   const p = S.pay, pl = planBy(p.plan), s = socBy(p.s);
   const pr = FX_SYS.PROD.find(x=>x.id===p.prod), base = pl.p + (pr ? pr.p*(p.pq||1) : 0), iva = Math.round(base*16)/100, tot = Math.round((base+iva)*100)/100;
   if (done) { const d = FX.byId(done.doc);
-    return `<div class="sheet" role="dialog" aria-modal="true" style="max-width:460px"><div class="hd"><h2>${d.cont?'Factura de contingencia':'Factura'} ${d.num}</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div>
-    <div class="bd"><p class="envio">${d.cont?ic('clock')+'Guardada en este equipo <span class="pill warn">Se reporta al volver internet</span>':ic('check')+`Enviada a la imprenta digital <span class="pill ok">Control ${d.ctrl}</span>`}</p>
+    return `<div class="sheet" role="dialog" aria-modal="true" style="max-width:460px"><div class="hd"><h2>${d.cont?'Factura del talonario':'Factura'} ${d.num}</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div>
+    <div class="bd"><p class="envio">${d.cont?ic('alert')+`Impresora fiscal en falla <span class="pill warn">Formato del talonario ${d.ctrl}</span>`:ic('printer')+`Impresa en la ${FX.F.mfModelo} <span class="pill ok">Registro ${d.ctrl}</span>`}</p>
     <div class="printer"></div><div class="tkwrap"><pre class="ticket printing">${FX.ticketText(d, {foot:['', 'PLAN VENCE EL '+fmtDate(s.v)]})}</pre><span class="sello verde tk-sello estampar">PAGADO<small>${HOY}</small></span></div>
-    <p class="small muted" style="margin:0">Su membresía ahora vence el <b class="num">${fmtDate(s.v)}</b>. Le llega la factura en PDF por WhatsApp.</p>
+    <p class="small muted" style="margin:0">Su membresía ahora vence el <b class="num">${fmtDate(s.v)}</b>. Le llega una copia por WhatsApp; el original es el ticket de la impresora fiscal.</p>
     <div class="row"><button class="btn" style="flex:1" data-act="fx-ver" data-id="${d.id}">${ic('receipt')}Ver la factura completa</button><button class="btn primary" style="flex:1" data-act="close">Listo</button></div></div></div>`; }
   return `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="pt" style="max-width:480px"><div class="hd"><h2 id="pt">Registrar pago</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div>
   <div class="bd"><div class="field"><label for="p-s">Socio</label><select id="p-s" class="input">${SOCIOS.map(x=>`<option value="${x.id}" ${x.id===p.s?'selected':''}>${x.n} · ${estado(x)==='Vencida'?'vencida':'vence '+fmtDate(x.v)}</option>`).join('')}</select></div>
@@ -1163,8 +1163,8 @@ function payModal(done){
     <div class="field"><label for="p-pr">Producto (opcional)</label><select id="p-pr" class="input"><option value="">Sin producto</option>${FX_SYS.PROD.map(x=>`<option value="${x.id}" ${x.id===p.prod?'selected':''}>${x.n} · ${usd(x.p)} + IVA</option>`).join('')}</select></div>
     <div class="kpis"><div class="kpi"><span class="l">Base imponible</span><span class="v num">${usd(base)}</span><span class="s num">IVA 16 %: ${usd(iva)}</span></div><div class="kpi hero"><span class="l">A cobrar con IVA</span><span class="v num">${usd(tot)}</span><span class="s num">${bs(tot*RATE)} a tasa BCV</span></div></div>
     ${['Efectivo $','Zelle'].includes(p.met)?`<p class="small" style="margin:0;background:var(--hoja-alt);border:1px dashed var(--linea);border-radius:4px;padding:8px 12px">Pago en divisas: la factura sale en bolívares y muestra los ${usd(tot)} con su equivalente a la tasa BCV del día. <b>IGTF: no se cobra</b>, porque el box es contribuyente ordinario.</p>`:''}
-    ${S.online===false?`<div class="field"><label for="contnum">N° de control de la factura de contingencia (talonario)</label><input id="contnum" class="input num" value="${FX.talNext()}"></div><p class="small" style="margin:0;color:var(--warn)">Sin internet: llena la factura del talonario con este número. Se reporta en PDF a la imprenta al volver la conexión.</p>`:''}
-    <button class="btn primary big" data-act="pagar">${ic('receipt')}${S.online===false?'Registrar factura de contingencia':'Cobrar, facturar y renovar'}</button></div></div>`;
+    ${FX.mf.ok?'':`<div class="field"><label for="contnum">N° de control preimpreso del formato del talonario</label><input id="contnum" class="input num" value="${FX.talNext()}"></div><p class="small" style="margin:0;color:var(--warn)">La impresora fiscal está en falla: llena a mano la factura del talonario de imprenta autorizada con este número de control. Va una por una en el Libro de Ventas.</p>`}
+    <button class="btn primary big" data-act="pagar">${FX.mf.ok?ic('printer')+'Cobrar, imprimir factura y renovar':ic('receipt')+'Registrar factura del talonario'}</button></div></div>`;
 }
 function avisoModal(id){
   const s = socBy(id), d = daysTo(s.v);
@@ -1193,7 +1193,7 @@ V.scope = () => `<section class="panel doc"><div class="hd"><h2>Azullab CrossFit
       <div><div class="fsec">Incluido</div><ul class="pasos" style="margin-top:8px">
         <li>Pizarra del día con ejemplo visual de cada movimiento.</li><li>App web del socio: ve la pizarra, reserva su clase y anota su resultado.</li>
         <li>Registro de socios con contacto de emergencia y lesiones.</li><li>Membresías con vencimiento y aviso por WhatsApp.</li>
-        <li>Cobros en dólares y bolívares a tasa BCV, con factura por imprenta digital e IVA de 16 %.</li><li>Lo fiscal con su propio RIF: notas de crédito, libros, borrador de IVA y checklist del SENIAT.</li><li>Entrada a clase con la cédula y bloqueo de vencidos.</li><li>Usuarios: dueño, coach y socio.</li></ul></div>
+        <li>Cobros en dólares y bolívares a tasa BCV, con factura por impresora fiscal e IVA de 16 %.</li><li>Lo fiscal con su propio RIF: notas de crédito, libros, borrador de IVA y checklist del SENIAT.</li><li>Entrada a clase con la cédula y bloqueo de vencidos.</li><li>Usuarios: dueño, coach y socio.</li></ul></div>
       <div><div class="fsec">Fase 2 · se cotiza aparte</div><ul class="pasos" style="margin-top:8px">
         <li>Videos propios del coach en cada movimiento.</li><li>Marcas personales con gráfica de progreso.</li>
         <li>Avisos automáticos de vencimiento y de clase.</li><li>Entrada con código QR desde el teléfono.</li>
@@ -1304,7 +1304,7 @@ document.addEventListener('click', e => {
     case 'met': S.pay.met = b.dataset.m; openModal(payModal()); break;
     case 'pagar': { const s = socBy(S.pay.s), pl = planBy(S.pay.plan);
       const base = estado(s)==='Vencida' ? '2026-10-27' : s.v, v0 = s.v;
-      /* La factura la emite el motor fiscal común, con IVA de 16 % (imprenta digital, o talonario sin internet) */
+      /* La factura la imprime la impresora fiscal por medio del motor fiscal común, con IVA de 16 % (talonario si la impresora falla) */
       const pr = FX_SYS.PROD.find(x=>x.id===S.pay.prod), lines = [FX_SYS.planLine(pl, base, RATE)];
       if (pr) lines.push({d:pr.n, q:S.pay.pq||1, pu:Math.round(pr.p*RATE*100)/100, a:'G'});
       const totUSD = Math.round((pl.p + (pr?pr.p*(S.pay.pq||1):0))*116)/100, div = ['Efectivo $','Zelle'].includes(S.pay.met) ? totUSD : 0, ce = $('#contnum');
@@ -1383,10 +1383,13 @@ const FX_SYS = (() => {
   const planLine = (pl, desde, rate) => ({d:`${pl.n} · desde el ${desde.split('-').reverse().join('-')}`, q:1, pu:r2(pl.p * rate), a:'G'});
   return {
     negocio:'Azullab CrossFit', hoy:'2026-10-27', ownNet:true,
+    /* El box factura con impresora fiscal, igual que la farmacia y el laboratorio (Providencia SNAT/2018/0141) */
+    medio:'maquina',
     fiscal:{razon:'Fitness Lab Evolution, C.A.', rif:'J-XXXXXXXX-2', dom:'La Azulita, municipio Andrés Bello, estado Mérida (dirección exacta por confirmar)', tel:'0424-XXX-XXXX',
-      impNom:'Imprenta digital por elegir (muestra)', impRif:'J-00000000-0', serie:'00', prov:'SNAT/XXXX/2026 (muestra)', provFecha:'',
+      mfMarca:'The Factory HKA', mfModelo:'HKA80', mfSerial:'Z7C0012347', mfDist:'Distribuidor autorizado en Mérida (muestra)', mfInsp:'2026-09-30', mfCaja:'Recepción del box',
       talNum:'T-0001', talSerie:'01', talDesde:1, talHasta:50, contador:'Por asignar'},
     num:{FAC:1, NC:1, ND:1, ctrl:1},
+    mf:{z:1, x:1, libro:[{f:'30-09-2026', tipo:'Instalación y fiscalización', d:'Se grabó el RIF en la memoria fiscal, se probó la impresora y se puso el precinto', tec:'Distribuidor autorizado en Mérida (muestra)'}]},
     online:() => S.online !== false,
     rate:() => RATE,
     nav:[{g:'Fiscal', before:'Proyecto', items:[['fxdoc','docs','Facturas y notas'],['book','libros','Libros y declaración'],['chk','checklist','Checklist SENIAT']]},
@@ -1511,7 +1514,10 @@ const FX = (() => {
     if (M.MAQ) { h.clo = h.chi = 0; if (fecha < Y.hoy) h.z = M.mf.z++; } else M.n.ctrl += n;
     M.n.FAC += n; M.hist.push(h); return h;
   };
-  M.zDe = fecha => fecha === Y.hoy ? (M.mf.zHoy ? M.mf.zHoy.n : null) : (M.hist.find(h => h.fecha === fecha && h.z) || {}).z || null;
+  M.zDe = fecha => fecha === Y.hoy ? (M.mf.zHoy ? M.mf.zHoy.n : null) : (M.hist.find(h => h.fecha === fecha && h.z) || {}).z || (M.mf.zDias || {})[fecha] || null;
+  /* Días cerrados que solo tienen facturas sueltas (sin resumen en M.hist): cada uno recibe su Reporte Z, en orden */
+  M.zSeed = () => { if (!M.MAQ) return; M.mf.zDias = {};
+    [...new Set(M.docs.filter(d => d.mf && d.fecha < Y.hoy).map(d => d.fecha))].filter(f => !M.hist.some(h => h.fecha === f && h.z)).sort().forEach(f => { M.mf.zDias[f] = M.mf.z++; }); };
   /* ---------- Notas de crédito y de débito: la factura no se borra ni se edita ---------- */
   M.notasDe = fac => M.docs.filter(x => x.afecta && x.afecta.id === fac.id);
   M.credQ = (fac, i) => M.notasDe(fac).filter(x => x.tipo === 'NC').reduce((a, x) => a + x.lines.filter(l => l.ref === i).reduce((b, l) => b + l.q, 0), 0);
@@ -2031,7 +2037,7 @@ const FX = (() => {
     V.docs = M.vDocs; V.libros = M.vLibros; V.checklist = M.vCheck;
     if (!V.config) V.config = M.cfgView;
     const d0 = V.dashboard; V.dashboard = () => d0() + (S.role === 'Dueño' ? M.ownerPanels() : '');
-    Y.seed(M); if (Y.after) Y.after(M);
+    Y.seed(M); M.zSeed(); if (Y.after) Y.after(M);
     const h = (location.hash || '').slice(1);
     if (['docs', 'libros', 'checklist', 'config'].includes(h) && can(h)) S.view = h;
     render();

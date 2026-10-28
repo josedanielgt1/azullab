@@ -3179,7 +3179,10 @@ const FX = (() => {
     if (M.MAQ) { h.clo = h.chi = 0; if (fecha < Y.hoy) h.z = M.mf.z++; } else M.n.ctrl += n;
     M.n.FAC += n; M.hist.push(h); return h;
   };
-  M.zDe = fecha => fecha === Y.hoy ? (M.mf.zHoy ? M.mf.zHoy.n : null) : (M.hist.find(h => h.fecha === fecha && h.z) || {}).z || null;
+  M.zDe = fecha => fecha === Y.hoy ? (M.mf.zHoy ? M.mf.zHoy.n : null) : (M.hist.find(h => h.fecha === fecha && h.z) || {}).z || (M.mf.zDias || {})[fecha] || null;
+  /* Días cerrados que solo tienen facturas sueltas (sin resumen en M.hist): cada uno recibe su Reporte Z, en orden */
+  M.zSeed = () => { if (!M.MAQ) return; M.mf.zDias = {};
+    [...new Set(M.docs.filter(d => d.mf && d.fecha < Y.hoy).map(d => d.fecha))].filter(f => !M.hist.some(h => h.fecha === f && h.z)).sort().forEach(f => { M.mf.zDias[f] = M.mf.z++; }); };
   /* ---------- Notas de crédito y de débito: la factura no se borra ni se edita ---------- */
   M.notasDe = fac => M.docs.filter(x => x.afecta && x.afecta.id === fac.id);
   M.credQ = (fac, i) => M.notasDe(fac).filter(x => x.tipo === 'NC').reduce((a, x) => a + x.lines.filter(l => l.ref === i).reduce((b, l) => b + l.q, 0), 0);
@@ -3699,7 +3702,7 @@ const FX = (() => {
     V.docs = M.vDocs; V.libros = M.vLibros; V.checklist = M.vCheck;
     if (!V.config) V.config = M.cfgView;
     const d0 = V.dashboard; V.dashboard = () => d0() + (S.role === 'Dueño' ? M.ownerPanels() : '');
-    Y.seed(M); if (Y.after) Y.after(M);
+    Y.seed(M); M.zSeed(); if (Y.after) Y.after(M);
     const h = (location.hash || '').slice(1);
     if (['docs', 'libros', 'checklist', 'config'].includes(h) && can(h)) S.view = h;
     render();

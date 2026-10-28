@@ -4,6 +4,8 @@ Esta guía explica qué exige el SENIAT a un comercio como Azullab Farmacia y c�
 
 Revisada el 27-10-2026. Las normas cambian; revisa la sección de fuentes antes de cada propuesta.
 
+> **Decisión del 28-10-2026:** el Grupo Azullab factura con **impresora fiscal** en los tres negocios, no con imprenta digital. Ver `07 - Impresora fiscal y tasa BCV.md`. Este documento queda como estudio de la opción de imprenta digital.
+
 > **Cambio grande en facturación (21-10-2026):** la máquina fiscal deja de ser obligatoria, con la Providencia SNAT/2026/00093, vigente desde el 19-04-2027. La homologación de software fue derogada en agosto de 2026. Todo lo de facturación está en **`02 - Facturación sin máquina fiscal (imprenta digital).md`**. El punto 7 de esta guía ya está actualizado.
 >
 > **Base de Cuadre: contribuyente ordinario.** IGTF, retenciones de IVA y demás obligaciones de contribuyente especial van en un **módulo aparte**. Las retenciones de ISLR sí van en la base, porque las hace toda empresa.
