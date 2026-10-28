@@ -505,6 +505,42 @@ select.res-in{width:auto;min-width:170px;text-align:left;font-family:var(--font-
 .login .brandside::after{content:"";position:absolute;left:0;right:9px;bottom:0;height:6px;background:linear-gradient(90deg,#00d2d6 0 55%,#3233ff 55%)}
 .side .logo img{box-shadow:0 0 0 2px var(--hoja)}
 .informe .memb{flex-wrap:nowrap}.informe .memb .dat{flex:none}@media (max-width:640px){.informe .memb{flex-wrap:wrap}}
+/* ---------- Teléfono (hasta 600 px): título completo, sin desbordarse de lado, toques de 44 px. El escritorio no cambia ---------- */
+@media (max-width:600px){
+  .top{display:grid;grid-template-columns:44px minmax(0,1fr);align-items:center;gap:8px 12px;padding-block:10px 6px}
+  .top .ttl{gap:4px 10px;align-items:center}
+  .top .ttl h1{white-space:normal;overflow:visible;font-size:21px;line-height:1.2}
+  .top .chips{grid-column:1/-1;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:2px 16px 4px;-webkit-mask:linear-gradient(90deg,transparent 0,#000 14px,#000 calc(100% - 28px),transparent);mask:linear-gradient(90deg,transparent 0,#000 14px,#000 calc(100% - 28px),transparent)}
+  .top .chips::-webkit-scrollbar{display:none}
+  .top .chips .chip{flex:none;min-height:44px}
+  .top .chips .hide-sm{display:inline-flex}
+  .content{gap:16px;grid-template-columns:minmax(0,1fr);padding-bottom:calc(32px + env(safe-area-inset-bottom,0px))}
+  .content>*{min-width:0}
+  .kpis,.kpis.k3{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpi{padding:10px 12px}
+  .kpi .v,.kpis.k3 .v{font-size:19px;line-height:25px}
+  .kpi.hero{grid-column:1/-1}.kpi.hero .v{font-size:26px;line-height:32px}
+  .kpis:has(>.kpi.hero:first-child)>.kpi:last-child:nth-child(even),.kpis:not(:has(>.kpi.hero))>.kpi:last-child:nth-child(odd){grid-column:1/-1}
+  .cats,.tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-mask:linear-gradient(90deg,#000 calc(100% - 32px),transparent);mask:linear-gradient(90deg,#000 calc(100% - 32px),transparent);padding-right:28px}
+  .cats::-webkit-scrollbar,.tabs::-webkit-scrollbar{display:none}
+  .cats button,.tabs button{min-height:44px;flex:none}
+  .row>.cats{flex:1 1 100%;min-width:0}
+  .btn{min-height:46px}.btn.sm{min-height:44px;padding:0 14px;font-size:14px}
+  .x{min-width:44px;min-height:44px}
+  .input,.cell-in,select,textarea{font-size:16px}
+  .modal{padding:0;align-items:stretch}
+  .sheet{max-width:none!important;height:100%;max-height:100dvh;border-radius:0}
+  .toast{top:calc(10px + env(safe-area-inset-top,0px));bottom:auto;width:max-content;text-align:center}
+  .list .it{flex-wrap:wrap;row-gap:6px}
+  .list .it>:first-child{min-width:0}
+  .list .it>.who{flex:1 1 100%!important}
+  .list .it>.who+.pill{margin-left:44px}
+  .list .it>.btn:last-child{margin-left:auto}
+  .informe{padding:18px 14px 20px;overflow-x:auto}
+  .informe table{font-size:13px}
+  .informe th{white-space:normal;vertical-align:bottom}
+  .informe th,.informe td{padding-left:6px;padding-right:6px}
+}
 </style>
 </head><body>
 <div id="app"></div>
