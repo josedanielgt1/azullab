@@ -948,7 +948,7 @@ function shell(inner){
       <button class="menu-btn" data-act="menu" aria-label="Abrir menú">${ic('menu')}</button>
       <div class="ttl"><h1>${ttl}</h1><span class="folio">Folio ${folio(S.view)} · ${HOY}</span>${phase}</div>
       <div class="chips">
-        ${canMoney()?`<span class="chip num hide-sm" title="Tasa oficial BCV">BCV <b>${nf(S.rate)}</b> Bs/$</span>`:''}
+        ${canMoney()?`<span class="chip num hide-sm" id="bcv" title="${bcvTitle()}">BCV <b>${nf(S.rate)}</b> Bs/$</span>`:''}
         <span class="chip hide-sm" title="Órdenes de hoy">${ic('clip')}<b>${ORD.length}</b> órdenes hoy</span>
         <button class="chip ${S.online?'':'off'}" data-act="net" title="Simular corte de internet"><span class="dot"></span>${S.online?'En línea':'Sin conexión'}</button>
       </div>
@@ -1634,9 +1634,11 @@ V.pacientes = () => {
     return `<div style="display:grid;gap:4px"><b>${pr.n} <span class="small muted">(${pr.u} · franja verde = referencia)</span></b>${spark(pts, refOf(pr,p.s), pr.d||0, pr.u)}</div>`; }).join('');
   const old = [...new Set(keys.flatMap(k=>h[k].map(x=>x[0])))].sort((a,b)=>b.split('-').reverse().join().localeCompare(a.split('-').reverse().join()));
   return `<p class="lead">La ficha se llena una sola vez y se actualiza cuando el paciente vuelve. Sus resultados quedan guardados y el bioanalista ve cómo van cambiando de una visita a otra.</p>
-  <section class="panel"><div class="hd"><h2>Pacientes</h2><span class="small muted">${PATS.length} registrados · toca uno para ver su ficha</span></div><div class="bd flush tbl-wrap"><table><thead><tr><th>Cédula</th><th>Nombre</th><th class="r">Edad</th><th>Sexo</th><th>Teléfono</th><th>Municipio</th><th>Seguro</th><th class="r">Visitas</th><th>Hoy</th></tr></thead>
+  <section class="panel"><div class="hd"><h2>Pacientes</h2><span class="small muted" id="pcount">${pcount(PATS.filter(x=>patHit(x,S.pq)).length)}</span></div>
+    <div class="bd" style="padding-bottom:0"><div class="search">${ic('search')}<input id="pq" class="input" type="search" placeholder="Buscar por nombre, cédula o teléfono" value="${esc(S.pq)}" aria-label="Buscar paciente" autocomplete="off"></div></div>
+    <div class="bd flush tbl-wrap"><table><thead><tr><th>Cédula</th><th>Nombre</th><th class="r">Edad</th><th>Sexo</th><th>Teléfono</th><th>Municipio</th><th>Seguro</th><th class="r">Visitas</th><th>Hoy</th></tr></thead>
     <tbody>${PATS.map(x=>{ const o = ORD.find(y=>y.pat===x.id);
-      return `<tr data-act="patsel" data-p="${x.id}" style="cursor:pointer${x.id===S.pat?';background:var(--acento-suave)':''}"><td class="num">${x.ci}</td><td><b>${x.n}</b>${x.alerg?' <span class="flag h">Alergia</span>':''}</td><td class="r">${ageOf(x.b)}</td><td>${x.s}</td><td class="num">${x.tel}</td><td>${x.mun}</td><td class="small">${x.seg.replace(' (convenio)','')}</td><td class="r">${visits(x)}</td><td>${o?stPill(o.st):''}</td></tr>`; }).join('')}</tbody></table></div></section>
+      return `<tr data-act="patsel" data-p="${x.id}" data-pq="${esc(patKey(x))}" style="cursor:pointer${x.id===S.pat?';background:var(--acento-suave)':''}${patHit(x,S.pq)?'':';display:none'}"><td class="num">${x.ci}</td><td><b>${x.n}</b>${x.alerg?' <span class="flag h">Alergia</span>':''}</td><td class="r">${ageOf(x.b)}</td><td>${x.s}</td><td class="num">${x.tel}</td><td>${x.mun}</td><td class="small">${x.seg.replace(' (convenio)','')}</td><td class="r">${visits(x)}</td><td>${o?stPill(o.st):''}</td></tr>`; }).join('')}<tr id="pnone"${PATS.some(x=>patHit(x,S.pq))?' style="display:none"':''}><td colspan="9"><div class="empty"><b>No hay pacientes con esa búsqueda</b><span>Prueba con la cédula sin puntos o con parte del nombre.</span></div></td></tr></tbody></table></div></section>
   <div class="grid g-dash">
     <div class="grid" style="gap:20px;align-content:start">
       <section class="panel"><div class="hd"><h2>Ficha de ${p.n}</h2></div><div class="bd">${S.pform && S.pform.id===p.id ? patForm(S.pform.d, true) : patCard(p, false)}</div></section>
@@ -1649,6 +1651,40 @@ V.pacientes = () => {
     </div></section>
   </div>`;
 };
+
+/* ---------- Buscador de pacientes ---------- */
+S.pq = '';
+const fold = t => String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+const patKey = x => fold([x.n, x.ci, x.ci.replace(/\D/g,''), x.tel, x.tel.replace(/\D/g,'')].join(' '));
+const patHit = (x, q) => fold(q).split(/\s+/).filter(Boolean).every(w => patKey(x).includes(w));
+const pcount = n => S.pq.trim() ? `${n} de ${PATS.length} pacientes` : `${PATS.length} registrados · toca uno para ver su ficha`;
+document.addEventListener('input', e => {
+  if (e.target.id!=='pq') return;
+  S.pq = e.target.value; const ws = fold(S.pq).split(/\s+/).filter(Boolean); let n = 0;
+  document.querySelectorAll('tr[data-pq]').forEach(tr => { const ok = ws.every(w => tr.dataset.pq.includes(w)); tr.style.display = ok ? '' : 'none'; n += ok; });
+  $('#pnone').style.display = n ? 'none' : ''; $('#pcount').textContent = pcount(n);
+});
+
+/* ---------- Tasa BCV: se actualiza sola ---------- */
+/* Toma la tasa oficial del día al abrir y cada hora. Si no hay internet usa la última guardada en este equipo. */
+const BCV_URL = 'https://ve.dolarapi.com/v1/dolares/oficial';
+S.rateAt = null;
+const bcvTitle = () => S.rateAt ? `Tasa oficial BCV · actualizada ${new Date(S.rateAt).toLocaleString('es-VE',{dateStyle:'short',timeStyle:'short'})}` : 'Tasa oficial BCV';
+const bcvSet = (rate, at) => {
+  if (!(rate > 0) || rate===S.rate && at===S.rateAt) return;
+  S.rate = Math.round(rate*100)/100; S.rateAt = at;
+  const typing = document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+  if (S.view==='login' || typing) { const c = $('#bcv'); if (c) { c.title = bcvTitle(); c.querySelector('b').textContent = nf(S.rate); } }
+  else render();
+};
+try { const c = JSON.parse(localStorage.getItem('azullab.bcv')||'null'); if (c) bcvSet(c.rate, c.at); } catch(_){}
+const bcvFetch = () => fetch(BCV_URL, {cache:'no-store'}).then(r => r.ok ? r.json() : Promise.reject(r.status)).then(j => {
+  const rate = +(j.promedio || j.venta), at = j.fechaActualizacion || new Date().toISOString();
+  if (!(rate > 0)) return;
+  try { localStorage.setItem('azullab.bcv', JSON.stringify({rate, at})); } catch(_){}
+  bcvSet(rate, at);
+}).catch(() => {});
+bcvFetch(); setInterval(bcvFetch, 60*60*1000);
 
 /* ---------- Resumen del día: lo que dicen los datos del paciente ---------- */
 const _dash = V.dashboard;
