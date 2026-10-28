@@ -410,10 +410,20 @@ tbody tr:hover td{background:var(--acento-suave)}
 .login .brandside .facts span::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--neg);box-shadow:0 0 0 3px color-mix(in srgb,var(--neg) 30%,transparent)}
 .login .brandside [style*="--on-acento"]{color:#fff!important}
 .login .brandside::after{content:"";position:absolute;left:0;right:9px;bottom:0;height:6px;z-index:3;background:linear-gradient(90deg,#00d2d6 0 40%,#3233ff 40% 70%,var(--neg) 70%)}
+/* Insignia: aro con turquesa, azul, el color del negocio y su luz; "azullab" ancho y el negocio en su color */
+.insignia{display:flex;align-items:center;gap:12px;min-width:0}
+.insignia .disco{flex:none;display:grid;place-items:center;width:calc(var(--d) + 8px);height:calc(var(--d) + 8px);border-radius:50%;background:conic-gradient(from 215deg,#00d2d6 0 27%,#3233ff 27% 52%,var(--neg) 52% 82%,var(--luz) 82%)}
+.insignia .disco img{display:block;width:var(--d);height:var(--d);border-radius:50%;box-shadow:0 0 0 2px var(--hoja)}
+.insignia .nombre{display:grid;gap:4px;line-height:1;min-width:0}
+.insignia .nombre b{font-weight:800;font-stretch:118%;letter-spacing:-.035em;font-size:23px;color:var(--tinta)}
+.insignia .nombre span{font-weight:700;font-size:13.5px;color:var(--acento-tinta);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.insignia.claro{gap:14px}
+.insignia.claro .disco{width:calc(var(--d) + 14px);height:calc(var(--d) + 14px);box-shadow:0 0 0 1px rgba(255,255,255,.18),0 10px 32px color-mix(in srgb,var(--neg) 55%,transparent)}
+.insignia.claro .disco img{box-shadow:0 0 0 3px #0a1038,0 0 0 4px rgba(255,255,255,.35)}
+.insignia.claro .nombre b{color:#fff;font-size:31px}
+.insignia.claro .nombre span{color:color-mix(in srgb,var(--neg) 50%,#fff);font-size:15.5px}
+.side .logo{padding:18px 16px 12px}
 /* Dentro del sistema: el color del negocio en el menú, el encabezado y el indicador principal */
-.side .logo{position:relative;padding-bottom:14px}
-.side .logo::after{content:"";position:absolute;left:18px;right:18px;bottom:2px;height:3px;border-radius:3px;background:linear-gradient(90deg,var(--neg),var(--luz))}
-.side .logo img{box-shadow:0 0 0 2px var(--hoja),0 0 0 4px color-mix(in srgb,var(--neg) 55%,transparent)}
 .side .nav a.on{background:var(--acento-suave);border-color:color-mix(in srgb,var(--neg) 35%,var(--renglon));box-shadow:inset 3px 0 0 var(--neg)}
 .side .nav a.on svg{color:var(--acento-tinta)}
 .top::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:linear-gradient(90deg,var(--neg),var(--luz))}
@@ -424,6 +434,7 @@ tbody tr:hover td{background:var(--acento-suave)}
   .login .brandside .objeto{width:84px;right:14px;bottom:auto;top:16px}
   .login .brandside .objeto.crossfit{width:132px;right:10px;top:8px}
   .login .brandside h1{max-width:12ch}
+  .insignia.claro .nombre b{font-size:26px}
   .login .brandside::after{right:0}
 }
 @media (prefers-reduced-motion:no-preference){
@@ -551,6 +562,8 @@ body.noscroll{overflow:hidden}
   .sheet>.bd>.row:last-child{flex-wrap:nowrap}
   .sheet .grid.g2,.sheet .grid.g3{grid-template-columns:minmax(0,1fr)}
   .ticket{font-size:11px}
+  .content .pill{white-space:normal;max-width:100%}
+  .content .fx-tabs button{min-height:44px}
 }
 @media (max-width:380px){.kpi .v,.kpis.k3 .v{font-size:17px}.prod .pr b{font-size:17px}.bnav button{font-size:11px}}
 </style>
@@ -709,6 +722,9 @@ const OBJETO = {
     <rect x="104" y="85" width="52" height="8" rx="4" fill="#b7bfd6"/>
   </svg>`
 };
+/* Insignia: el logo del grupo dentro de un aro con los colores del grupo y del negocio, y el nombre del negocio */
+const DISCO = size => `<span class="disco" style="--d:${size}px"><img src="${LOGO_SRC}" width="${size}" height="${size}" alt="Grupo Empresarial Azullab"></span>`;
+const INSIGNIA = (size, claro, negocio) => `<div class="insignia${claro?' claro':''}">${DISCO(size)}<span class="nombre"><b>azullab</b><span>${negocio}</span></span></div>`;
 /* fin de la identidad del Grupo Azullab */
 
 /* ======================= Datos de muestra ======================= */
@@ -894,7 +910,7 @@ function shell(inner){
   const phase = S.view==='scope' ? '' : MOD.includes(S.view) ? '<span class="phase mod">Módulo aparte</span>' : F2.includes(S.view) ? '<span class="phase f2">Fase 2</span>' : '<span class="phase f1">Fase 1</span>';
   return `<div class="shell">
   <aside class="side ${S.sidebar?'open':''}" aria-label="Menú principal">
-    <div class="logo">${LOGO(38)}${WORD()}</div>
+    <div class="logo">${INSIGNIA(38,false,'Farmacia')}</div>
     <nav class="nav">${nav}</nav>
     <div class="foot"><div style="font-weight:700;color:var(--ink)">${S.user}</div><div>${S.role} · ${ROLES[S.role].caja}</div>
       <button class="btn sm" style="margin-top:10px" data-act="logout">${ic('out')}Cerrar sesión</button>
@@ -923,7 +939,7 @@ const V = {};
 V.login = () => `<div class="login">
   <section class="brandside">
     ${PAISAJE()}<div class="objeto">${OBJETO.farmacia()}</div>
-    <div class="row" style="gap:12px;position:relative;z-index:1">${LOGO(46,true)}${WORD(true)}</div>
+    ${INSIGNIA(56,true,'Farmacia')}
     <div style="display:grid;gap:14px;position:relative;z-index:1">
       <h1>Tu farmacia, ordenada de la caja al cierre fiscal.</h1>
       <p>Ventas con factura fiscal, inventario por lote y vencimiento, compras a droguerías y reportes en dólares y bolívares. Funciona aunque se vaya el internet.</p>
