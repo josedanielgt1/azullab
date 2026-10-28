@@ -460,6 +460,24 @@ tbody tr:hover td{background:var(--acento-suave)}
 .pr:last-child{border-bottom:0}
 .pr .num{font-size:18px;font-weight:600}
 .carnet{background:var(--hoja);box-shadow:var(--sombra-pila);border-radius:2px;padding:16px;display:grid;gap:12px}
+.estatus{--c:var(--sello-verde);--cs:var(--sello-verde-suave);background:var(--hoja);border:1px solid var(--renglon);border-top:4px solid var(--c);border-radius:2px;box-shadow:var(--sombra-hoja);padding:14px 16px;display:grid;gap:10px}
+.estatus.warn{--c:var(--sello-ambar);--cs:var(--sello-ambar-suave)}
+.estatus.bad{--c:var(--sello-rojo);--cs:var(--sello-rojo-suave)}
+.estatus .top3{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.estatus .plan{font-size:12px;font-weight:600;color:var(--tinta-3);letter-spacing:.02em}
+.estatus .plan b{display:block;font-size:16px;color:var(--tinta);letter-spacing:0;margin-top:2px}
+.estatus .corte{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.estatus .corte .dias{font-family:var(--font-maquina);font-size:30px;line-height:34px;font-weight:600;color:var(--c)}
+.estatus .corte .dias small{font-family:var(--font-forma);font-size:14px;font-weight:600;margin-left:4px}
+.estatus .corte .f{font-size:14px;color:var(--tinta-2)}
+.estatus .corte .f b{font-family:var(--font-maquina);color:var(--tinta)}
+.estatus .barra{height:8px;background:var(--hoja-alt);border:1px solid var(--renglon)}
+.estatus .barra i{display:block;height:100%;background:var(--c)}
+.estatus .msg{background:var(--cs);border-radius:3px;padding:8px 10px;font-size:13.5px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.estatus .msg .btn{margin-left:auto}
+.cual{display:flex;gap:6px;flex-wrap:wrap}
+.cual button{border:1px solid var(--renglon);background:var(--hoja);border-radius:4px;padding:4px 10px;min-height:34px;font-size:13px;color:var(--tinta-2)}
+.cual button.on{border-color:var(--tinta);color:var(--tinta);font-weight:700}
 
 @media (max-width:1100px){.editor{grid-template-columns:minmax(0,1fr)}.sticky{position:static}}
 @media (max-width:640px){.blq .ln{grid-template-columns:36px minmax(0,1fr) 72px 40px}.blq .ln .cg-in{grid-column:2/4}.pizarra{padding:14px 14px 18px;border-width:8px}.pizarra .mv{font-size:17px}}
@@ -673,7 +691,7 @@ const ROLES = {
     desc:'Ve todo: socios, membresías, cobros, asistencia y la pizarra. Publica la rutina del día.'},
   'Coach': {user:'Luis Ángel Dávila', login:'coach', puesto:'Coach', views:['dashboard','pizarra','clases','socios','movs'],
     desc:'Escribe y publica la pizarra, marca la entrada a clase y ve las fichas de los socios. No ve dinero.'},
-  'Socio': {user:'Andrea Peña', login:'V24511802', puesto:'Socia', views:['app'],
+  'Socio': {user:'Andrea Peña', login:'V24511802', puesto:'Socio', views:['app'],
     desc:'Desde su teléfono ve la pizarra del día con el ejemplo de cada movimiento, reserva su clase y anota su resultado.'}
 };
 const HOME = {'Dueño':'dashboard', 'Coach':'pizarra', 'Socio':'app'};
@@ -783,8 +801,8 @@ V.login = () => `<div class="login">
       <div><h2 style="font-size:1.4rem">Iniciar sesión</h2><p class="muted" style="margin-top:4px">Azullab CrossFit, La Azulita</p></div>
       <div class="field"><label>Entrar como</label>
         <div class="roles">${Object.keys(ROLES).map(r=>`<button type="button" data-act="role" data-r="${r}" class="${S.role===r?'on':''}">${r}</button>`).join('')}</div>
-        <p class="small" style="color:var(--tinta-2);background:var(--hoja);border:1px solid var(--renglon);border-top:0;padding:9px 12px">${ROLES[S.role].desc}</p></div>
-      <div class="field"><label for="lu">${S.role==='Socio'?'Cédula':'Usuario'}</label><input id="lu" class="input" value="${ROLES[S.role].login}"></div>
+        <p class="small" style="color:var(--tinta-2);background:var(--hoja);border:1px solid var(--renglon);border-top:0;padding:9px 12px">${ROLES[S.role].desc}</p>${S.role==='Socio'?`<div class="cual" style="margin-top:8px" aria-label="Socio de prueba">${[['S01','Al día'],['S03','Por vencer'],['S04','Vencida']].map(([id,l])=>`<button type="button" data-act="cual" data-s="${id}" class="${S.me===id?'on':''}">${socBy(id).n.split(' ')[0]} · ${l}</button>`).join('')}</div>`:''}</div>
+      <div class="field"><label for="lu">${S.role==='Socio'?'Cédula':'Usuario'}</label><input id="lu" class="input" value="${S.role==='Socio'?socBy(S.me).ci.replace(/\D/g,''):ROLES[S.role].login}"></div>
       <div class="field"><label for="lp">Contraseña</label><input id="lp" class="input" type="password" value="azullab2026"></div>
       <button class="btn primary big" type="submit">Entrar</button>
       <p class="small muted">Demostración con datos de muestra. Ningún socio es real.</p>
@@ -985,11 +1003,26 @@ V.scope = () => `<section class="panel doc"><div class="hd"><h2>Azullab CrossFit
     </div></div></section>`;
 
 /* ======================= App del socio ======================= */
+function estatusCard(me){
+  const e = estado(me), d = daysTo(me.v), pl = planBy(me.plan);
+  const ini0 = addDays(me.v, -pl.d), usados = Math.min(pl.d, Math.max(0, daysTo(ini0)*-1));
+  const cls = e==='Vencida' ? 'bad' : e==='Por vencer' ? 'warn' : '';
+  const pago = me.plan==='pase' ? `<div class="small muted">Clases del pase: <b class="num" style="color:var(--tinta)">${Math.max(0,10-me.asis)}</b> de 10 por usar</div>` : '';
+  const dias = e==='Vencida' ? `${-d}<small>${-d===1?'día vencido':'días vencido'}</small>` : d===0 ? `Hoy<small>es tu fecha de corte</small>` : `${d}<small>${d===1?'día':'días'} para el corte</small>`;
+  const msg = e==='Vencida' ? `<div class="msg">${ic('alert')}<span>No puedes marcar entrada ni reservar hasta renovar.</span><button class="btn sm primary" data-act="tab" data-t="plan">Renovar</button></div>`
+    : e==='Por vencer' ? `<div class="msg">${ic('bell')}<span>Renueva antes del ${fmtDate(me.v)} para no perder clases.</span><button class="btn sm" data-act="tab" data-t="plan">Cómo pagar</button></div>` : '';
+  return `<section class="estatus ${cls}" aria-label="Estatus de tu plan">
+    <div class="top3"><div class="plan">Mi plan<b>${pl.n}</b></div>${estPill(me)}</div>
+    <div class="corte"><span class="dias">${dias}</span><span class="f">Fecha de corte <b>${fmtDate(me.v)}</b></span></div>
+    <div class="barra" role="img" aria-label="${usados} de ${pl.d} días usados"><i style="width:${Math.min(100,usados/pl.d*100)}%"></i></div>
+    <div class="row small muted" style="justify-content:space-between"><span>Pagó el ${fmtDate(ini0)}</span><span>${usd(pl.p)} · ${pl.d} días</span></div>
+    ${pago}${msg}</section>`;
+}
 function socioApp(){
   const me = socBy(S.me), t = S.tab, mine = RES.find(r=>r.s===S.me);
   let body = '';
   if (t==='hoy') body = `<div><h2 style="font-size:20px">Hola, ${me.n.split(' ')[0]}</h2><p class="muted small">${S.pub?'Esta es la rutina de hoy.':'El coach todavía no publica la pizarra de hoy.'}</p></div>
-    ${estado(me)!=='Al día'?`<div class="${estado(me)==='Vencida'?'bad-in':'rolebar'}">${ic('alert')}<span>Tu plan ${estado(me)==='Vencida'?'venció':'vence'} el ${fmtDate(me.v)}.</span></div>`:''}
+    ${estatusCard(me)}
     ${S.pub?pizarra(S.wod):'<div class="pizarra"><div class="vacia">Pizarra en blanco</div></div>'}
     <section class="panel"><div class="hd"><h2>Mi resultado del WOD</h2></div><div class="bd" style="display:grid;gap:10px">
       ${mine?`<div class="ok-in">${ic('trophy')}<span>Anotaste <b class="num">${mine.t}</b> · ${mine.rx?'RX':'Escalado'}</span></div>`:''}
@@ -1005,7 +1038,7 @@ function socioApp(){
   if (t==='marcas') body = `<div class="row"><h2 style="font-size:20px;flex:1">Mis marcas</h2><span class="phase f2">Fase 2</span></div>
     <section class="panel"><div class="bd flush">${MARCAS.map(m=>`<div class="pr"><div><b>${m.m}</b><div class="small muted">${m.f}</div></div><span class="num">${m.v}${m.up?` <span class="pill ok" style="font-size:11px">Nueva</span>`:''}</span></div>`).join('')}</div></section>
     <button class="btn" data-act="toast" data-m="Fase 2: anota tus marcas y mira tu progreso en gráfica">${ic('plus')}Anotar una marca</button>`;
-  if (t==='plan') body = `<div class="carnet"><div class="row">${ava(me,'lg')}<div style="flex:1"><b style="font-size:17px">${me.n}</b><div class="small muted num">${me.ci}</div></div>${estPill(me)}</div>
+  if (t==='plan') body = `${estatusCard(me)}<div class="carnet"><div class="row">${ava(me,'lg')}<div style="flex:1"><b style="font-size:17px">${me.n}</b><div class="small muted num">${me.ci}</div></div>${estPill(me)}</div>
       <div class="pdat2"><div><span>Plan</span><b>${planBy(me.plan).n}</b></div><div><span>Vence</span><b class="num">${fmtDate(me.v)}</b></div><div><span>Clases este mes</span><b class="num">${me.asis}</b></div><div><span>Nivel</span><b>${me.niv}</b></div></div>
       <div style="display:grid;justify-items:center;gap:6px">${qrSvg(7)}<span class="small muted">Para la entrada con QR (fase 2). Por ahora marca con tu cédula.</span></div></div>
     <section class="panel"><div class="hd"><h2>Renovar por pago móvil</h2></div><div class="bd"><div class="pdat2"><div><span>Banco</span><b>Banco de Venezuela</b></div><div><span>Teléfono</span><b class="num">0414-0000000</b></div><div><span>RIF</span><b class="num">J-00000000-0</b></div><div><span>Monto</span><b class="num">${bs(planBy(me.plan).p*RATE)}</b></div></div>
@@ -1077,6 +1110,7 @@ document.addEventListener('click', e => {
       render(); openModal(payModal({r})); break; }
     case 'aviso': openModal(avisoModal(b.dataset.s)); break;
     case 'avisar': closeModal(); toast(`Aviso enviado a ${socBy(b.dataset.s).tel}`); break;
+    case 'cual': S.me = b.dataset.s; S.user = socBy(S.me).n; render(); break;
     case 'tab': S.tab = b.dataset.t; render(); window.scrollTo(0,0); break;
     case 'rx': S.rx = b.dataset.v==='1'; render(); break;
     case 'resguardar': { const v = ($('#rt').value||'').trim(); if (!/^\d{1,2}:\d{2}$/.test(v)) { toast('Escribe el tiempo así: 11:30'); $('#rt').focus(); break; }
