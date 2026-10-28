@@ -614,6 +614,7 @@ select.res-in{width:auto;min-width:170px;text-align:left;font-family:var(--font-
 .fx-pie{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:center;font-size:12.5px;color:var(--tinta-2);border-top:1px dashed var(--renglon);padding-top:10px}
 .fx-pie:has(>div:only-child){grid-template-columns:minmax(0,1fr)}
 .fx-qr{width:84px;height:84px;background:#fff;padding:3px;border:1px solid var(--renglon)}
+.fx-mh{display:inline-block;border:1.5px solid currentColor;border-radius:3px;padding:0 4px;margin-right:4px;font-size:11px;font-weight:700;letter-spacing:.05em}
 .fx-ncl{display:grid;gap:8px}
 .fx-ncl .ln{display:grid;grid-template-columns:minmax(0,1fr) 92px;gap:10px;align-items:center}
 .fx-ck{display:flex;gap:8px;align-items:flex-start;min-width:0;cursor:pointer}
@@ -1886,7 +1887,10 @@ const FX_SYS = (() => {
    Mismo código en farmacia.html, laboratorio.html y crossfit.html. Lo propio de
    cada negocio va en FX_SYS (el bloque de arriba).
    Reglas: Providencia 0071 (hasta el 18-04-2027) y SNAT/2026/00093 (desde el
-   19-04-2027). Medio: imprenta digital con talonario de contingencia; sin máquina fiscal.
+   19-04-2027). Medio, según FX_SYS.medio:
+   · 'digital': imprenta digital con talonario de contingencia (sin internet).
+   · 'maquina': impresora fiscal homologada (Providencia SNAT/2018/0141), con
+     Reporte X y Reporte Z diario; el talonario solo cuando la impresora falla.
    Todo lo fiscal (factura, notas, libros, cierres, reportes) sale de FX.F (datos
    del emisor) y de FX.docs (documentos emitidos). Datos de muestra: nada se conecta.
    ===================================================================== */
@@ -1907,11 +1911,15 @@ const FX = (() => {
 
   /* ---------- Datos fiscales del emisor: un solo lugar ---------- */
   M.F = Object.assign({razon:'', rif:'', dom:'', tel:'', tipo:'Ordinario', impNom:'', impRif:'', serie:'00', prov:'', provFecha:'',
+    mfMarca:'', mfModelo:'', mfSerial:'', mfDist:'', mfInsp:'', mfCaja:'Caja 1',
     talNum:'', talSerie:'01', talDesde:1, talHasta:50, contador:'Por asignar', rifMuestra:true}, Y.fiscal);
+  M.MAQ = Y.medio === 'maquina';
   M.docs = []; M.hist = [];
   M.n = Object.assign({FAC:1, NC:1, ND:1, ctrl:1}, Y.num); M.n.tal = M.F.talDesde;
+  /* Impresora fiscal: estado, Reporte Z y Libro de Control de Reparación y Mantenimiento (0141) */
+  M.mf = Object.assign({ok:true, z:1, x:1, zHoy:null, falla:null, libro:[]}, Y.mf || {});
   M.ui = {libro:'ventas', q:''};
-  M.chk = Object.assign({rif:true, libros:true, decl:true}, Y.chk || {});
+  M.chk = Object.assign({rif:true, libros:true, decl:true, lctrl:true}, Y.chk || {});
   let uid = 0;
   M.byId = id => M.docs.find(d => d.id === +id);
   M.byNum = n => { const q = String(n).replace(/\D/g, '').replace(/^0+/, ''); return M.docs.find(d => d.tipo === 'FAC' && d.num.replace(/\D/g, '').replace(/^0+/, '') === q); };
@@ -1927,24 +1935,32 @@ const FX = (() => {
     t.iva = r2(t.ivg + t.ivr); t.igtf = r2(d.igtf || 0); t.total = r2(t.ex + t.bg + t.br + t.iva + t.igtf); return t;
   };
 
-  /* ---------- Emitir: la imprenta digital asigna el número de control; sin internet, el talonario ---------- */
+  /* ---------- Emitir ----------
+     Imprenta digital: asigna el número de control; sin internet, el talonario.
+     Impresora fiscal: numera la factura y la nota en su memoria fiscal y las identifica con su número de
+     registro (no llevan número de control); si la impresora falla, el talonario de imprenta autorizada. */
+  M.canEmit = () => M.MAQ ? M.mf.ok : M.online();
+  M.ctrlLbl = d => d.mf ? 'Registro de la máquina' : d.cont ? 'N.° de control (talonario)' : 'N.° de control';
   M.emitir = o => {
     const tipo = o.tipo || 'FAC', seed = !!o.seed;
-    const cont = tipo === 'FAC' && !o.maquina && (o.cont ?? (!seed && !M.online()));
+    const cont = tipo === 'FAC' && (o.cont ?? (!seed && !M.canEmit()));
     const d = {id:++uid, tipo, fecha:o.fecha || Y.hoy, hora:o.hora || now(), cli:o.cli || {n:'Consumidor final', id:''}, lines:o.lines,
       tasa:o.tasa || Y.rate(), div:r2(o.div || 0), pagos:o.pagos || [], origen:o.origen || null, afecta:o.afecta || null,
       motivo:o.motivo || '', igtf:o.igtf || 0, u:o.u || (typeof S !== 'undefined' ? S.user : ''), cont, rep:o.rep || null};
     if (cont) { const k = M.n.tal++; d.num = 'C-' + p8(k); d.ctrl = (o.ctrl && String(o.ctrl).trim()) || (M.F.talSerie + '-' + p8(k)); d.tal = M.F.talNum; }
-    else if (o.maquina) { d.num = p8(M.n.FAC++); d.ctrl = 'Máquina fiscal'; }
+    else if (M.MAQ) { d.num = p8(M.n[tipo]++); d.ctrl = M.F.mfSerial; d.mf = true; }
     else { d.num = p8(M.n[tipo]++); d.ctrl = M.F.serie + '-' + p8(M.n.ctrl++); d.asig = d.fecha + ' ' + d.hora; }
     d.t = M.tot(d); M.docs.push(d); return d;
   };
-  /* Días anteriores: facturas de consumidor final ya agrupadas (del primer al último número) */
+  /* Días anteriores: facturas de consumidor final ya agrupadas (del primer al último número).
+     Con impresora fiscal, cada día cerrado tiene su Reporte Z. */
   M.seedHist = (fecha, n, ex, bg, br = 0) => {
     const h = {fecha, n, lo:M.n.FAC, hi:M.n.FAC + n - 1, clo:M.n.ctrl, chi:M.n.ctrl + n - 1, ex:r2(ex), bg:r2(bg), br:r2(br)};
     h.ivg = r2(h.bg * .16); h.ivr = r2(h.br * .08); h.total = r2(h.ex + h.bg + h.br + h.ivg + h.ivr);
-    M.n.FAC += n; M.n.ctrl += n; M.hist.push(h); return h;
+    if (M.MAQ) { h.clo = h.chi = 0; if (fecha < Y.hoy) h.z = M.mf.z++; } else M.n.ctrl += n;
+    M.n.FAC += n; M.hist.push(h); return h;
   };
+  M.zDe = fecha => fecha === Y.hoy ? (M.mf.zHoy ? M.mf.zHoy.n : null) : (M.hist.find(h => h.fecha === fecha && h.z) || {}).z || null;
   /* ---------- Notas de crédito y de débito: la factura no se borra ni se edita ---------- */
   M.notasDe = fac => M.docs.filter(x => x.afecta && x.afecta.id === fac.id);
   M.credQ = (fac, i) => M.notasDe(fac).filter(x => x.tipo === 'NC').reduce((a, x) => a + x.lines.filter(l => l.ref === i).reduce((b, l) => b + l.q, 0), 0);
@@ -1956,15 +1972,46 @@ const FX = (() => {
   M.estado = d => {
     if (d.tipo !== 'FAC') return `<span class="pill">Cita la factura ${E(d.afecta.num)}</span>`;
     const ns = M.notasDe(d), nc = ns.filter(x => x.tipo === 'NC'), nd = ns.filter(x => x.tipo === 'ND');
-    const c = d.cont ? (d.rep ? `<span class="pill ok">Contingencia · reportada</span>` : `<span class="pill warn">Contingencia · por reportar</span>`) : '';
+    const c = d.cont ? M.MAQ ? '<span class="pill warn">Talonario · impresora en falla</span>' : (d.rep ?`<span class="pill ok">Contingencia · reportada</span>` : `<span class="pill warn">Contingencia · por reportar</span>`) : '';
     if (M.anulada(d)) return `${c}<span class="pill bad">Anulada con NC ${nc.map(x => x.num).join(', ')}</span>`;
     return c + (nc.length ? `<span class="pill warn">Con NC ${nc.map(x => x.num).join(', ')}</span>` : '') + (nd.length ? `<span class="pill info">Con ND ${nd.map(x => x.num).join(', ')}</span>` : '') + (!c && !ns.length ? '<span class="pill ok">Emitida</span>' : '');
   };
 
   /* ---------- Contingencia (00093, arts. 6, 7 y 11) ---------- */
-  M.contPend = () => M.docs.filter(d => d.cont && !d.rep);
+  /* Con impresora fiscal no hay PDF que reportar: las facturas del talonario se registran una por una en el Libro de Ventas */
+  M.contPend = () => M.MAQ ? [] : M.docs.filter(d => d.cont && !d.rep);
   M.reportar = () => { const p = M.contPend(), st = fd(Y.hoy) + ' ' + now(); p.forEach(d => { d.rep = st; }); return p.length; };
   M.onNet = () => M.online() ? M.reportar() : 0;
+
+  /* ---------- Impresora fiscal: Reporte X, Reporte Z, falla y reparación (Providencia SNAT/2018/0141) ---------- */
+  M.delDia = () => { const H = M.hist.filter(h => h.fecha === Y.hoy), D = M.docs.filter(d => d.fecha === Y.hoy && d.mf);
+    const F = D.filter(d => d.tipo === 'FAC'), nums = [...H.flatMap(h => [h.lo, h.hi]), ...F.map(d => +d.num)];
+    const t = {ex:0, bg:0, br:0, ivg:0, ivr:0, igtf:0, total:0}, sg = d => d.tipo === 'NC' ? -1 : 1;
+    H.forEach(h => ['ex','bg','br','ivg','ivr','total'].forEach(k => t[k] = r2(t[k] + h[k])));
+    D.forEach(d => { const s = sg(d); t.ex = r2(t.ex + s * d.t.ex); t.bg = r2(t.bg + s * d.t.bg); t.br = r2(t.br + s * d.t.br); t.ivg = r2(t.ivg + s * d.t.ivg); t.ivr = r2(t.ivr + s * d.t.ivr); t.igtf = r2(t.igtf + s * d.t.igtf); t.total = r2(t.total + s * d.t.total); });
+    const nc = D.filter(d => d.tipo === 'NC'), nd = D.filter(d => d.tipo === 'ND');
+    return {t, nFac:H.reduce((a, h) => a + h.n, 0) + F.length, lo:nums.length ? Math.min(...nums) : 0, hi:nums.length ? Math.max(...nums) : 0, nc, nd,
+      tal:M.docs.filter(d => d.fecha === Y.hoy && d.cont).length}; };
+  M.zText = kind => {
+    const F = M.F, r = M.delDia(), t = r.t, z = kind === 'Z', L = [];
+    L.push(ctr('SENIAT')); wrap(U(F.razon), W).forEach(s => L.push(ctr(s))); L.push(ctr('RIF ' + F.rif)); wrap(U(F.dom), W).forEach(s => L.push(ctr(s))); L.push('');
+    L.push(ctr(z ? 'REPORTE Z' : 'REPORTE X'), pad(z ? 'Z N:' : 'X N:', String(z ? M.mf.z : M.mf.x).padStart(4, '0')), pad('FECHA: ' + fd(Y.hoy), 'HORA: ' + now()), '-'.repeat(W));
+    L.push('FACTURAS', pad('  DESDE', r.lo ? p8(r.lo) : '-'), pad('  HASTA', r.hi ? p8(r.hi) : '-'), pad('  CANTIDAD', r.nFac));
+    L.push('NOTAS DE CREDITO', pad('  CANTIDAD', r.nc.length), ...(r.nc.length ? [pad('  DESDE', r.nc[0].num), pad('  HASTA', r.nc[r.nc.length - 1].num)] : []));
+    L.push('NOTAS DE DEBITO', pad('  CANTIDAD', r.nd.length), '-'.repeat(W));
+    L.push(pad('EXENTO (E)', 'Bs ' + nf(t.ex)), pad('BI G16,00%', 'Bs ' + nf(t.bg)), pad('IVA G16,00%', 'Bs ' + nf(t.ivg)));
+    if (t.br) L.push(pad('BI R8,00%', 'Bs ' + nf(t.br)), pad('IVA R8,00%', 'Bs ' + nf(t.ivr)));
+    if (t.igtf) L.push(pad('IGTF 3,00%', 'Bs ' + nf(t.igtf)));
+    L.push('='.repeat(W), pad('TOTAL VENTAS', 'Bs ' + nf(t.total)), '='.repeat(W), ctr('NETO DE NOTAS DE CREDITO Y DEBITO'));
+    if (r.tal) L.push('', ...wrap(`FACTURAS DE TALONARIO DEL DIA: ${r.tal} (NO SUMAN EN ESTE REPORTE; VAN UNA POR UNA EN EL LIBRO DE VENTAS)`));
+    L.push('', ctr(z ? 'CIERRE DE LA JORNADA FISCAL' : 'LECTURA SIN CIERRE'), '', ctr('MH   ' + F.mfSerial), '', '', '');
+    return L.join('\n');
+  };
+  M.hacerX = () => { const s = M.zText('X'); M.mf.x++; return s; };
+  M.hacerZ = (u, hora = now()) => { if (M.mf.zHoy) return null; const s = M.zText('Z'); M.mf.zHoy = {n:M.mf.z, hora, u, txt:s}; M.mf.z++; return M.mf.zHoy; };
+  M.fallaMf = (motivo, u) => { M.mf.ok = false; M.mf.falla = {desde:fd(Y.hoy) + ' ' + now(), motivo, u, aviso:false}; };
+  M.reparadaMf = (u, tec) => { const f = M.mf.falla || {desde:fd(Y.hoy), motivo:'Falla'}; M.mf.libro.unshift({f:fd(Y.hoy), tipo:'Reparación', d:`${f.motivo}. En falla desde ${f.desde}.`, tec:tec || M.F.mfDist, u}); M.mf.ok = true; M.mf.falla = null; };
+  M.ctrlTxt = d => d.mf ? 'REG. MAQUINA: ' + d.ctrl : (d.cont ? 'N CONTROL (TALONARIO): ' : 'N DE CONTROL: ') + d.ctrl;
 
   /* ---------- Libro de Ventas ---------- */
   const SIGN = t => t === 'NC' ? -1 : 1;
@@ -1982,8 +2029,11 @@ const FX = (() => {
       else if (hasRif(d.cli.id)) rows.push(row('rif'));
       else { const g = grp(d.fecha), n = +d.num, c = +String(d.ctrl).split('-').pop(); g.n++; g.lo = Math.min(g.lo, n); g.hi = Math.max(g.hi, n); if (!isNaN(c)) { g.clo = Math.min(g.clo, c); g.chi = Math.max(g.chi, c); } addG(g, {...t, total:t.total - t.igtf}); }
     });
-    Object.values(cf).forEach(g => rows.push({fecha:g.fecha, kind:'cf', tipo:'FAC', num:g.n > 1 ? `${p8(g.lo)} al ${p8(g.hi)}` : p8(g.lo), ctrl:g.chi ? (g.n > 1 ? `${M.F.serie}-${p8(g.clo)} al ${M.F.serie}-${p8(g.chi)}` : `${M.F.serie}-${p8(g.clo)}`) : '',
-      afecta:'', rif:'', nombre:`Consumidor final · ${g.n} ${g.n === 1 ? 'factura' : 'facturas'} del día`, ex:g.ex, bg:g.bg, ivg:g.ivg, br:g.br, ivr:g.ivr, total:g.total, ret:0, comp:'', igtf:0, key:g.lo}));
+    /* Con impresora fiscal, el consumidor final de cada día va en un renglón con su Reporte Z y el registro de la máquina (art. 77, parágrafo segundo) */
+    const zLbl = f => { const z = M.zDe(f); return z ? `Reporte Z N.° ${String(z).padStart(4, '0')}` : 'Reporte Z del día (al cerrar la caja)'; };
+    Object.values(cf).forEach(g => rows.push({fecha:g.fecha, kind:'cf', tipo:M.MAQ ? 'Z' : 'FAC', z:M.MAQ ? M.zDe(g.fecha) : null, num:g.n > 1 ? `${p8(g.lo)} al ${p8(g.hi)}` : p8(g.lo),
+      ctrl:M.MAQ ? M.F.mfSerial : g.chi ? (g.n > 1 ? `${M.F.serie}-${p8(g.clo)} al ${M.F.serie}-${p8(g.chi)}` : `${M.F.serie}-${p8(g.clo)}`) : '',
+      afecta:'', rif:'', nombre:M.MAQ ? `${zLbl(g.fecha)} · consumidor final, ${g.n} ${g.n === 1 ? 'factura' : 'facturas'}` : `Consumidor final · ${g.n} ${g.n === 1 ? 'factura' : 'facturas'} del día`, ex:g.ex, bg:g.bg, ivg:g.ivg, br:g.br, ivr:g.ivr, total:g.total, ret:0, comp:'', igtf:0, key:g.lo}));
     rows.sort((a, b) => a.fecha.localeCompare(b.fecha) || a.key - b.key);
     rows.forEach((r, i) => r.op = i + 1);
     return rows;
@@ -2033,12 +2083,13 @@ const FX = (() => {
   const wrap = (s, w = W) => { const out = []; let ln = ''; String(s).split(/\s+/).forEach(x => { if ((ln + ' ' + x).trim().length > w) { if (ln) out.push(ln); ln = x; } else ln = (ln + ' ' + x).trim(); }); if (ln) out.push(ln); return out; };
   M.ticketText = (d, x = {}) => {
     const F = M.F, t = d.t, L = [];
+    if (d.mf) L.push(ctr('SENIAT'));
     wrap(U(F.razon), W).forEach(s => L.push(ctr(s))); L.push(ctr('RIF ' + F.rif)); wrap(U(F.dom), W).forEach(s => L.push(ctr(s))); wrap('TELF. ' + F.tel, W).forEach(s => L.push(ctr(s))); L.push('');
     const tit = d.tipo === 'NC' ? 'NOTA DE CREDITO' : d.tipo === 'ND' ? 'NOTA DE DEBITO' : 'FACTURA';
     L.push(ctr(tit)); if (d.cont) L.push(ctr('(CONTINGENCIA)'));
-    L.push(pad(d.tipo === 'FAC' ? 'FACTURA N:' : 'NOTA N:', d.num), pad(d.cont ? 'N CONTROL (TALONARIO):' : 'N DE CONTROL:', d.ctrl));
+    L.push(pad(d.tipo === 'FAC' ? 'FACTURA N:' : d.tipo === 'NC' ? 'NOTA DE CREDITO N:' : 'NOTA DE DEBITO N:', d.num)); if (!d.mf) L.push(pad(d.cont ? 'N CONTROL (TALONARIO):' : 'N DE CONTROL:', d.ctrl));
     L.push(pad('FECHA: ' + fd(d.fecha), 'HORA: ' + U(ampm(d.hora)).replace(/\s/g, '')));
-    if (d.afecta) L.push('AFECTA FACTURA N: ' + d.afecta.num, 'CONTROL: ' + d.afecta.ctrl, 'DE FECHA: ' + fd(d.afecta.fecha), ...wrap('MOTIVO: ' + U(d.motivo)));
+    if (d.afecta) L.push('AFECTA FACTURA N: ' + d.afecta.num, (/^\d\d-/.test(d.afecta.ctrl) ? 'CONTROL: ' : 'REG. MAQUINA: ') + d.afecta.ctrl, 'DE FECHA: ' + fd(d.afecta.fecha), ...wrap('MOTIVO: ' + U(d.motivo)));
     (x.head || []).forEach(s => L.push(s));
     L.push((hasRif(d.cli.id) ? 'RIF: ' : 'C.I./RIF: ') + (d.cli.id ? String(d.cli.id).replace(/\./g, '') : 'CONSUMIDOR FINAL'));
     if (d.cli.id) L.push(...wrap('NOMBRE: ' + U(d.cli.n)));
@@ -2052,8 +2103,9 @@ const FX = (() => {
     if (d.div) { const full = d.div >= r2(t.total / d.tasa) - .01; L.push('', pad('PAGADO EN DIVISAS:', '$ ' + nf(full ? r2(t.total / d.tasa) : d.div)), pad('TASA BCV ' + fd(d.fecha) + ':', nf(d.tasa)), pad('EQUIVALE A:', 'Bs ' + nf(full ? t.total : r2(d.div * d.tasa)))); }
     else L.push('', pad('REF. USD', nf(r2(t.total / d.tasa))), pad('TASA BCV ' + fd(d.fecha), nf(d.tasa)));
     L.push('');
-    if (d.cont) L.push(ctr('FORMATO DE CONTINGENCIA'), ctr('TALONARIO ' + U(F.talNum)), ctr('COPIA: SIN DERECHO A'), ctr('CREDITO FISCAL'), ctr('SE REPORTA EN PDF A LA'), ctr('IMPRENTA AL VOLVER INTERNET'));
-    else if (d.ctrl === 'Máquina fiscal') L.push(ctr('MAQUINA FISCAL (MODULO)'));
+    if (d.cont && M.MAQ) L.push(ctr('FORMATO DE TALONARIO'), ctr('TALONARIO ' + U(F.talNum)), ctr('IMPRENTA AUTORIZADA'), ctr('IMPRESORA FISCAL EN FALLA'), ctr('COPIA: SIN DERECHO A'), ctr('CREDITO FISCAL'));
+    else if (d.cont) L.push(ctr('FORMATO DE CONTINGENCIA'), ctr('TALONARIO ' + U(F.talNum)), ctr('COPIA: SIN DERECHO A'), ctr('CREDITO FISCAL'), ctr('SE REPORTA EN PDF A LA'), ctr('IMPRENTA AL VOLVER INTERNET'));
+    else if (d.mf) L.push(ctr('MH   ' + F.mfSerial));
     else { L.push(ctr('IMPRENTA DIGITAL AUTORIZADA')); wrap(U(F.impNom), W).forEach(s => L.push(ctr(s))); L.push(ctr('RIF ' + F.impRif)); wrap('PROVIDENCIA ' + U(F.prov), W).forEach(s => L.push(ctr(s))); L.push(ctr('VERIFIQUE CON EL CODIGO QR')); }
     (x.foot || []).forEach(s => L.push(s));
     L.push('', '', '');
@@ -2072,8 +2124,8 @@ const FX = (() => {
     const tit = d.tipo === 'NC' ? 'NOTA DE CRÉDITO' : d.tipo === 'ND' ? 'NOTA DE DÉBITO' : 'FACTURA';
     return `<article class="fx-fac" aria-label="${tit} ${E(d.num)}">
     <header class="fx-top"><div class="fx-em"><b>${E(F.razon)}</b><span>RIF <b class="num">${E(F.rif)}</b></span><span>Domicilio fiscal: ${E(F.dom)}</span><span>Teléfono: ${E(F.tel)}</span></div>
-      <div class="fx-tit"><b>${tit}</b>${d.cont ? '<span class="pill warn">Contingencia</span>' : ''}<span>N.° <b class="num">${E(d.num)}</b></span><span>N.° de control <b class="num">${E(d.ctrl)}</b></span><span>${fd(d.fecha)} · ${ampm(d.hora)}</span></div></header>
-    ${d.afecta ? `<p class="fx-af">Afecta a la factura N.° <b class="num">${E(d.afecta.num)}</b>, número de control <b class="num">${E(d.afecta.ctrl)}</b>, del <b class="num">${fd(d.afecta.fecha)}</b>, por ${B(d.afecta.total)}. Motivo: ${E(d.motivo)}.</p>` : ''}
+      <div class="fx-tit"><b>${tit}</b>${d.cont ? '<span class="pill warn">Contingencia</span>' : ''}<span>N.° <b class="num">${E(d.num)}</b></span><span>${M.ctrlLbl(d)} <b class="num">${E(d.ctrl)}</b></span><span>${fd(d.fecha)} · ${ampm(d.hora)}</span></div></header>
+    ${d.afecta ? `<p class="fx-af">Afecta a la factura N.° <b class="num">${E(d.afecta.num)}</b>, ${/^\d\d-/.test(d.afecta.ctrl) ? 'número de control' : 'emitida por la impresora fiscal con registro'} <b class="num">${E(d.afecta.ctrl)}</b>, del <b class="num">${fd(d.afecta.fecha)}</b>, por ${B(d.afecta.total)}. Motivo: ${E(d.motivo)}.</p>` : ''}
     <div class="fx-cli"><div><span>Cliente</span><b>${E(d.cli.n)}</b></div><div><span>${hasRif(d.cli.id) ? 'RIF' : 'Cédula o RIF'}</span><b class="num">${d.cli.id ? E(d.cli.id) : 'Consumidor final'}</b></div></div>
     <div class="tbl-wrap keep"><table class="fx-lines"><thead><tr><th>Descripción</th><th class="r">Cant.</th><th class="r">Precio unit. Bs</th><th class="r">Monto Bs</th></tr></thead>
       <tbody>${d.lines.map(l => `<tr><td>${E(l.d)}${l.a === 'E' ? ' <b>(E)</b>' : l.a === 'R' ? ' <b>(R)</b>' : ''}</td><td class="r">${String(l.q).replace('.', ',')}</td><td class="r">${nf(l.pu)}</td><td class="r">${nf(r2(l.q * l.pu))}</td></tr>`).join('')}</tbody></table></div>
@@ -2085,7 +2137,10 @@ const FX = (() => {
     <p class="fx-div">${d.div ? (d.div >= r2(t.total / d.tasa) - .01 ? `Pagado en divisas: total <b class="num">$ ${nf(r2(t.total / d.tasa))}</b>, equivalente a <b class="num">${B(t.total)}</b> a la tasa BCV del día, <b class="num">${nf(d.tasa)} Bs/$</b> (${fd(d.fecha)}).`
       : `Pagado en divisas: <b class="num">$ ${nf(d.div)}</b>, equivalente a <b class="num">${B(r2(d.div * d.tasa))}</b> a la tasa BCV del día, <b class="num">${nf(d.tasa)} Bs/$</b> (${fd(d.fecha)}). El resto, <b class="num">${B(r2(t.total - d.div * d.tasa))}</b>, en bolívares.`)
       : `Referencia en divisas: <b class="num">$ ${nf(r2(t.total / d.tasa))}</b> a la tasa BCV de <b class="num">${nf(d.tasa)} Bs/$</b> del ${fd(d.fecha)}.`}</p>
-    <footer class="fx-pie">${d.cont ? '' : qr(d.id * 31 + 7)}<div>${d.cont
+    <footer class="fx-pie">${d.cont || d.mf ? '' : qr(d.id * 31 + 7)}<div>${d.cont && M.MAQ
+      ? `Factura del talonario <b>${E(F.talNum)}</b> de imprenta autorizada, con número de control preimpreso, usada porque la impresora fiscal estaba en falla. La copia dice “sin derecho a crédito fiscal”. Va una por una en el Libro de Ventas; no suma en el Reporte Z.`
+      : d.mf ? `<b class="fx-mh">MH</b> Copia del documento emitido por la impresora fiscal <b>${E(F.mfMarca)} ${E(F.mfModelo)}</b>, número de registro <b class="num">${E(F.mfSerial)}</b>, homologada por el SENIAT (Providencia SNAT/2018/0141). El original es el ticket impreso por la máquina; el cliente con RIF lo usa para su crédito fiscal.`
+      : d.cont
       ? `Formato de contingencia del talonario <b>${E(F.talNum)}</b>, impreso por imprenta autorizada, con número de control preimpreso. La copia dice “sin derecho a crédito fiscal”. ${d.rep ? `Reportada en PDF a la imprenta el ${E(d.rep)}.` : 'Se reporta en PDF a la imprenta digital al volver la conexión, a más tardar al día siguiente.'}`
       : `Documento emitido por la imprenta digital autorizada <b>${E(F.impNom)}</b>, RIF ${E(F.impRif)}, providencia de autorización ${E(F.prov)}. Número de control asignado el ${fd(d.fecha)} a las ${ampm(d.hora)} · Verifique este documento con el código QR.`}</div></footer>
   </article>`;
@@ -2093,20 +2148,20 @@ const FX = (() => {
   const sheet = (id, title, body, w = 720) => `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="${id}" style="max-width:${w}px"><div class="hd"><h2 id="${id}">${title}</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div><div class="bd">${body}</div></div>`;
   const canNota = () => S.role === 'Dueño' || (Y.notaRoles || []).includes(S.role);
   M.docModal = d => sheet('fxm', `${d.tipo === 'FAC' ? 'Factura' : d.tipo === 'NC' ? 'Nota de crédito' : 'Nota de débito'} ${E(d.num)}`, `${M.docHtml(d)}
-    <div class="row"><button class="btn" data-act="fx-wa" data-id="${d.id}">${ic('wa')}Enviar PDF por WhatsApp</button><button class="btn" data-act="fx-wa" data-id="${d.id}" data-m="correo">Enviar por correo</button>
-    <span class="spacer"></span>${d.tipo === 'FAC' && canNota() && !M.anulada(d) && M.online() ? `<button class="btn" data-act="fx-nd" data-id="${d.id}">Nota de débito</button><button class="btn primary" data-act="fx-nc" data-id="${d.id}">Nota de crédito</button>` : ''}</div>
+    <div class="row"><button class="btn" data-act="fx-wa" data-id="${d.id}">${ic('wa')}${d.mf ? 'Enviar copia por WhatsApp' : 'Enviar PDF por WhatsApp'}</button><button class="btn" data-act="fx-wa" data-id="${d.id}" data-m="correo">Enviar por correo</button>
+    <span class="spacer"></span>${d.tipo === 'FAC' && canNota() && !M.anulada(d) && M.canEmit() ? `<button class="btn" data-act="fx-nd" data-id="${d.id}">Nota de débito</button><button class="btn primary" data-act="fx-nc" data-id="${d.id}">Nota de crédito</button>` : ''}</div>
     <p class="small muted" style="margin:0">Una factura emitida no se borra ni se edita. Si hay que corregirla, se emite una nota de crédito o de débito que la cita.</p>`, 760);
 
   M.ncModal = (fac, anular) => {
     const L = fac.lines.map((l, i) => ({l, i, rem:r2(l.q - M.credQ(fac, i))})).filter(x => x.rem > 0);
     return sheet('fxn', `${anular ? 'Anular' : 'Nota de crédito para'} la factura ${E(fac.num)}`, `
-    <div class="fx-af">Factura N.° <b class="num">${E(fac.num)}</b> · control <b class="num">${E(fac.ctrl)}</b> · ${fd(fac.fecha)} · ${E(fac.cli.n)} · ${B(fac.t.total)}</div>
+    <div class="fx-af">Factura N.° <b class="num">${E(fac.num)}</b> · ${fac.mf ? 'registro' : 'control'} <b class="num">${E(fac.ctrl)}</b> · ${fd(fac.fecha)} · ${E(fac.cli.n)} · ${B(fac.t.total)}</div>
     <div class="fx-ncl" id="fx-ncl" data-id="${fac.id}">${L.map(({l, i, rem}) => `<div class="ln"><label class="fx-ck"><input type="checkbox" data-fxl="${i}" ${anular || L.length === 1 ? 'checked' : ''}><span>${E(l.d)}${l.a === 'E' ? ' (E)' : ''}<small class="muted"> · ${nf(l.pu)} c/u</small></span></label>
       <input class="input num" data-fxq="${i}" data-max="${rem}" value="${String(rem).replace('.', ',')}" inputmode="decimal" aria-label="Cantidad a acreditar de ${E(l.d)}" ${anular ? 'readonly' : ''}></div>`).join('')}</div>
     <div class="field"><label for="fx-mot">Motivo</label><select id="fx-mot" class="input">${(anular ? [Y.motivoAnular || 'Anulación de la factura'] : Y.motivosNC).map(m => `<option>${E(m)}</option>`).join('')}</select></div>
     <div class="due pend" id="fx-prev"></div>
     ${Y.ncNota ? `<p class="small" style="margin:0;color:var(--tinta-2)">${Y.ncNota}</p>` : ''}
-    <p class="small muted" style="margin:0">La nota sale por la imprenta digital con su propio número y número de control, cita la factura y resta en el Libro de Ventas del mes.</p>
+    <p class="small muted" style="margin:0">${M.MAQ ? 'La nota la imprime la impresora fiscal con su propio número consecutivo, cita el número de la factura, su fecha y el registro de la máquina que la emitió, resta en el Reporte Z del día y en el Libro de Ventas del mes.' : 'La nota sale por la imprenta digital con su propio número y número de control, cita la factura y resta en el Libro de Ventas del mes.'}</p>
     <button class="btn primary big" data-act="fx-ncgo" data-id="${fac.id}">${ic('receipt')}Emitir nota de crédito</button>`, 600);
   };
   M.ncLines = () => { const box = document.getElementById('fx-ncl'); if (!box) return []; const fac = M.byId(box.dataset.id);
@@ -2116,12 +2171,12 @@ const FX = (() => {
     el.innerHTML = `<span>Monto de la nota</span><span class="num">${B(t.total)}${t.iva ? ` · IVA ${B(t.iva)}` : ''}</span>`; };
   M.ndModal = fac => { const a = fac.lines.some(l => l.a === 'G') ? 'G' : 'E';
     return sheet('fxd', `Nota de débito para la factura ${E(fac.num)}`, `
-    <div class="fx-af">Factura N.° <b class="num">${E(fac.num)}</b> · control <b class="num">${E(fac.ctrl)}</b> · ${fd(fac.fecha)} · ${E(fac.cli.n)}</div>
+    <div class="fx-af">Factura N.° <b class="num">${E(fac.num)}</b> · ${fac.mf ? 'registro' : 'control'} <b class="num">${E(fac.ctrl)}</b> · ${fd(fac.fecha)} · ${E(fac.cli.n)}</div>
     <div class="field"><label for="fx-ndc">Concepto</label><input id="fx-ndc" class="input" value="${E(Y.ndConcepto || 'Ajuste de precio')}"></div>
     <div class="grid g2" style="gap:10px"><div class="field"><label for="fx-ndm">Monto en Bs (sin IVA)</label><input id="fx-ndm" class="input num" inputmode="decimal" value="0,00"></div>
       <div class="field"><label for="fx-nda">Alícuota</label><select id="fx-nda" class="input"><option value="G" ${a === 'G' ? 'selected' : ''}>General 16 %</option><option value="E" ${a === 'E' ? 'selected' : ''}>Exento (E)</option></select></div></div>
     <div class="due pend" id="fx-prev"><span>Monto de la nota</span><span class="num">Bs 0,00</span></div>
-    <p class="small muted" style="margin:0">Se usa para cobrar algo que faltó en la factura (un ajuste de precio, un cargo de entrega). Lleva su propio número y número de control y cita la factura.</p>
+    <p class="small muted" style="margin:0">Se usa para cobrar algo que faltó en la factura (un ajuste de precio, un cargo de entrega). ${M.MAQ ? 'La imprime la impresora fiscal con su propio número y cita la factura.' : 'Lleva su propio número y número de control y cita la factura.'}</p>
     <button class="btn primary big" data-act="fx-ndgo" data-id="${fac.id}">${ic('receipt')}Emitir nota de débito</button>`, 560); };
   const parseBs = v => parseFloat(String(v || '').replace(/\./g, '').replace(',', '.')) || 0;
   M.ndPrev = () => { const el = document.getElementById('fx-prev'); if (!el || !document.getElementById('fx-ndm')) return; const m = parseBs(document.getElementById('fx-ndm').value), a = document.getElementById('fx-nda').value;
@@ -2133,11 +2188,31 @@ const FX = (() => {
     const q = M.ui.q.trim().toLowerCase();
     const list = M.docs.filter(d => !q || [d.num, d.ctrl, d.cli.n, d.cli.id].some(v => String(v).toLowerCase().includes(q))).slice().reverse();
     if (!list.length) return `<tr><td colspan="7" class="muted" style="padding:16px">No hay documentos con “${E(M.ui.q)}”.</td></tr>`;
-    return list.map(d => `<tr><td data-l="Documento">${tipoPill(d)} <b class="num">${E(d.num)}</b></td><td class="num" data-l="N.° de control">${E(d.ctrl)}</td><td class="num" data-l="Fecha">${fd(d.fecha)} ${E(d.hora)}</td><td data-l="Cliente">${E(d.cli.n)}<div class="small muted num">${E(d.cli.id || 'Consumidor final')}</div></td>
+    return list.map(d => `<tr><td data-l="Documento">${tipoPill(d)} <b class="num">${E(d.num)}</b></td><td class="num" data-l="${M.ctrlLbl(d)}">${E(d.ctrl)}</td><td class="num" data-l="Fecha">${fd(d.fecha)} ${E(d.hora)}</td><td data-l="Cliente">${E(d.cli.n)}<div class="small muted num">${E(d.cli.id || 'Consumidor final')}</div></td>
       <td class="r" data-l="Total Bs">${d.tipo === 'NC' ? '(' + nf(d.t.total) + ')' : nf(d.t.total)}</td><td data-l="Estado"><span class="fx-st">${M.estado(d)}</span></td>
       <td class="fx-acc"><span class="row" style="gap:6px;flex-wrap:wrap"><button class="btn sm" data-act="fx-ver" data-id="${d.id}">Ver</button>${d.tipo === 'FAC' && canNota() && !M.anulada(d) ? `<button class="btn sm" data-act="fx-nc" data-id="${d.id}">Nota de crédito</button><button class="btn sm" data-act="fx-anular" data-id="${d.id}">Anular</button>` : ''}</span></td></tr>`).join('');
   };
+  /* Panel de la impresora fiscal: estado, Reportes X y Z, falla, talonario y Libro de Control */
+  M.mfPanel = () => { const F = M.F, mf = M.mf, cs = M.docs.filter(d => d.cont), zh = mf.zHoy, can = S.role === 'Dueño' || (Y.notaRoles || []).includes(S.role);
+    return `<section class="panel" id="fx-mf"><div class="hd"><h2>Impresora fiscal</h2>${mf.ok ? `<span class="pill ok">${ic('check')}Operativa</span>` : `<span class="pill bad">En falla desde ${E(mf.falla.desde)}</span>`}</div>
+    <div class="bd grid g2" style="gap:6px 24px"><div class="stat"><span class="muted">Marca y modelo</span><span>${E(F.mfMarca)} ${E(F.mfModelo)}</span></div>
+      <div class="stat"><span class="muted">Número de registro</span><span class="num"><b class="fx-mh">MH</b>${E(F.mfSerial)}</span></div>
+      <div class="stat"><span class="muted">Conectada a</span><span>${E(F.mfCaja)} · por cable, no necesita internet</span></div>
+      <div class="stat"><span class="muted">Última factura</span><span class="num">${p8(M.n.FAC - 1)}</span></div>
+      <div class="stat"><span class="muted">Reporte Z de hoy</span>${zh ? `<span class="pill ok">N.° ${String(zh.n).padStart(4, '0')} · ${ampm(zh.hora)}</span>` : `<span class="pill warn">Por hacer al cerrar (N.° ${String(mf.z).padStart(4, '0')})</span>`}</div>
+      <div class="stat"><span class="muted">Servicio técnico autorizado</span><span style="text-align:right">${E(F.mfDist)}</span></div>
+      <div class="stat"><span class="muted">Última inspección</span><span class="num">${F.mfInsp ? fd(F.mfInsp) : 'Sin registrar'}</span></div>
+      <div class="stat"><span class="muted">Talonario para fallas ${E(F.talNum)}</span><span class="num">${M.talLeft()} formatos · próximo ${M.talNext()}</span></div></div>
+    ${mf.ok ? '' : `<div class="bd"><p class="fx-aviso">${ic('alert')}<span><b>La impresora fiscal no está facturando.</b> La caja sigue con el talonario de imprenta autorizada: el cajero copia el número de control preimpreso y el sistema registra la factura. Hay que avisar ya al servicio técnico autorizado (${E(F.mfDist)}); solo él abre la máquina, la repara y lo anota en el Libro de Control. Motivo anotado: ${E(mf.falla.motivo)}.</span></p></div>`}
+    ${cs.length ? `<div class="bd flush list">${cs.map(d => `<div class="it"><div class="t"><b class="num">${E(d.num)} · control ${E(d.ctrl)}</b><span class="small muted">${fd(d.fecha)} ${E(d.hora)} · ${E(d.cli.n)} · ${B(d.t.total)}</span></div><span class="pill warn">Talonario</span></div>`).join('')}</div>` : ''}
+    <div class="bd" style="border-top:1px solid var(--renglon)"><div class="row"><button class="btn" data-act="fx-x" ${mf.ok ? '' : 'disabled'}>${ic('receipt')}Reporte X</button><button class="btn primary" data-act="fx-z" ${mf.ok ? '' : 'disabled'}>${ic('printer')}Reporte Z (cierre del día)</button>
+      <span class="spacer"></span>${can ? (mf.ok ? `<button class="btn sm" data-act="fx-falla">${ic('alert')}Simular falla de la impresora</button>` : `<button class="btn sm" data-act="fx-repara">${ic('check')}Impresora reparada</button>`) : ''}</div></div>
+    <div class="bd" style="border-top:1px solid var(--renglon)"><div class="fx-sub" style="margin:0 0 6px">Libro de Control de Reparación y Mantenimiento</div>
+      ${mf.libro.length ? `<div class="list">${mf.libro.map(l => `<div class="it"><div class="t"><b>${E(l.tipo)} · ${E(l.f)}</b><span class="small muted">${E(l.d)} · ${E(l.tec)}</span></div></div>`).join('')}</div>` : '<p class="small muted" style="margin:0">Sin anotaciones.</p>'}
+      <p class="small muted" style="margin:6px 0 0">El libro físico se queda en el local, junto a la máquina. Aquí se lleva una copia para no perder el historial.</p></div>
+    <p class="base-legal">Providencia SNAT/2018/0141 (impresoras y máquinas fiscales): la máquina es de un modelo homologado, lleva su número de registro y el logotipo fiscal MH, y guarda en su memoria fiscal el RIF del usuario. Se hace el Reporte Z (reporte global diario) por cada día de operación y se guarda con los libros. El Libro de Control de Reparación y Mantenimiento se conserva en el local. Solo el servicio técnico autorizado repara la máquina y cambia el precinto. Mientras está dañada se factura con formatos de imprenta autorizada con número de control (Providencia 0071), que van uno por uno en el Libro de Ventas. La Providencia SNAT/2026/00093 mantiene la máquina fiscal como medio válido desde el 19-04-2027 (art. 4.2). <i>Plazo de reparación, inspección anual y formato del talonario: confirmar con el distribuidor y el contador.</i></p></section>`; };
   M.contPanel = () => {
+    if (M.MAQ) return M.mfPanel();
     const cs = M.docs.filter(d => d.cont), pend = M.contPend(), on = M.online();
     return `<section class="panel"><div class="hd"><h2>Talonario de contingencia</h2>${on ? '<span class="pill ok">En línea: factura la imprenta digital</span>' : '<span class="pill warn">Sin internet: se factura con el talonario</span>'}</div>
     <div class="bd"><div class="stat"><span class="muted">Talonario</span><b>${E(M.F.talNum)}</b></div>
@@ -2153,13 +2228,13 @@ const FX = (() => {
   M.vDocs = () => {
     const fac = M.docs.filter(d => d.tipo === 'FAC'), nc = M.docs.filter(d => d.tipo === 'NC'), nd = M.docs.filter(d => d.tipo === 'ND');
     const hn = M.hist.reduce((a, h) => a + h.n, 0);
-    return `<p class="lead">Facturas, notas de crédito y notas de débito de <b>${E(M.F.razon)}</b> (RIF ${E(M.F.rif)}). Cada documento sale por la imprenta digital con su número consecutivo y su número de control. Nada se borra ni se edita: se corrige con una nota.</p>
+    return `<p class="lead">Facturas, notas de crédito y notas de débito de <b>${E(M.F.razon)}</b> (RIF ${E(M.F.rif)}). ${M.MAQ ? `Cada documento lo imprime la impresora fiscal ${E(M.F.mfMarca)} ${E(M.F.mfModelo)} (registro ${E(M.F.mfSerial)}) con su número consecutivo, y queda en su memoria fiscal.` : 'Cada documento sale por la imprenta digital con su número consecutivo y su número de control.'} Nada se borra ni se edita: se corrige con una nota.</p>
     <div class="kpis"><div class="kpi hero"><span class="l">Facturas de ${MES_T}</span><span class="v num">${hn + fac.length}</span><span class="s">Del ${p8(Y.num.FAC)} al ${p8(M.n.FAC - 1)}</span></div>
       <div class="kpi"><span class="l">Notas de crédito</span><span class="v num">${nc.length}</span><span class="s num">${B(r2(nc.reduce((a, d) => a + d.t.total, 0)))}</span></div>
       <div class="kpi"><span class="l">Notas de débito</span><span class="v num">${nd.length}</span><span class="s num">${B(r2(nd.reduce((a, d) => a + d.t.total, 0)))}</span></div>
-      <div class="kpi"><span class="l">De contingencia</span><span class="v num">${M.docs.filter(d => d.cont).length}</span><span class="s">${M.contPend().length} por reportar</span></div></div>
-    <section class="panel"><div class="hd"><h2>Documentos emitidos</h2><div class="row" style="gap:8px;flex-wrap:nowrap;min-width:0;flex:1;max-width:420px"><input id="fx-q" class="input" style="min-height:38px;padding:6px 10px" placeholder="Número, control o cliente" value="${E(M.ui.q)}" aria-label="Buscar documento"></div></div>
-      <div class="bd flush tbl-wrap keep"><table class="fx-dt"><thead><tr><th>Documento</th><th>N.° de control</th><th>Fecha y hora</th><th>Cliente</th><th class="r">Total Bs</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="fx-tb">${M.docRows()}</tbody></table></div>
+      <div class="kpi"><span class="l">${M.MAQ ? 'Del talonario' : 'De contingencia'}</span><span class="v num">${M.docs.filter(d => d.cont).length}</span><span class="s">${M.MAQ ? (M.mf.ok ? 'Impresora fiscal operativa' : 'Impresora fiscal en falla') : M.contPend().length + ' por reportar'}</span></div></div>
+    <section class="panel"><div class="hd"><h2>Documentos emitidos</h2><div class="row" style="gap:8px;flex-wrap:nowrap;min-width:0;flex:1;max-width:420px"><input id="fx-q" class="input" style="min-height:38px;padding:6px 10px" placeholder="${M.MAQ ? 'Número o cliente' : 'Número, control o cliente'}" value="${E(M.ui.q)}" aria-label="Buscar documento"></div></div>
+      <div class="bd flush tbl-wrap keep"><table class="fx-dt"><thead><tr><th>Documento</th><th>${M.MAQ ? 'Control o registro' : 'N.° de control'}</th><th>Fecha y hora</th><th>Cliente</th><th class="r">Total Bs</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="fx-tb">${M.docRows()}</tbody></table></div>
       <p class="base-legal">Las facturas a consumidor final de días anteriores ya están en el Libro de Ventas, agrupadas por día. Aquí salen las de este período que se pueden consultar una por una. ${E(Y.docsNota || '')}</p></section>
     ${M.contPanel()}`;
   };
@@ -2169,8 +2244,8 @@ const FX = (() => {
   const td = v => `<td class="r">${neg(v)}</td>`;
   M.ventasTabla = () => {
     const rows = M.libroVentas(), R = M.resumen(rows);
-    return `<table><thead><tr>${th(['N.° op.','Fecha','Tipo','N.° de documento','N.° de control','Factura afectada','RIF o C.I.','Nombre o razón social','Total con IVA','Exentas','Base 16 %','Débito 16 %','Base 8 %','Débito 8 %','IVA retenido'])}</tr></thead>
-    <tbody>${rows.map(r => `<tr class="${r.kind === 'cf' ? 'fx-cf' : ''}"><td class="num">${r.op}</td><td class="num">${fd(r.fecha)}</td><td>${r.kind === 'cont' ? '<span class="pill warn">FAC · contingencia</span>' : r.tipo === 'NC' ? '<span class="pill warn">NC</span>' : r.tipo === 'ND' ? '<span class="pill info">ND</span>' : 'FAC'}</td>
+    return `<table><thead><tr>${th(['N.° op.','Fecha','Tipo','N.° de documento', M.MAQ ? 'N.° de control o registro de máquina' : 'N.° de control','Factura afectada','RIF o C.I.','Nombre o razón social','Total con IVA','Exentas','Base 16 %','Débito 16 %','Base 8 %','Débito 8 %','IVA retenido'])}</tr></thead>
+    <tbody>${rows.map(r => `<tr class="${r.kind === 'cf' ? 'fx-cf' : ''}"><td class="num">${r.op}</td><td class="num">${fd(r.fecha)}</td><td>${r.kind === 'cont' ? `<span class="pill warn">FAC · ${M.MAQ ? 'talonario' : 'contingencia'}</span>` : r.tipo === 'Z' ? `<span class="pill">${r.z ? 'Reporte Z' : 'Z por hacer'}</span>` : r.tipo === 'NC' ? '<span class="pill warn">NC</span>' : r.tipo === 'ND' ? '<span class="pill info">ND</span>' : 'FAC'}</td>
       <td class="num" style="white-space:nowrap">${E(r.num)}</td><td class="num" style="white-space:nowrap">${E(r.ctrl)}</td><td class="num">${E(r.afecta)}</td><td class="num">${E(r.rif || '—')}</td><td style="min-width:200px">${E(r.nombre)}</td>
       ${[r.total, r.ex, r.bg, r.ivg, r.br, r.ivr, r.ret].map(td).join('')}</tr>`).join('')}</tbody>
     <tfoot><tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>Total del período</td>${[R.total, R.ex, R.bg, R.ivg, R.br, R.ivr, R.ret].map(v => `<td class="r"><span>${neg(v)}</span></td>`).join('')}</tr></tfoot></table>`;
@@ -2209,7 +2284,7 @@ const FX = (() => {
   M.vLibros = () => {
     const k = M.ui.libro, f = M.f30();
     let body = '', base = '', csv = k;
-    if (k === 'ventas') { body = M.ventasTabla(); base = 'Reglamento de la Ley del IVA, arts. 70 a 72 y 76 a 78. Facturas con RIF una por una; consumidor final agrupado por día, del primer al último número; facturas de contingencia con su número de talonario; notas de crédito restando y notas de débito sumando. El resumen del mes coincide con el borrador de la forma 30. <i>Confirmar el formato con el contador.</i>'; }
+    if (k === 'ventas') { body = M.ventasTabla(); base = M.MAQ ? `Reglamento de la Ley del IVA, arts. 70 a 72 y 76 a 78. Facturas con RIF una por una; las de consumidor final de cada día en un renglón con su Reporte Z, del primer al último número, y el registro de la impresora fiscal (${E(M.F.mfSerial)}); facturas del talonario, si la impresora falló, una por una con su número de control; notas de crédito restando y notas de débito sumando. Las facturas con RIF también suman en el Reporte Z: se listan aparte y el renglón del Z lleva solo el resto. El resumen del mes coincide con el borrador de la forma 30. <i>Confirmar el formato con el contador.</i>` : 'Reglamento de la Ley del IVA, arts. 70 a 72 y 76 a 78. Facturas con RIF una por una; consumidor final agrupado por día, del primer al último número; facturas de contingencia con su número de talonario; notas de crédito restando y notas de débito sumando. El resumen del mes coincide con el borrador de la forma 30. <i>Confirmar el formato con el contador.</i>'; }
     else if (k === 'compras') { body = M.comprasTabla(); base = 'Reglamento de la Ley del IVA, arts. 70 a 75: en orden, sin atraso y en el establecimiento. Las notas de crédito de proveedores restan. ' + E(Y.comprasNota || ''); }
     else if (k === 'islr') { body = M.islrTabla(); base = `Decreto 1.808: como empresa, ${E(M.F.razon)} retiene ISLR al pagar alquiler, honorarios, servicios, fletes y publicidad, y entrega el comprobante. A las personas naturales se les resta el sustraendo (UT de Bs ${M.UT}) y solo se les retiene si el pago pasa de ${B(utMin())}. <i>Plazo para enterar, formato del comprobante y de la relación mensual: confirmar con el contador.</i>`; }
     else if (k === 'f30') { body = M.f30Tabla(f); base = 'Borrador para que lo revise el contador. <b>No se presenta desde el sistema:</b> la declaración la hace el contador en el portal del SENIAT. Los números de casilla de la forma 30 los pone el contador. Si hay compras que sirven a la vez a ventas exentas y gravadas, el crédito se prorratea (Ley del IVA, art. 34): <i>confirmar con el contador.</i>'; }
@@ -2237,8 +2312,8 @@ const FX = (() => {
   M.csv = k => {
     let rows = [], file = '';
     if (k === 'ventas') { const L = M.libroVentas(), R = M.resumen(L);
-      rows = [...cab('Libro de Ventas (IVA) · imprenta digital'), ['N° Op.','Fecha','Tipo de documento (FAC, ND, NC)','N° del documento','N° de control o serial de máquina fiscal','N° factura afectada (solo ND y NC)','RIF del cliente','Nombre o razón social del cliente','Total ventas incluyendo IVA','Ventas exentas, exoneradas o no sujetas','Base imponible alícuota general','Débito fiscal alícuota general','Base imponible alícuota reducida','Débito fiscal alícuota reducida','IVA retenido por el cliente (si es agente de retención)','N° comprobante de retención','IGTF percibido (solo si es contribuyente especial)'],
-        ...L.map(r => [r.op, fd(r.fecha), r.tipo, r.num, r.ctrl, r.afecta, r.rif, r.kind === 'cont' ? r.nombre + ' (contingencia)' : r.nombre, r.total, r.ex, r.bg, r.ivg, r.br, r.ivr, r.ret, r.comp, r.igtf]),
+      rows = [...cab(M.MAQ ? 'Libro de Ventas (IVA) · impresora fiscal ' + M.F.mfSerial : 'Libro de Ventas (IVA) · imprenta digital'), ['N° Op.','Fecha','Tipo de documento (FAC, ND, NC)','N° del documento','N° de control o serial de máquina fiscal','N° factura afectada (solo ND y NC)','RIF del cliente','Nombre o razón social del cliente','Total ventas incluyendo IVA','Ventas exentas, exoneradas o no sujetas','Base imponible alícuota general','Débito fiscal alícuota general','Base imponible alícuota reducida','Débito fiscal alícuota reducida','IVA retenido por el cliente (si es agente de retención)','N° comprobante de retención','IGTF percibido (solo si es contribuyente especial)'],
+        ...L.map(r => [r.op, fd(r.fecha), r.tipo === 'Z' ? 'Reporte Z' : r.tipo, r.num, r.ctrl, r.afecta, r.rif, r.kind === 'cont' ? r.nombre + (M.MAQ ? ' (talonario, impresora en falla)' : ' (contingencia)') : r.nombre, r.total, r.ex, r.bg, r.ivg, r.br, r.ivr, r.ret, r.comp, r.igtf]),
         ['', '', '', '', '', '', '', 'Total del período', R.total, R.ex, R.bg, R.ivg, R.br, R.ivr, R.ret, '', R.igtf], [],
         ['Libro de Ventas · Resumen del período (art. 72)'], ['Ventas exentas, exoneradas o no sujetas', R.ex], ['Base imponible alícuota general', R.bg], ['Débito fiscal alícuota general', R.ivg], ['Base imponible alícuota reducida', R.br], ['Débito fiscal alícuota reducida', R.ivr], ['Total ventas incluyendo IVA', R.total], ['IVA retenido por clientes (comprobantes recibidos)', R.ret], ['Débito fiscal total del período', r2(R.ivg + R.ivr)]];
       file = 'Libro de Ventas IVA'; }
@@ -2266,8 +2341,12 @@ const FX = (() => {
     const muestra = s => /muestra|por asignar|por definir/i.test(String(s));
     const L = [
       {k:'rif', t:'RIF exhibido en el local', d:`RIF ${F.rif} de ${F.razon}, vigente y a la vista del público.${F.rifMuestra ? ' RIF de muestra: se confirma con el cliente.' : ''}`, st:M.chk.rif ? (F.rifMuestra ? 'warn' : 'ok') : 'pend', man:true},
-      {k:'prov', t:'Providencia de la imprenta digital', d:F.prov ? `${F.impNom} (RIF ${F.impRif}) · providencia ${F.prov}${F.provFecha ? ' del ' + fd(F.provFecha) : ''}.` : 'Falta el número de la providencia de autorización.', st:F.prov && !muestra(F.prov) && !muestra(F.impNom) ? 'ok' : 'warn'},
-      {k:'tal', t:'Talonario de contingencia en el local', d:`Talonario ${F.talNum}: controles ${F.talSerie}-${p8(F.talDesde)} al ${F.talSerie}-${p8(F.talHasta)}. Quedan ${tl} formatos.`, st:tl > 10 ? 'ok' : 'warn'},
+      ...(M.MAQ ? [
+      {k:'mf', t:'Impresora fiscal homologada y registrada', d:`${F.mfMarca} ${F.mfModelo}, registro ${F.mfSerial}, con el RIF ${F.rif} en su memoria fiscal y el precinto intacto. Servicio técnico: ${F.mfDist}.${M.mf.ok ? '' : ' En falla desde ' + M.mf.falla.desde + ': avisar al servicio técnico.'}`, st:!M.mf.ok ? 'pend' : muestra(F.mfSerial) || muestra(F.mfDist) || F.rifMuestra ? 'warn' : 'ok'},
+      {k:'z', t:'Reporte Z de cada día de operación', d:`${M.hist.filter(h => h.z).length} reportes Z de ${MES_T} archivados, sin días saltados. Hoy: ${M.mf.zHoy ? 'Z N.° ' + String(M.mf.zHoy.n).padStart(4, '0') + ' hecho' : 'se hace al cerrar la caja'}.`, st:'ok'},
+      {k:'lctrl', t:'Libro de Control de Reparación y Mantenimiento en el local', d:`Junto a la máquina, con cada visita del técnico anotada. ${M.mf.libro.length} ${M.mf.libro.length === 1 ? 'anotación' : 'anotaciones'}${F.mfInsp ? '; última inspección el ' + fd(F.mfInsp) : ''}.`, st:M.chk.lctrl ? 'ok' : 'pend', man:true}] : [
+      {k:'prov', t:'Providencia de la imprenta digital', d:F.prov ? `${F.impNom} (RIF ${F.impRif}) · providencia ${F.prov}${F.provFecha ? ' del ' + fd(F.provFecha) : ''}.` : 'Falta el número de la providencia de autorización.', st:F.prov && !muestra(F.prov) && !muestra(F.impNom) ? 'ok' : 'warn'}]),
+      {k:'tal', t:M.MAQ ? 'Talonario para fallas de la impresora, en el local' : 'Talonario de contingencia en el local', d:`Talonario ${F.talNum}: controles ${F.talSerie}-${p8(F.talDesde)} al ${F.talSerie}-${p8(F.talHasta)}. Quedan ${tl} formatos.`, st:tl > 10 ? 'ok' : 'warn'},
       {k:'libros', t:'Libros en el establecimiento', d:`Libro de Ventas, Libro de Compras${Y.inventario ? ' y registro de inventario (art. 177 del Reglamento de ISLR)' : ''} de ${MES_T}, impresos y en el local (Reglamento de la Ley del IVA, art. 71).`, st:M.chk.libros ? 'ok' : 'pend', man:true},
       {k:'decl', t:'Declaraciones del mes al día', d:`IVA de septiembre: ${Y.declPrev || 'declarado (muestra)'}. IVA de octubre: borrador listo (${f.pagar > 0 ? 'a pagar ' + B(f.pagar) : 'sin monto a pagar'}), vence el ${fd(cal.find(c => c.k === 'iva').f)} (fecha de muestra).`, st:M.chk.decl ? 'ok' : 'pend', man:true},
       {k:'ret', t:'Retenciones enteradas', d:pr.length ? `${pr.length} ${pr.length === 1 ? 'retención' : 'retenciones'} de ISLR de octubre por enterar: ${B(r2(pr.reduce((a, x) => a + x.ret, 0)))}. Vence el ${fd(cal.find(c => c.k === 'ret').f)} (fecha de muestra). Septiembre: enteradas.` : 'Todas las retenciones del mes están enteradas.', st:pr.length ? 'warn' : 'ok'},
@@ -2294,10 +2373,14 @@ const FX = (() => {
       ${fi('dom', 'Domicilio fiscal')}
       <div class="grid g2" style="gap:10px">${fi('tel', 'Teléfono', 'num')}
         <div class="field"><label for="fx-f-tipo">Tipo de contribuyente</label><select id="fx-f-tipo" class="input"><option selected>Ordinario</option><option disabled>Especial (módulo apagado)</option></select></div></div>
-      <div class="fx-sub">Imprenta digital autorizada</div>
+      ${M.MAQ ? `<div class="fx-sub">Impresora fiscal</div>
+      <div class="grid g2" style="gap:10px">${fi('mfMarca', 'Marca')}${fi('mfModelo', 'Modelo homologado')}</div>
+      <div class="grid g2" style="gap:10px">${fi('mfSerial', 'Número de registro (MH)', 'num', 'Z7C0000000')}${fi('mfDist', 'Distribuidor o servicio técnico autorizado')}</div>
+      <p class="small muted" style="margin:0">El RIF y el número de registro quedan grabados en la memoria fiscal: si el RIF cambia, lo tramita el servicio técnico con el SENIAT, no se cambia aquí.</p>
+      <div class="fx-sub">Talonario para fallas de la impresora y contador</div>` : `<div class="fx-sub">Imprenta digital autorizada</div>
       <div class="grid g2" style="gap:10px">${fi('impNom', 'Nombre del proveedor')}${fi('impRif', 'RIF del proveedor', 'num')}</div>
       <div class="grid g2" style="gap:10px">${fi('serie', 'Serie del número de control', 'num', '00')}${fi('prov', 'N.° de la providencia de autorización')}</div>
-      <div class="fx-sub">Talonario de contingencia y contador</div>
+      <div class="fx-sub">Talonario de contingencia y contador</div>`}
       <div class="grid g2" style="gap:10px">${fi('talNum', 'Talonario', '', 'T-0001')}${fi('contador', 'Contador del negocio')}</div>
       <label class="fx-ck"><input type="checkbox" id="fx-f-conf" ${F.rifMuestra ? '' : 'checked'}><span>RIF y razón social confirmados con el cliente</span></label>
       <div class="fx-iva"><b>IVA de este negocio</b><span>${Y.ivaNota}</span><span class="pill warn" style="justify-self:start">Que el contador lo confirme</span></div>
@@ -2305,13 +2388,20 @@ const FX = (() => {
     </form></section>`; };
   M.cfgView = () => `<p class="lead">Lo que cambia con el tiempo se cambia aquí, sin llamar al programador. Solo el dueño entra a esta pantalla.</p>
     <div class="grid g2" style="align-items:start">${M.datosPanel()}
-    <section class="panel"><div class="hd"><h2>Facturación</h2></div><div class="bd">
+    <section class="panel"><div class="hd"><h2>Facturación</h2></div><div class="bd">${M.MAQ ? `
+      <div class="stat"><span>Medio de emisión</span><span>Impresora fiscal ${E(M.F.mfMarca)} ${E(M.F.mfModelo)}</span></div>
+      <div class="stat"><span>Número de registro</span><span class="num">${E(M.F.mfSerial)}</span></div>
+      <div class="stat"><span>Cierre del día</span><span>Reporte Z, uno por jornada</span></div>
+      <div class="stat"><span>Si la impresora falla</span><span>Talonario de imprenta autorizada</span></div>
+      <div class="stat"><span>Sin internet</span><span>Factura igual: la impresora va por cable</span></div>
+      <div class="stat"><span>Contribuyente especial (IGTF y retenciones de IVA)</span><span class="pill">Módulo apagado</span></div>
+      <p class="small muted" style="margin:10px 0 0">La Providencia 0071 (art. 8) pide máquina fiscal a quien vende productos farmacéuticos al consumidor final; la SNAT/2026/00093 la mantiene como medio válido desde el 19-04-2027. Las normas técnicas de la máquina son las de la Providencia SNAT/2018/0141.</p></div></section></div>` : `
       <div class="stat"><span>Medio de emisión</span><span>Imprenta digital</span></div>
       <div class="stat"><span>Número de control</span><span class="small muted">Lo asigna la imprenta digital</span></div>
       <div class="stat"><span>Sin internet</span><span>Talonario de contingencia</span></div>
       <div class="stat"><span>Máquina fiscal</span><span class="small muted">No se usa</span></div>
       <div class="stat"><span>Contribuyente especial (IGTF y retenciones de IVA)</span><span class="pill">Módulo apagado</span></div>
-      <p class="small muted" style="margin:10px 0 0">Hasta el 18-04-2027 rige la Providencia 0071; desde el 19-04-2027, la SNAT/2026/00093, que deja elegir el medio de emisión. <i>El paso a imprenta digital lo tramita el contador ante el SENIAT.</i></p></div></section></div>`;
+      <p class="small muted" style="margin:10px 0 0">Hasta el 18-04-2027 rige la Providencia 0071; desde el 19-04-2027, la SNAT/2026/00093, que deja elegir el medio de emisión. <i>El paso a imprenta digital lo tramita el contador ante el SENIAT.</i></p></div></section></div>`}`;
 
   /* ---------- Tablero del dueño: calendario y Grupo Azullab ---------- */
   M.calPanel = () => `<section class="panel"><div class="hd"><h2>Calendario fiscal · noviembre 2026</h2><span class="pill warn">Muestra: confirmar</span></div>
@@ -2334,23 +2424,32 @@ const FX = (() => {
 
   /* ---------- Eventos ---------- */
   const reRender = () => { render(); };
+  const noEmit = () => M.MAQ ? 'La nota se emite cuando la impresora fiscal vuelva a funcionar' : 'Sin internet: la nota se emite por la imprenta cuando vuelva la conexión';
   document.addEventListener('click', ev => {
     const b = ev.target.closest('[data-act]'); if (!b) return; const a = b.dataset.act;
+    if (a === 'net' && Y.ownNet && M.MAQ) { S.online = !S.online; toast(S.online ? 'Conexión restablecida' : 'Sin internet: la impresora fiscal sigue facturando'); closeModal(); reRender(); return; }
     if (a === 'net' && Y.ownNet) { S.online = !S.online; if (S.online) { const n = M.reportar(); toast(n ? `Conexión restablecida · ${n} ${n === 1 ? 'factura de contingencia reportada' : 'facturas de contingencia reportadas'} en PDF a la imprenta` : 'Conexión restablecida'); } else toast('Sin internet: se factura con el talonario de contingencia'); closeModal(); reRender(); return; }
     if (!a.startsWith('fx-')) return;
     const d = b.dataset.id ? M.byId(b.dataset.id) : b.dataset.num ? M.byNum(b.dataset.num) : null;
     switch (a) {
       case 'fx-ver': if (d) openModal(M.docModal(d)); break;
-      case 'fx-nc': case 'fx-anular': if (!d) { toast('No encontré esa factura'); break; } if (!M.online()) { toast('Sin internet: la nota se emite por la imprenta cuando vuelva la conexión'); break; }
+      case 'fx-nc': case 'fx-anular': if (!d) { toast('No encontré esa factura'); break; } if (!M.canEmit()) { toast(noEmit()); break; }
         if (M.anulada(d)) { toast('Esa factura ya está anulada con nota de crédito'); break; } openModal(M.ncModal(d, a === 'fx-anular')); M.ncPrev(); break;
-      case 'fx-nd': if (!d) break; if (!M.online()) { toast('Sin internet: la nota se emite por la imprenta cuando vuelva la conexión'); break; } openModal(M.ndModal(d)); break;
+      case 'fx-nd': if (!d) break; if (!M.canEmit()) { toast(noEmit()); break; } openModal(M.ndModal(d)); break;
+      case 'fx-x': openModal(sheet('fxx', 'Reporte X', `<div class="printer"></div><div class="tkwrap"><pre class="ticket printing">${M.hacerX()}</pre></div><p class="small muted" style="margin:0">Lectura de lo vendido hasta ahora. No cierra la jornada.</p><button class="btn" data-act="close">Listo</button>`, 440)); break;
+      case 'fx-z': if (M.mf.zHoy) { toast(`El Reporte Z de hoy ya se hizo: N.° ${String(M.mf.zHoy.n).padStart(4, '0')} a las ${ampm(M.mf.zHoy.hora)}, por ${M.mf.zHoy.u}`); break; }
+        openModal(sheet('fxz', 'Cierre del día', `<p style="margin:0">El Reporte Z cierra la jornada en la memoria fiscal de la impresora y se hace <b>una sola vez al día</b>. Lo que se venda después cuenta para la jornada siguiente.</p><p class="small muted" style="margin:0">Haz antes el Reporte X si quieres revisar los totales.</p><div class="row"><button class="btn" style="flex:1" data-act="close">Cancelar</button><button class="btn primary" style="flex:1" data-act="fx-zgo">Hacer Reporte Z</button></div>`, 440)); break;
+      case 'fx-zgo': { const z = M.hacerZ(S.user); if (!z) break; reRender();
+        openModal(sheet('fxzz', `Reporte Z N.° ${String(z.n).padStart(4, '0')} impreso`, `<div class="printer"></div><div class="tkwrap"><pre class="ticket printing">${z.txt}</pre><span class="sello tk-sello estampar">Cierre fiscal<small>Z ${String(z.n).padStart(4, '0')} · ${E(z.hora)}</small></span></div><p class="small muted" style="margin:0">Va al Libro de Ventas como el renglón de consumidor final de hoy. Guarda el papel con los libros.</p><button class="btn" data-act="close">Listo</button>`, 440)); break; }
+      case 'fx-falla': M.fallaMf('La impresora no imprime (simulación)', S.user); reRender(); toast(`Impresora fiscal en falla: la caja factura con el talonario ${M.F.talNum}. Avisa al servicio técnico`); break;
+      case 'fx-repara': M.reparadaMf(S.user); reRender(); toast('Impresora fiscal operativa. La reparación quedó anotada en el Libro de Control'); break;
       case 'fx-ncgo': { const ls = M.ncLines(); if (!ls.length) { toast('Marca lo que se acredita'); break; }
         const bad = ls.find(l => !(l.q > 0) || l.q > l.max + 1e-9); if (bad) { toast(`Revisa la cantidad de ${bad.d}: máximo ${String(bad.max).replace('.', ',')}`); break; }
         const nc = M.nota('NC', d, ls.map(({max, ...l}) => l), document.getElementById('fx-mot').value); reRender(); openModal(M.docModal(nc));
-        toast(`Nota de crédito ${nc.num} emitida · control ${nc.ctrl}${Y.ncToast ? ' · ' + Y.ncToast(nc, d) : ''}`); break; }
+        toast(`Nota de crédito ${nc.num} ${nc.mf ? 'impresa por la impresora fiscal' : 'emitida · control ' + nc.ctrl}${Y.ncToast ? ' · ' + Y.ncToast(nc, d) : ''}`); break; }
       case 'fx-ndgo': { const m = parseBs(document.getElementById('fx-ndm').value); if (!(m > 0)) { toast('Escribe el monto de la nota'); break; }
         const nd = M.nota('ND', d, [{d:document.getElementById('fx-ndc').value.trim() || 'Ajuste', q:1, pu:m, a:document.getElementById('fx-nda').value}], document.getElementById('fx-ndc').value.trim() || 'Ajuste');
-        reRender(); openModal(M.docModal(nd)); toast(`Nota de débito ${nd.num} emitida · control ${nd.ctrl}`); break; }
+        reRender(); openModal(M.docModal(nd)); toast(`Nota de débito ${nd.num} ${nd.mf ? 'impresa por la impresora fiscal' : 'emitida · control ' + nd.ctrl}`); break; }
       case 'fx-tab': M.ui.libro = b.dataset.k; reRender(); break;
       case 'fx-csv': M.csv(b.dataset.k); break;
       case 'fx-rep': { const n = M.reportar(); toast(n ? `${n} ${n === 1 ? 'factura de contingencia enviada' : 'facturas de contingencia enviadas'} en PDF a la imprenta digital` : 'No hay facturas de contingencia por reportar'); reRender(); break; }

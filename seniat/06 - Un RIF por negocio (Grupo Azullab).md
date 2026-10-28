@@ -16,9 +16,13 @@ Los RIF son de muestra: **se confirman con el cliente**. El del laboratorio es e
 
 ## Qué normas aplican
 
-- **Hasta el 18-04-2027:** Providencia 0071 (facturación). Pide máquina fiscal a quien vende productos farmacéuticos al consumidor final, pero hoy no se venden máquinas nuevas. Ver `02 - Facturación sin máquina fiscal (imprenta digital).md`.
+- **Hasta el 18-04-2027:** Providencia 0071 (facturación). Pide máquina fiscal a quien vende productos farmacéuticos al consumidor final. Por eso la farmacia factura con impresora fiscal: ver `07 - Farmacia con impresora fiscal y tasa BCV.md`.
 - **Desde el 19-04-2027:** Providencia SNAT/2026/00093 (G.O. 43.484 del 21-10-2026). Cada contribuyente elige su medio de emisión; la forma libre queda prohibida.
-- **Medio que usa Cuadre en los tres negocios:** imprenta digital autorizada, con talonario de contingencia. Sin máquina fiscal.
+- **Medio que usa Cuadre en cada negocio:**
+  - **farmacia:** impresora fiscal homologada (Providencia SNAT/2018/0141), con Reporte X, Reporte Z diario y talonario de imprenta autorizada solo si la impresora falla;
+  - **laboratorio y CrossFit:** imprenta digital autorizada, con talonario de contingencia.
+  
+  El código fiscal es el mismo en los tres; el medio se escoge en `FX_SYS.medio` (`'maquina'` o `'digital'`).
 - **Base de los tres:** contribuyente ordinario. Contribuyente especial (IGTF y retenciones de IVA) es un módulo apagado.
 
 ## Qué exige el SENIAT a cada RIF y qué hace Cuadre
@@ -82,7 +86,9 @@ El resumen del Libro de Ventas **cuadra con el borrador de la forma 30**: la pan
 
 **Exportar a Excel:** cada libro se descarga como archivo CSV (se abre en Excel) con las mismas columnas de las plantillas `Libro de Ventas IVA.xlsx`, `Libro de Compras IVA.xlsx` y `Registro de Inventario.xlsx`, más el encabezado con la razón social, el RIF y el período.
 
-### 5. Contingencia (00093, arts. 6, 7 y 11)
+### 5. Contingencia (00093, arts. 6, 7 y 11) · laboratorio y CrossFit
+
+La farmacia no usa esto: su contingencia es la falla de la impresora fiscal (ver el documento 07).
 
 | Exigencia | Qué hace Cuadre |
 | --- | --- |
@@ -115,7 +121,7 @@ RIF exhibido · providencia de la imprenta · talonario de contingencia en el lo
 6. **Fechas del calendario fiscal** de un contribuyente ordinario para el IVA y para enterar las retenciones de ISLR. Las de la maqueta son de muestra.
 7. **Retenciones de ISLR:** plazo para enterar, formato del comprobante y de la relación mensual (XML), y si cada arrendador o proveedor es persona natural o empresa.
 8. **Registro del art. 177 en sistema:** llevarlo en un medio electrónico requiere autorización del SENIAT.
-9. **Paso a imprenta digital antes del 19-04-2027**, sobre todo en la farmacia (la 0071 pide máquina fiscal a quien vende productos farmacéuticos). Ver el documento 02.
+9. **Farmacia con impresora fiscal:** modelo, número de registro, distribuidor autorizado en Mérida y fecha de instalación. Laboratorio y CrossFit: paso a imprenta digital antes del 19-04-2027. Ver los documentos 02 y 07.
 10. **Excedente de crédito del mes anterior** de cada negocio: los montos de la maqueta son de muestra.
 
 ## Preguntas para el cliente
