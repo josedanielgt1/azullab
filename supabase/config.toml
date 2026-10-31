@@ -1,0 +1,3 @@
+# Configuración del proyecto para la CLI y la integración con GitHub de Supabase.
+# Las migraciones están en supabase/migrations y se aplican en orden.
+project_id = "azullab"

@@ -31,6 +31,8 @@ end $$;
 grant execute on all functions in schema prueba to authenticated, anon, service_role;
 
 -- ---------- Datos ----------
+-- Se quitan las empresas que trae la instalación (0002): estas pruebas usan las suyas
+delete from empresas;
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-00000000000d', 'dueno@azullab'),
   ('00000000-0000-0000-0000-0000000000c1', 'cajero@farmacia'),
@@ -42,12 +44,14 @@ insert into perfiles (user_id, nombre) values
   ('00000000-0000-0000-0000-0000000000c1', 'Kevin Albarrán'),
   ('00000000-0000-0000-0000-0000000000a1', 'Wilmer Rivas'),
   ('00000000-0000-0000-0000-0000000000b1', 'Atención Lab'),
-  ('00000000-0000-0000-0000-0000000000f1', 'Gerente Farmacia');
+  ('00000000-0000-0000-0000-0000000000f1', 'Gerente Farmacia')
+on conflict (user_id) do update set nombre = excluded.nombre;
 
 insert into empresas (id, tipo, nombre, razon_social, rif, domicilio, talonario_desde, talonario_hasta) values
   ('10000000-0000-0000-0000-000000000001', 'farmacia',    'Azullab Farmacia',    'Azullab Farmacia, C.A.',          'J-00000001-1', 'La Azulita', 1, 50),
   ('10000000-0000-0000-0000-000000000002', 'laboratorio', 'Azullab Laboratorio', 'Grupo Empresarial Azullab, C.A.', 'J-50134578-3', 'La Azulita', 1, 50),
   ('10000000-0000-0000-0000-000000000003', 'crossfit',    'Azullab CrossFit',    'Fitness Lab Evolution, C.A.',     'J-00000002-2', 'La Azulita', 1, 50);
+update empresas set datos_confirmados = true;
 
 insert into miembros (user_id, empresa_id, rol) values
   ('00000000-0000-0000-0000-00000000000d', '10000000-0000-0000-0000-000000000001', 'dueno'),

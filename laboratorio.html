@@ -646,6 +646,9 @@ select.res-in{width:auto;min-width:170px;text-align:left;font-family:var(--font-
 </head><body>
 <div id="app"></div>
 <div id="modal" class="modal" hidden></div>
+<script src="js/vendor/supabase-2.118.0.js"></script>
+<script src="js/config.js"></script>
+<script src="js/cuadre.js"></script>
 <div id="toast" class="toast" role="status" hidden></div>
 <script>
 /* ======================= Utilidades ======================= */
@@ -1014,19 +1017,7 @@ V.login = () => `<div class="login">
     <div class="facts"><span>Ficha completa del paciente</span><span>Etiquetas por tubo</span><span>Marca valores fuera de rango</span><span>Firma del bioanalista</span><span>Informe con QR</span></div>
   </section>
   <section class="formside">
-    ${S.online?'':`<div class="aviso-off" role="status">${ic('cloudoff')}<span><b>Amaneció sin internet.</b> Este equipo tiene guardados los pacientes, el catálogo de exámenes y la tasa BCV de ayer. Entra con tu PIN; todo se sincroniza cuando vuelva la conexión.</span></div>`}
-    <form id="loginForm" autocomplete="off">
-      <div><h2 style="font-size:1.4rem">Iniciar sesión</h2><p class="muted" style="margin-top:4px">Azullab Laboratorio Clínico, La Azulita${S.online?'':' · <b style="color:var(--sello-ambar)">modo sin conexión</b>'}</p></div>
-      <div class="field"><label>Entrar como</label>
-        <div class="roles">${Object.keys(ROLES).map(r=>`<button type="button" data-act="role" data-r="${r}" class="${S.role===r?'on':''}">${r}</button>`).join('')}</div>
-        <p class="small" style="color:var(--tinta-2);background:var(--hoja);border:1px solid var(--renglon);border-top:0;padding:9px 12px">${ROLES[S.role].desc}</p></div>
-      <div class="field"><label for="lu">Usuario</label><input id="lu" class="input" value="${ROLES[S.role].login}"></div>
-      ${S.online?`<div class="field"><label for="lp">Contraseña</label><input id="lp" class="input" type="password" value="azullab2026"></div>`
-        :`<div class="field"><label for="lp">PIN de 4 dígitos (se guarda cifrado en este equipo)</label><input id="lp" class="input pin" type="password" inputmode="numeric" maxlength="6" value="2026"></div>`}
-      <button class="btn primary big" type="submit">${S.online?'Entrar':ic('shield')+'Entrar con PIN'}</button>
-      <div class="row"><p class="small muted" style="flex:1;min-width:200px">Demostración con datos de muestra. Ningún paciente es real.</p>
-        <button type="button" class="btn sm" data-act="net">${S.online?ic('cloudoff')+'Simular: amaneció sin internet':ic('sync')+'Volver a tener internet'}</button></div>
-    </form>
+    ${Cuadre.formulario('Azullab Laboratorio Clínico, La Azulita')}
     <p class="firma">Sistema hecho por <b>Cuadre</b></p>
   </section></div>`;
 
@@ -1766,7 +1757,7 @@ document.addEventListener('click', e => {
   switch(a){
     case 'nav': go(b.dataset.v); break;
     case 'role': S.role = b.dataset.r; S.user = ROLES[S.role].user; render(); break;
-    case 'logout': go('login'); break;
+    case 'logout': Cuadre.salir('laboratorio'); go('login'); break;
     case 'menu': S.sidebar = !S.sidebar; render(); break;
     case 'net': S.online = !S.online; closeModal();
       if (S.online){ const n = S.queue.length, k = FX.onNet(); S.queue = []; toast(n||k?`Conexión restablecida · ${n} ${n===1?'orden respaldada':'órdenes respaldadas'}${k?` y ${k} ${k===1?'factura de contingencia reportada':'facturas de contingencia reportadas'} en PDF a la imprenta`:''}`:'Conexión restablecida'); }
@@ -1839,11 +1830,11 @@ document.addEventListener('change', e => {
   if (e.target.id==='urg') S.ord.urg = e.target.checked;
   if (e.target.dataset.res!==undefined && e.target.tagName==='SELECT') updFlag(e.target);
 });
-document.addEventListener('submit', e => { if (e.target.id==='loginForm'){ e.preventDefault(); go(HOME[S.role]); if (!S.online) toast(`Sesión abierta sin internet con PIN · ${S.user}`); } });
 document.addEventListener('keydown', e => { if (e.key==='Escape' && !$('#modal').hidden) closeModal(); if (e.key==='Enter' && e.target.id==='ci'){ e.preventDefault(); document.querySelector('[data-act="buscar"]').click(); } });
+Cuadre.montar({tipo:'laboratorio', abrir:a => { S.role = a.rolTxt; S.user = a.nombre; go(Cuadre.ir(can, HOME[S.role])); if (a.sinConexion) toast(`Sesión abierta sin internet · ${S.user}`); }});
 (function init(){
   const h = (location.hash||'').slice(1);
-  if (h && V[h] && h!=='login') S.view = h;
+  if (h && V[h] && h!=='login') Cuadre.destino = h;
   if (!document.getElementById('fx-css')) render();  /* con el motor fiscal (abajo), es él quien dibuja la primera pantalla */
 })();
 
@@ -2419,7 +2410,7 @@ const FX = (() => {
     const d0 = V.dashboard; V.dashboard = () => d0() + (S.role === 'Dueño' ? M.ownerPanels() : '');
     Y.seed(M); if (Y.after) Y.after(M);
     const h = (location.hash || '').slice(1);
-    if (['docs', 'libros', 'checklist', 'config'].includes(h) && can(h)) S.view = h;
+    if (['docs', 'libros', 'checklist', 'config'].includes(h)) Cuadre.destino = h;
     render();
   };
   return M;

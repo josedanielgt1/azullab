@@ -627,6 +627,9 @@ tbody tr:hover td{background:var(--acento-suave)}
 </head><body>
 <div id="app"></div>
 <div id="modal" class="modal" hidden></div>
+<script src="js/vendor/supabase-2.118.0.js"></script>
+<script src="js/config.js"></script>
+<script src="js/cuadre.js"></script>
 <div id="toast" class="toast" role="status" hidden></div>
 <script>
 /* ======================= Utilidades (las mismas de la farmacia y el laboratorio) ======================= */
@@ -987,16 +990,7 @@ V.login = () => `<div class="login">
     <div class="facts"><span>Pizarra con ejemplos</span><span>Registro de socios</span><span>Aviso de vencimiento</span><span>Entrada con cédula</span></div>
   </section>
   <section class="formside">
-    <form id="loginForm" autocomplete="off">
-      <div><h2 style="font-size:1.4rem">Iniciar sesión</h2><p class="muted" style="margin-top:4px">Azullab CrossFit, La Azulita</p></div>
-      <div class="field"><label>Entrar como</label>
-        <div class="roles">${Object.keys(ROLES).map(r=>`<button type="button" data-act="role" data-r="${r}" class="${S.role===r?'on':''}">${r}</button>`).join('')}</div>
-        <p class="small" style="color:var(--tinta-2);background:var(--hoja);border:1px solid var(--renglon);border-top:0;padding:9px 12px">${ROLES[S.role].desc}</p>${S.role==='Socio'?`<div class="cual" style="margin-top:8px" aria-label="Socio de prueba">${[['S01','Al día'],['S03','Por vencer'],['S04','Vencida']].map(([id,l])=>`<button type="button" data-act="cual" data-s="${id}" class="${S.me===id?'on':''}">${socBy(id).n.split(' ')[0]} · ${l}</button>`).join('')}</div>`:''}</div>
-      <div class="field"><label for="lu">${S.role==='Socio'?'Cédula':'Usuario'}</label><input id="lu" class="input" value="${S.role==='Socio'?socBy(S.me).ci.replace(/\D/g,''):ROLES[S.role].login}"></div>
-      <div class="field"><label for="lp">Contraseña</label><input id="lp" class="input" type="password" value="azullab2026"></div>
-      <button class="btn primary big" type="submit">Entrar</button>
-      <p class="small muted">Demostración con datos de muestra. Ningún socio es real.</p>
-    </form>
+    ${Cuadre.formulario('Azullab CrossFit, La Azulita')}
     <p class="firma">Sistema hecho por <b>Cuadre</b></p>
   </section></div>`;
 
@@ -1272,7 +1266,7 @@ document.addEventListener('click', e => {
   switch(a){
     case 'nav': go(b.dataset.v); break;
     case 'role': S.role = b.dataset.r; S.user = ROLES[S.role].user; render(); break;
-    case 'logout': closeModal(); go('login'); break;
+    case 'logout': closeModal(); Cuadre.salir('crossfit'); go('login'); break;
     case 'menu': S.sidebar = !S.sidebar; render(); break;
     case 'close': closeModal(); break;
     case 'toast': toast(b.dataset.m); break;
@@ -1343,7 +1337,6 @@ document.addEventListener('change', e => {
   if (t.id==='p-pr') { S.pay.prod = t.value; openModal(payModal()); }
 });
 document.addEventListener('submit', e => {
-  if (e.target.id==='loginForm'){ e.preventDefault(); if (S.role==='Socio') { S.tab = 'hoy'; } go(HOME[S.role]); return; }
   if (e.target.id==='nform'){ e.preventDefault();
     const n = $('#n-n').value.trim(), ciRaw = $('#n-ci').value.replace(/\D/g,'');
     if (!n || !ciRaw) { toast('Falta el nombre o la cédula'); return; }
@@ -1359,10 +1352,10 @@ document.addEventListener('keydown', e => {
   if (e.key==='Escape' && !$('#modal').hidden) closeModal();
   if (e.key==='Enter' && e.target.id==='kci'){ e.preventDefault(); document.querySelector('[data-act="entrada"]').click(); }
 });
+Cuadre.montar({tipo:'crossfit', abrir:a => { S.role = a.rolTxt; S.user = a.nombre; go(Cuadre.ir(can, HOME[S.role])); }});
 (function init(){
   const h = (location.hash||'').slice(1);
-  if (h==='socio') { S.role = 'Socio'; S.user = ROLES.Socio.user; S.view = 'app'; }
-  else if (h && V[h] && h!=='login') S.view = h;
+  if (h && V[h] && h!=='login') Cuadre.destino = h;  /* la app del socio vuelve cuando los socios tengan usuario */
   if (!document.getElementById('fx-css')) render();  /* con el motor fiscal (abajo), es él quien dibuja la primera pantalla */
 })();
 
@@ -1934,7 +1927,7 @@ const FX = (() => {
     const d0 = V.dashboard; V.dashboard = () => d0() + (S.role === 'Dueño' ? M.ownerPanels() : '');
     Y.seed(M); if (Y.after) Y.after(M);
     const h = (location.hash || '').slice(1);
-    if (['docs', 'libros', 'checklist', 'config'].includes(h) && can(h)) S.view = h;
+    if (['docs', 'libros', 'checklist', 'config'].includes(h)) Cuadre.destino = h;
     render();
   };
   return M;
