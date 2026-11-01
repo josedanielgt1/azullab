@@ -146,6 +146,32 @@
   C.cargarDocumentos = cargarDocumentos;
   C.docLocal = uuid => mapaDocs.get(uuid);
 
+  /* Panel «Grupo Azullab · solo gerencia»: las ventas del mes de los otros negocios, de la base */
+  const NEG = {farmacia: 'Farmacia', laboratorio: 'Laboratorio', crossfit: 'CrossFit'};
+  let grupo = [];
+  async function cargarGrupo() {
+    grupo = [];
+    if (A().rol !== 'dueno') return;
+    const {data: emps} = await db.from('empresas').select('id,tipo,razon_social,rif');
+    const otras = (emps || []).filter(e => e.id !== A().empresa_id);
+    const desde = hoyVE().slice(0, 7) + '-01T00:00:00-04:00';
+    for (const e of otras) {
+      const ds = await todo(() => db.from('documentos').select('tipo,total,iva_general,iva_reducida,igtf,estado').eq('empresa_id', e.id).gte('fecha', desde));
+      const s = d => d.tipo === 'NC' ? -1 : 1, ok = ds.filter(d => d.estado !== 'rechazado');
+      grupo.push({tipo: e.tipo, neg: NEG[e.tipo], razon: e.razon_social, rif: e.rif,
+        v: Math.round(ok.reduce((t, d) => t + s(d) * (+d.total - +d.igtf), 0) * 100) / 100,
+        iva: Math.round(ok.reduce((t, d) => t + s(d) * (+d.iva_general + +d.iva_reducida), 0) * 100) / 100});
+    }
+  }
+  if (typeof FX_SYS === 'object' && FX_SYS.grupo) {
+    const grupoOriginal = FX_SYS.grupo;
+    FX_SYS.grupo = M => {
+      const propio = grupoOriginal(M).find(g => g.propio);
+      return [propio, ...grupo].filter(Boolean).sort((a, b) => Object.keys(NEG).indexOf(a.tipo || A().tipo) - Object.keys(NEG).indexOf(b.tipo || A().tipo));
+    };
+  }
+  C.alEntrar(async () => { try { await cargarGrupo(); } catch (x) { console.error('Cuadre: grupo', x); } });
+
   /* Notas de crédito y débito: las emite la base; la pantalla arma el documento con ese número */
   let notaPase = false, notaReal = null;
   if (typeof FX === 'object' && FX.emitir) {

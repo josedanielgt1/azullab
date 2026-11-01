@@ -24,8 +24,9 @@
   const BASE = {ex: JSON.parse(JSON.stringify(EX)), perf: JSON.parse(JSON.stringify(PERF))};
 
   /* ---------------- Catálogo ---------------- */
-  const exFila = e => ({codigo: e.c, nombre: e.n, area: e.a || null, tubo: e.t || null, tiempo: e.h || null, precio: r2(+e.p || 0), parametros: e.ps || []});
-  const deEx = r => ({c: r.codigo, n: r.nombre, a: r.area || 'Otros', t: r.tubo || '', h: r.tiempo || '', p: +r.precio, ps: r.parametros || [], _id: r.id});
+  const exFila = e => ({codigo: e.c, nombre: e.n, area: e.a || null, tubo: e.t || null, tiempo: e.h || null, precio: r2(+e.p || 0), parametros: {ps: e.ps || [], ay: !!e.ay, reac: e.reac || null}});
+  const deEx = r => { const pa = r.parametros || []; const o = Array.isArray(pa) ? {ps: pa} : pa;
+    return {c: r.codigo, n: r.nombre, a: r.area || 'Otros', t: r.tubo || '', h: r.tiempo || '', p: +r.precio, ps: o.ps || [], ...(o.ay ? {ay: true} : {}), ...(o.reac ? {reac: o.reac} : {}), _id: r.id}; };
   const pfFila = p => ({codigo: p.c, nombre: p.n, examenes: p.ex || [], precio: r2(+p.p || 0)});
   const dePf = r => ({c: r.codigo, n: r.nombre, ex: r.examenes || [], p: +r.precio, _id: r.id});
   const g = {ex: new Map(), perf: new Map(), pac: new Map(), ord: new Map(), med: new Set()};
@@ -113,7 +114,7 @@
   let enCurso = null, otraVez = false;
   async function sincronizar() {
     if (enCurso) { otraVez = true; return enCurso; }
-    enCurso = (async () => { do { otraVez = false; await subir(); await subirReactivos(); } while (otraVez); })()
+    enCurso = (async () => { do { otraVez = false; descontarReactivos(); await subir(); await subirReactivos(); } while (otraVez); })()
       .catch(async x => { avisar('No se pudo guardar: ' + C.msg(x)); await cargarOrdenes().catch(() => {}); render(); })
       .finally(() => { enCurso = null; });
     return enCurso;
@@ -239,6 +240,85 @@
         const h = HIST[o.pat] = HIST[o.pat] || {}; (h[k] = h[k] || []).push([o.fecha, n]); }));
   }
 
+  /* ---------------- Editor del catálogo: exámenes y perfiles ---------------- */
+  const n2 = v => v == null ? '' : String(v).replace('.', ',');
+  const rangoTxt = r => { if (!r) return ''; const f = x => x ? (x[0] == null ? '<' + n2(x[1]) : x[1] == null ? '>' + n2(x[0]) : n2(x[0]) + '-' + n2(x[1])) : '';
+    return Array.isArray(r) ? f(r) : `H:${f(r.M)} M:${f(r.F)}`; };
+  const rango1 = t => { t = t.trim(); if (!t) return null; if (t[0] === '<') return [null, num(t.slice(1))]; if (t[0] === '>') return [num(t.slice(1)), null];
+    const [a, b] = t.split('-'); return [num(a), num(b)]; };
+  const rangoDe = t => { t = String(t || '').trim(); const h = t.match(/H:\s*(\S+)/i), m = t.match(/M:\s*(\S+)/i);
+    return h || m ? {M: h ? rango1(h[1]) : null, F: m ? rango1(m[1]) : null} : rango1(t); };
+  const parTxt = ps => ps.map(p => [p.k, p.n, p.u || '', rangoTxt(p.r), p.d ?? 1].join(' | ')).join('\n');
+  const parDe = (txt, viejos) => txt.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+    const [k, n, u, r, d] = l.split('|').map(x => (x || '').trim()); const v = (viejos || []).find(p => p.k === k) || {};
+    if (!k || !n) throw new Error('Cada parámetro necesita clave y nombre: ' + l);
+    return {...v, k, n, u, r: rangoDe(r), d: d === '' || d == null ? 1 : parseInt(d)}; });
+  const exModal = c => { const e = c ? exBy(c) : null, dueno = ['dueno', 'gerente'].includes(A().rol), tubos = Object.keys(TUBOS);
+    return `<div class="sheet" role="dialog" aria-modal="true" style="max-width:640px"><div class="hd"><h2>${e ? 'Editar ' + C.esc(e.n) : 'Examen nuevo'}</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div>
+    <form class="bd" id="lab-ex-f" data-c="${e ? C.esc(e.c) : ''}" style="display:grid;gap:10px">
+      <div class="grid g2" style="gap:10px"><div class="field"><label for="ce-c">Código</label><input id="ce-c" class="input num" value="${e ? C.esc(e.c) : ''}" ${e ? 'disabled' : 'required'}></div>
+        <div class="field"><label for="ce-n">Nombre</label><input id="ce-n" class="input" value="${e ? C.esc(e.n) : ''}" required></div></div>
+      <div class="grid g2" style="gap:10px"><div class="field"><label for="ce-a">Área</label><input id="ce-a" class="input" value="${e ? C.esc(e.a) : ''}" list="ce-areas"><datalist id="ce-areas">${[...new Set(EX.map(x => x.a))].map(a => `<option>${C.esc(a)}</option>`).join('')}</datalist></div>
+        <div class="field"><label for="ce-t">Tubo o muestra</label><select id="ce-t" class="input">${tubos.map(t => `<option value="${t}" ${e && e.t === t ? 'selected' : ''}>${C.esc(TUBOS[t].n)}</option>`).join('')}</select></div></div>
+      <div class="grid g2" style="gap:10px"><div class="field"><label for="ce-h">Entrega</label><input id="ce-h" class="input" value="${e ? C.esc(e.h) : 'Mismo día'}"></div>
+        <div class="field"><label for="ce-p">Precio $</label><input id="ce-p" class="input num" inputmode="decimal" value="${e ? n2(e.p) : ''}" ${dueno ? '' : 'disabled'}></div></div>
+      <label class="row" style="gap:8px"><input type="checkbox" id="ce-ay" ${e && e.ay ? 'checked' : ''}><span>Pide ayuno</span></label>
+      <div class="field"><label for="ce-ps">Parámetros: clave | nombre | unidad | referencia | decimales</label><textarea id="ce-ps" class="input" rows="6" style="font-family:monospace;font-size:13px">${e ? C.esc(parTxt(e.ps)) : 'gli | Glucosa | mg/dL | 70-100 | 0'}</textarea>
+        <span class="small muted">Referencia: 70-100 · &lt;200 · &gt;40 · distinta por sexo: H:13,5-17,5 M:12-15,5</span></div>
+      <div class="grid g2" style="gap:10px"><div class="field"><label for="ce-rn">Reactivo que gasta</label><select id="ce-rn" class="input"><option value="">Ninguno</option>${[...new Set(REAC.map(r => r.n))].map(n => `<option ${e && e.reac && e.reac.n === n ? 'selected' : ''}>${C.esc(n)}</option>`).join('')}</select></div>
+        <div class="field"><label for="ce-rq">Por cada examen</label><input id="ce-rq" class="input num" inputmode="decimal" value="${e && e.reac ? n2(e.reac.q) : '1'}"></div></div>
+      <button class="btn primary big" type="submit">${ic('check')}Guardar</button></form></div>`; };
+  const pfModal = c => { const p = c ? perfBy(c) : null;
+    return `<div class="sheet" role="dialog" aria-modal="true" style="max-width:560px"><div class="hd"><h2>${p ? 'Editar ' + C.esc(p.n) : 'Perfil nuevo'}</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div>
+    <form class="bd" id="lab-pf-f" data-c="${p ? C.esc(p.c) : ''}" style="display:grid;gap:10px">
+      <div class="grid g2" style="gap:10px"><div class="field"><label for="cp-c">Código</label><input id="cp-c" class="input num" value="${p ? C.esc(p.c) : ''}" ${p ? 'disabled' : 'required'}></div>
+        <div class="field"><label for="cp-n">Nombre</label><input id="cp-n" class="input" value="${p ? C.esc(p.n) : ''}" required></div></div>
+      <div class="field"><label>Exámenes que incluye</label><div class="chks" style="max-height:220px;overflow:auto">${EX.map(e => `<label class="chk"><input type="checkbox" data-cpx="${C.esc(e.c)}" ${p && p.ex.includes(e.c) ? 'checked' : ''}>${C.esc(e.n)}</label>`).join('')}</div></div>
+      <div class="field"><label for="cp-p">Precio del perfil $</label><input id="cp-p" class="input num" inputmode="decimal" value="${p ? n2(p.p) : ''}" required></div>
+      <button class="btn primary big" type="submit">${ic('check')}Guardar</button></form></div>`; };
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-act="lab-ex"],[data-act="lab-pf"]'); if (!b) return;
+    e.stopImmediatePropagation(); openModal(b.dataset.act === 'lab-ex' ? exModal(b.dataset.c) : pfModal(b.dataset.c));
+  }, true);
+  document.addEventListener('submit', e => {
+    if (!['lab-ex-f', 'lab-pf-f'].includes(e.target.id)) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    const g = id => (document.getElementById(id).value || '').trim(), viejo = e.target.dataset.c;
+    try {
+      if (e.target.id === 'lab-ex-f') {
+        const c = viejo || g('ce-c').toUpperCase(); if (!viejo && exBy(c)) throw new Error('Ya hay un examen con el código ' + c);
+        const e0 = viejo ? exBy(viejo) : null, p = e0 && document.getElementById('ce-p').disabled ? e0.p : num(g('ce-p'));
+        if (!g('ce-n') || !(p >= 0)) throw new Error('Revisa el nombre y el precio');
+        const x = {...(e0 || {}), c, n: g('ce-n'), a: g('ce-a') || 'Otros', t: g('ce-t'), h: g('ce-h'), p, ay: document.getElementById('ce-ay').checked, ps: parDe(g('ce-ps'), e0 && e0.ps),
+          reac: g('ce-rn') ? {n: g('ce-rn'), q: num(g('ce-rq')) || 1} : null};
+        if (e0) Object.assign(e0, x); else EX.push(x);
+      } else {
+        const c = viejo || g('cp-c').toUpperCase(); if (!viejo && perfBy(c)) throw new Error('Ya hay un perfil con el código ' + c);
+        const ex = [...document.querySelectorAll('[data-cpx]:checked')].map(x => x.dataset.cpx), p = num(g('cp-p'));
+        if (!g('cp-n') || !ex.length || !(p >= 0)) throw new Error('Escribe el nombre, escoge los exámenes y pon el precio');
+        const p0 = viejo ? perfBy(viejo) : null, x = {...(p0 || {}), c, n: g('cp-n'), ex, p};
+        if (p0) Object.assign(p0, x); else PERF.push(x);
+      }
+      refrescarAreas(); closeModal(); render(); avisar('Catálogo guardado');
+    } catch (x) { avisar(C.msg(x)); }
+  }, true);
+
+  /* Al validar un resultado se descuenta el reactivo que gastó cada examen (primero el lote que vence antes) */
+  const estadoVisto = new Map();
+  function descontarReactivos() {
+    ORD.forEach(o => {
+      const antes = estadoVisto.get(o.n); estadoVisto.set(o.n, o.st);
+      if (antes === undefined || antes === 'Validado' || o.st !== 'Validado' || o.reacDesc) return;
+      exOf(o).forEach(c => { const e = exBy(c); if (!e || !e.reac) return;
+        let falta = e.reac.q; REAC.filter(r => r.n === e.reac.n && r.q > 0).sort((a, b) => a.e.localeCompare(b.e)).forEach(r => { const d = Math.min(r.q, falta); r.q = +(r.q - d).toFixed(3); falta -= d; }); });
+      o.reacDesc = true;
+    });
+  }
+
+  /* Pantallas de la fase 2: muestras, con aviso */
+  const aviso = t => `<p class="fx-aviso" style="margin:0 0 12px">${ic('alert')}<span><b>Fase 2 · muestra.</b> ${t}</span></p>`;
+  ['portal', 'equipos', 'convenios', 'calidad', 'grupo'].forEach(v => { const o = V[v]; if (o) V[v] = () => aviso('Esta pantalla muestra cómo funcionará; las cifras no son reales todavía.') + o(); });
+
   C.laboratorio = {sincronizar, cargarOrdenes};
 
   /* ---------------- Al entrar ---------------- */
@@ -250,6 +330,7 @@
     await cargarOrdenes();
     await cargarReactivos().catch(x => console.error('Cuadre laboratorio: reactivos', x));
     armarHistorial();
+    ORD.forEach(o => estadoVisto.set(o.n, o.st));
     if (S.ord && typeof newOrd === 'function') S.ord = newOrd();
     S.queue.length = 0;
   });

@@ -19,9 +19,10 @@ Las pantallas de `farmacia.html`, `laboratorio.html` y `crossfit.html` son las m
 | Farmacia: administración | Droguerías con RIF, factura de compra (número y control), Libro de Compras, cuentas por pagar y pagos, gastos, cuentas bancarias, configuración, fallas, cotizaciones, nómina (empleados y novedades), Ganancias y gastos con cifras reales, tablero con las ventas reales | ✅ |
 | Farmacia: récipes y controlados | Récipes con número interno, médicos con MPPS, récipe especial sin repetir; la base no deja vender un controlado sin el récipe del paciente ni más de lo autorizado; el libro de controlados se llena solo con cada movimiento y cuadra con el inventario | ✅ |
 | Farmacia: bancos, puntos y alertas | Cuentas y bancos con lo cobrado hoy, deuda con droguerías y Cashea guardado; Azul Puntos con los clientes reales; libro de ventas del módulo fiscal con las facturas; alertas de alergias que registra la regente y la caja frena sin ver el motivo | ✅ |
-| Laboratorio: reactivos e historial | Entrada y corrección de reactivos; historial de resultados del paciente con sus órdenes | ✅ |
+| Laboratorio: catálogo, reactivos e historial | Editor de exámenes (precio, tubo, parámetros, referencias por sexo, reactivo que gasta) y de perfiles; entrada y corrección de reactivos; al validar se descuenta el reactivo; historial del paciente con sus órdenes | ✅ |
+| Los tres: panel del grupo | El dueño ve las ventas reales del mes de los tres negocios | ✅ |
 
-Pruebas: **221 de base de datos** (`supabase/tests/correr.sh`) y **127 de navegador** (`tests/navegador/correr.sh`).
+Pruebas: **221 de base de datos** (`supabase/tests/correr.sh`) y **128 de navegador** (`tests/navegador/correr.sh`).
 
 ## Qué todavía muestra datos de muestra
 
@@ -34,7 +35,7 @@ Pruebas: **221 de base de datos** (`supabase/tests/correr.sh`) y **127 de navega
 | Farmacia | Tienda web y sucursales | Pantallas de muestra de la fase 2, marcadas como tal |
 | Farmacia | Azul Puntos | Los puntos ya se suman; falta el canje en la caja (fase 2) |
 | Farmacia | Cuentas y bancos | Conciliación con el estado de cuenta y diferencial cambiario: necesitan los movimientos del banco |
-| Laboratorio | Reactivos | Se guardan; falta que cada resultado validado descuente lo que gastó |
+| Laboratorio | Portal, equipos, convenios, calidad y grupo | Pantallas de muestra de la fase 2, marcadas como tal |
 | Los tres | Páginas «Alcance de la propuesta», «Alcance y regalo», «Fase 2» | Decidir si se quitan para el cliente |
 | Los tres | Trabajo sin internet | Hoy se necesita internet para facturar |
 | CrossFit | App del socio | Vuelve cuando los socios tengan su usuario |

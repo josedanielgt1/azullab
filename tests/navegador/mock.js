@@ -18,7 +18,7 @@ module.exports = function mock(page, o = {}) {
     if (p === '/functions/v1/usuarios') { if (b.accion === 'crear') st.equipo.push({ user_id: 'u-' + st.equipo.length, nombre: b.nombre, correo: b.correo, rol: b.rol, caja: b.caja, activo: true, ultima_entrada: null }); return json(r, { ok: true }); }
     if (p === '/rest/v1/tasas_bcv' && m === 'GET') return json(r, st.tasas.slice().sort((a, c) => c.fecha.localeCompare(a.fecha)).slice(0, 1));
     if (p === '/rest/v1/tasas_bcv' && m === 'POST') { st.tasas = st.tasas.filter(t => t.fecha !== b.fecha).concat([b]); return json(r, [b], 201); }
-    if (p === '/rest/v1/empresas' && m === 'GET') return json(r, st.empresa);
+    if (p === '/rest/v1/empresas' && m === 'GET') return json(r, u.searchParams.get('id') ? st.empresa : (o.empresas || [st.empresa]));
     if (p === '/rest/v1/empresas' && m === 'PATCH') { Object.assign(st.empresa, b); return json(r, st.empresa); }
     if (p === '/rest/v1/miembros' && m === 'PATCH') { const id = u.searchParams.get('user_id').slice(3), x = st.equipo.find(e => e.user_id === id); Object.assign(x, b); return json(r, [x]); }
     if (p === '/rest/v1/perfiles' && m === 'PATCH') { const id = u.searchParams.get('user_id').slice(3), x = st.equipo.find(e => e.user_id === id); x.nombre = b.nombre; return json(r, [x]); }

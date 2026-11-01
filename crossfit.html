@@ -1867,10 +1867,10 @@ const FX = (() => {
   M.grupoPanel = () => { const G = Y.grupo(M), t = r2(G.reduce((a, g) => a + g.v, 0));
     return `<section class="panel"><div class="hd"><h2>Grupo Azullab · solo gerencia</h2><span class="pill info">No es un documento fiscal</span></div>
     <div class="bd"><p class="fx-aviso">${ic('alert')}<span>Cada negocio factura, declara y lleva sus libros con su propio RIF. Este consolidado no es un documento fiscal.</span></p></div>
-    <div class="bd flush tbl-wrap keep"><table><thead><tr><th>Negocio</th><th>Razón social y RIF</th><th class="r">Ventas de octubre Bs</th><th class="r">IVA del mes Bs</th></tr></thead><tbody>
+    <div class="bd flush tbl-wrap keep"><table><thead><tr><th>Negocio</th><th>Razón social y RIF</th><th class="r">Ventas de ${MES_T} Bs</th><th class="r">IVA del mes Bs</th></tr></thead><tbody>
       ${G.map(g => `<tr><td><b>${E(g.neg)}</b>${g.propio ? ' <span class="pill ok">Este sistema</span>' : ''}</td><td>${E(g.razon)}<div class="small muted num">${E(g.rif)}</div></td><td class="r">${nf(g.v)}</td><td class="r">${nf(g.iva)}</td></tr>`).join('')}</tbody>
       <tfoot><tr><td>Total gerencial</td><td></td><td class="r"><span>${nf(t)}</span></td><td class="r"><span>—</span></td></tr></tfoot></table></div>
-    <p class="base-legal">Para mirar el negocio, no para declarar: el IVA de cada RIF se declara aparte y no se suma ni se compensa entre negocios. Las cifras de los otros dos negocios son de muestra.</p></section>`; };
+    <p class="base-legal">Para mirar el negocio, no para declarar: el IVA de cada RIF se declara aparte y no se suma ni se compensa entre negocios.</p></section>`; };
   M.resumenPanel = () => { const f = M.f30(), ok = Math.abs(r2(f.R.ivg + f.R.ivr) - f.deb) < .005;
     return `<section class="panel"><div class="hd"><h2>Libros fiscales · ${MES_T}</h2><div class="row" style="gap:8px"><button class="btn sm" data-act="nav" data-v="libros">${ic('book')}Abrir libros y declaración</button><button class="btn sm" data-act="nav" data-v="docs">Facturas y notas</button></div></div>
     <div class="grid g2" style="gap:0;align-items:start"><div class="bd flush tbl-wrap keep">${M.resumenTabla(f)}</div>

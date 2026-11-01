@@ -40,7 +40,7 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   await pg.evaluate(() => go('catalogo')); await pg.click('[data-act="lab-base"]');
   await pg.waitForFunction(() => EX.length > 0, null, { timeout: 6000 }).catch(() => {});
   ok(T.examenes.length >= 20 && T.perfiles_lab.length > 3 && await pg.evaluate(() => EX.length) === T.examenes.length, `el dueño carga el catálogo base (${T.examenes.length} exámenes, ${T.perfiles_lab.length} perfiles)`);
-  ok(T.examenes.find(e => e.codigo === 'HEM').parametros.length > 3, 'con sus parámetros y valores de referencia');
+  ok(T.examenes.find(e => e.codigo === 'HEM').parametros.ps.length > 3, 'con sus parámetros y valores de referencia');
   // Paciente nuevo
   await pg.evaluate(() => { go('recepcion'); PATS.push({ id: 'N1', ci: 'V-9876543', n: 'María Rondón', s: 'F', b: '1968-04-12', tel: '0414', sangre: 'O+' }); S.ord.pat = 'N1'; render(); });
   await pg.click('body'); await pg.waitForFunction(() => PATS[0].id.startsWith('P'), null, { timeout: 6000 }).catch(() => {});
@@ -64,9 +64,22 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   await pg.click('#lab-reac-f [type=submit]'); await pg.waitForTimeout(600);
   const rc = T.colecciones.find(c => c.nombre === 'equipo_reactivos');
   ok(rc && rc.datos[0].l === 'GL2611A' && rc.datos[0].q === 420, 'la entrada de reactivo se guarda en la base');
+  // Editar examen: precio y reactivo que gasta
+  await pg.evaluate(() => go('catalogo')); await pg.click('[data-act="lab-ex"][data-c="GLI"]');
+  await pg.fill('#ce-p', '3'); await pg.selectOption('#ce-rn', 'Reactivo de glucosa'); await pg.fill('#ce-rq', '1');
+  await pg.click('#lab-ex-f [type=submit]'); await pg.waitForTimeout(600);
+  const gli = T.examenes.find(e => e.codigo === 'GLI');
+  ok(gli.precio === 3 && gli.parametros.reac && gli.parametros.reac.n === 'Reactivo de glucosa', 'el dueño cambia el precio y el reactivo del examen');
+  ok(gli.parametros.ps.length >= 1 && gli.parametros.ps[0].r, 'conserva los parámetros con su referencia');
+  // Validar descuenta el reactivo
+  await pg.evaluate(() => { const o = ORD[0]; o.st = 'Validado'; o.val = { by: 'Bio', t: '10:00' }; render(); }); await pg.click('body'); await pg.waitForTimeout(700);
+  const rc2 = T.colecciones.find(c => c.nombre === 'equipo_reactivos');
+  ok(rc2 && rc2.datos[0].q === 419, 'al validar, se descuenta el reactivo que gastó (420 → 419)');
+  await pg.evaluate(() => { ORD[0].st = 'Validado'; render(); }); await pg.click('body'); await pg.waitForTimeout(400);
+  ok(T.colecciones.find(c => c.nombre === 'equipo_reactivos').datos[0].q === 419, 'y no se descuenta dos veces');
   // Recargar
   await pg.reload(); await pg.waitForFunction(() => !document.getElementById('loginForm') && ORD.length === 1 && PATS.length === 1, null, { timeout: 8000 }).catch(() => {});
-  ok(await pg.evaluate(() => ORD[0].st === 'En proceso' && ORD[0].pat === PATS[0].id && ORD[0].fac === '00000001' && EX.length >= 20 && MEDICOS.length >= 1 && REAC.length === 1), 'al recargar siguen ahí paciente, orden, estado, factura, catálogo y reactivos');
+  ok(await pg.evaluate(() => ORD[0].st === 'Validado' && ORD[0].pat === PATS[0].id && ORD[0].fac === '00000001' && EX.length >= 20 && MEDICOS.length >= 1 && REAC.length === 1 && EX.find(e => e.c === 'GLI').p === 3), 'al recargar siguen ahí paciente, orden, estado, factura, catálogo y reactivos');
   for (const v of vistas) { const n = errs.length; await pg.evaluate(x => go(x), v).catch(e => errs.push(v + ': ' + e.message)); if (errs.length > n) console.log('   rota con datos:', v, errs.slice(n).join(' | ').slice(0, 200)); }
   ok(errs.length === 0, 'sin errores de JavaScript ' + errs.join(' | ').slice(0, 300));
   await b.close(); process.exit(fallas ? 1 : 0);

@@ -15,7 +15,7 @@ const { chromium } = require('playwright'); const mock = require('./mock');
     const tabla = { '/rest/v1/productos': 'productos', '/rest/v1/lotes': 'lotes', '/rest/v1/clientes': 'clientes', '/rest/v1/documentos': 'docs', '/rest/v1/proveedores': 'proveedores', '/rest/v1/compras': 'compras', '/rest/v1/gastos': 'gastos', '/rest/v1/movimientos': 'movimientos', '/rest/v1/medicos': 'medicos', '/rest/v1/recipes': 'recipes', '/rest/v1/libro_controlados': 'libro_controlados', '/rest/v1/alertas_pacientes': 'alertas_pacientes' }[p];
     if (p === '/rest/v1/colecciones' && m === 'GET') return out(T.colecciones);
     if (p === '/rest/v1/colecciones' && m === 'POST') { T.colecciones = T.colecciones.filter(c => c.nombre !== body.nombre).concat([body]); return out(body); }
-    if (tabla && m === 'GET') return out(filtrar(T[tabla], u));
+    if (tabla && m === 'GET') return out(filtrar(tabla === 'docs' ? T[tabla].concat(T.otros || []) : T[tabla], u));
     if (tabla && m === 'POST') { const r = { activo: true, visitas: 0, total_usd: 0, puntos: 0, ...body, id: T.seq++ }; if (tabla === 'recipes') { r.numero = T.recipes.length + 1; r.fecha = new Date().toISOString(); }
       if (tabla === 'medicos' && T.medicos.some(x => x.nombre === r.nombre)) return out(r); if (tabla === 'clientes') r.cedula_rif = r.cedula_rif.toUpperCase();
       if (tabla === 'productos' && T.productos.some(x => x.codigo && x.codigo === r.codigo)) return { status: 409, body: { message: 'Uno de los códigos ya está en otro producto' } };
@@ -45,13 +45,16 @@ const { chromium } = require('playwright'); const mock = require('./mock');
     if (p === '/rest/v1/rpc/salida_inventario') { const l = T.lotes.find(x => x.id === body.p_lote); if (body.p_cantidad > l.cantidad) return { status: 400, body: { message: 'La salida debe ser entre 1 y ' + l.cantidad } }; l.cantidad -= body.p_cantidad; return { body: l }; }
   };
   const ctx = await b.newContext(); const pg = await ctx.newPage(); const errs = []; pg.on('pageerror', e => errs.push(e.message)); pg.on('console', m => { if (m.type() === 'error') console.log('   consola:', m.text().slice(0, 200)); });
-  mock(pg, { tasas: [{ fecha: hoy, tasa: 100 }], rest });
+  T.otros = [{ id: 'lab-1', empresa_id: 'L', tipo: 'FAC', numero: 1, total: 5000, igtf: 0, iva_general: 0, iva_reducida: 0, estado: 'emitido', fecha: new Date().toISOString(), tasa: 100, cliente_rif: 'V-1', cliente_nombre: 'X', documento_lineas: [], documento_pagos: [] }];
+  mock(pg, { tasas: [{ fecha: hoy, tasa: 100 }], rest, empresas: [{ id: 'E', tipo: 'farmacia', razon_social: 'Azullab Farmacia, C.A.', rif: 'J-00000001-0' }, { id: 'L', tipo: 'laboratorio', razon_social: 'Grupo Empresarial Azullab, C.A.', rif: 'J-50134578-3' }] });
   await pg.goto('http://localhost:8765/farmacia.html'); await pg.fill('#lu', 'jose@azullab.com'); await pg.fill('#lp', 'clave-buena'); await pg.click('#loginForm [type=submit]');
   await pg.waitForFunction(() => !document.getElementById('loginForm'), null, { timeout: 8000 });
   ok(await pg.evaluate(() => P.length) === 0, 'instalación nueva: el catálogo arranca vacío');
   ok(await pg.evaluate(() => CLIENTS.length + S.sales.length + FX.docs.length + DROG.length + S.gastos.length + CUENTAS.length + COMPRAS_LIBRO.length + S.fallas.length + S.cots.length + S.movs.length + RX.length + CTRL.length + MEDICOS.length + Object.keys(ALERTAS).length) === 0, 'sin clientes, ventas, facturas, droguerías, gastos, cuentas, compras, fallas, récipes ni libro de controlados de muestra');
   ok(await pg.evaluate(() => EMP.length === 0 && DIF.length === 0), 'nómina y diferencial cambiario sin datos de muestra');
   ok(await pg.evaluate(() => FIN.mes.ventas === 50 && FIN.meses().length === 3 && finanzas().neta === 15), 'Ganancias y gastos usa las cifras de la base (50 − 30 − 5 = 15)');
+  const gr = await pg.evaluate(() => FX_SYS.grupo(FX));
+  ok(gr.length === 2 && gr[1].neg === 'Laboratorio' && gr[1].v === 5000 && gr[0].propio, 'el panel del grupo muestra las ventas reales del laboratorio (solo el dueño)');
   const vistas = await pg.evaluate(() => NAV.flatMap(g => g.items.map(i => i[1])));
   for (const v of vistas) { const n = errs.length; await pg.evaluate(x => go(x), v).catch(e => errs.push(v + ': ' + e.message)); if (errs.length > n) console.log('   rota con catálogo vacío:', v, errs.slice(n).join(' | ').slice(0, 160)); }
   ok(errs.length === 0, `las ${vistas.length} pantallas abren con todo vacío`);
