@@ -25,6 +25,9 @@
   const iniciales = n => String(n || '?').split(/\s+/).filter(w => /^[A-ZÁÉÍÓÚÑ]/i.test(w)).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?';
   const fechaHora = f => f ? new Date(f).toLocaleString('es-VE', {day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'}) : 'Nunca ha entrado';
 
+  /* La fecha de hoy de verdad (las maquetas traían una fija) */
+  try { if (typeof TODAY === 'object' && TODAY.setTime) { const [y, m, d] = hoyVE().split('-').map(Number); TODAY.setTime(new Date(y, m - 1, d).getTime()); } } catch (_) {}
+
   /* ---------------- Tasa BCV ---------------- */
   function ponerTasa(v, fecha) {
     if (!(v > 0)) return;
@@ -99,6 +102,48 @@
     repintar();
     avisar(data.datos_confirmados ? 'Datos fiscales guardados. Este negocio ya puede facturar' : 'Datos guardados. Marca «confirmados» para poder facturar');
   }, true);
+
+  const p8 = n => String(n).padStart(8, '0');
+  const hm = f => new Date(f).toLocaleTimeString('es-VE', {hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Caracas'});
+  async function todo(armar) {
+    const out = [];
+    for (let i = 0; ; i += 1000) {
+      const {data, error} = await armar().range(i, i + 999);
+      if (error) throw error;
+      out.push(...data);
+      if (data.length < 1000) return out;
+    }
+  }
+  C.todo = todo;
+
+  /* ---------------- Facturas y notas del mes (motor fiscal común) ---------------- */
+  let docId = 900000;
+  const mapaDocs = new Map(); // uuid → id local del motor fiscal
+  function aDocFX(d, nombres) {
+    const id = ++docId; mapaDocs.set(d.id, id);
+    const x = {id, tipo: d.tipo, fecha: new Intl.DateTimeFormat('en-CA', {timeZone: 'America/Caracas'}).format(new Date(d.fecha)), hora: hm(d.fecha),
+      cli: {n: d.cliente_nombre, id: d.cliente_rif === 'V-00000000' ? '' : d.cliente_rif, tel: d.cliente_tel || ''},
+      lines: (d.documento_lineas || []).sort((a, b) => a.renglon - b.renglon).map(l => ({d: l.descripcion, q: +l.cantidad, pu: +l.precio_unit, a: l.alicuota, pid: l.ref && l.ref.producto_id})),
+      tasa: +d.tasa, div: 0, pagos: (d.documento_pagos || []).map(p => ({k: p.metodo, bs: +p.monto_bs})), origen: d.ref_tipo === 'venta' ? {sale: true} : null,
+      afecta: d.afecta_id ? mapaDocs.get(d.afecta_id) || null : null, motivo: d.motivo || '', igtf: +d.igtf, u: nombres[d.creado_por] || '',
+      cont: d.origen === 'contingencia', num: d.origen === 'contingencia' ? 'C-' + p8(d.numero) : p8(d.numero),
+      ctrl: d.numero_control || 'Pendiente de imprenta', dbId: d.id};
+    x.t = FX.tot(x); return x;
+  }
+  async function cargarDocumentos() {
+    const desde = hoyVE().slice(0, 7) + '-01T00:00:00-04:00';
+    const [docs, {data: per}] = await Promise.all([
+      todo(() => db.from('documentos').select('*, documento_lineas(*), documento_pagos(*)').eq('empresa_id', A().empresa_id).gte('fecha', desde).order('fecha')),
+      db.from('perfiles').select('user_id,nombre')]);
+    const nombres = {}; (per || []).forEach(p => { nombres[p.user_id] = p.nombre; });
+    FX.docs.length = 0; FX.hist.length = 0; mapaDocs.clear();
+    docs.filter(d => d.tipo === 'FAC').concat(docs.filter(d => d.tipo !== 'FAC')).forEach(d => FX.docs.push(aDocFX(d, nombres)));
+    // El próximo número que muestra la caja (la base asigna el definitivo)
+    const {data: ult} = await db.from('documentos').select('tipo,numero').eq('empresa_id', A().empresa_id).eq('origen', 'sistema').order('numero', {ascending: false}).limit(50);
+    ['FAC', 'NC', 'ND'].forEach(t => { const u = (ult || []).find(x => x.tipo === t); FX.n[t] = u ? +u.numero + 1 : 1; });
+  }
+  C.cargarDocumentos = cargarDocumentos;
+  C.alEntrar(async () => { if (typeof FX === 'object' && FX.docs) await cargarDocumentos(); });
 
   /* ---------------- Usuarios ---------------- */
   const EQ = {lista: null, cargando: false, error: ''};

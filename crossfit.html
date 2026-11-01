@@ -1374,7 +1374,7 @@ const FX_SYS = (() => {
   const PROD = [{id:'agua', n:'Agua mineral 600 ml', p:1}, {id:'batido', n:'Batido de proteína', p:4}, {id:'franela', n:'Franela Azullab CrossFit', p:15}];
   const planLine = (pl, desde, rate) => ({d:`${pl.n} · desde el ${desde.split('-').reverse().join('-')}`, q:1, pu:r2(pl.p * rate), a:'G'});
   return {
-    negocio:'Azullab CrossFit', hoy:'2026-10-27', ownNet:true,
+    negocio:'Azullab CrossFit', hoy:new Intl.DateTimeFormat('en-CA', {timeZone: 'America/Caracas'}).format(new Date()), ownNet:true,
     fiscal:{razon:'Fitness Lab Evolution, C.A.', rif:'J-XXXXXXXX-2', dom:'La Azulita, municipio Andrés Bello, estado Mérida (dirección exacta por confirmar)', tel:'0424-XXX-XXXX',
       impNom:'Imprenta digital por elegir (muestra)', impRif:'J-00000000-0', serie:'00', prov:'SNAT/XXXX/2026 (muestra)', provFecha:'',
       talNum:'T-0001', talSerie:'01', talDesde:1, talHasta:50, contador:'Por asignar'},
@@ -1446,7 +1446,7 @@ const FX = (() => {
   const ampm = h => { const [H, Mi] = String(h).split(':').map(Number); return `${String(H % 12 || 12).padStart(2, '0')}:${String(Mi).padStart(2, '0')} ${H < 12 ? 'a. m.' : 'p. m.'}`; };
   const now = () => { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
   const hasRif = id => /^[JGVEPC]-\d{8}-\d$/.test(String(id || '').replace(/\./g, '').toUpperCase());
-  const MES = '2026-10', MES_T = 'octubre 2026';
+  const MES = Y.hoy.slice(0, 7), MES_T = new Date(Y.hoy + 'T12:00:00').toLocaleDateString('es-VE', {month: 'long', year: 'numeric'});  /* el mes de hoy */
   const M = {Y, r2, fd, B, ampm, hasRif, MES_T};
 
   /* ---------- Datos fiscales del emisor: un solo lugar ---------- */

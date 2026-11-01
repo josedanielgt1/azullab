@@ -112,8 +112,20 @@ reset role;
 select prueba.debe_fallar('ni el superusuario edita un movimiento', $$ update movimientos set cantidad = 0 $$, 'no se editan');
 set role authenticated;
 
+\echo '--- Clientes'
+select prueba.como('00000000-0000-0000-0000-0000000000c1');
+insert into clientes (empresa_id, cedula_rif, nombre) values ((select f from ids), 'v12.990.441', 'José Peña');
+select prueba.igual('la cédula se guarda normalizada', (select cedula_rif from clientes), 'V-12990441');
+select prueba.debe_fallar('no se repite la cédula', $$ insert into clientes (empresa_id, cedula_rif, nombre) values ((select f from ids), 'V-12990441', 'Otro') $$, 'duplicate key');
+select prueba.debe_fallar('cédula inválida', $$ insert into clientes (empresa_id, cedula_rif, nombre) values ((select f from ids), 'hola', 'X') $$, 'inválido');
+select vender((select f from ids), '{"rif":"V-12.990.441","nombre":"José Peña"}', '[{"producto_id":1,"cantidad":1,"precio_usd":3.5}]');
+select prueba.igual('la venta le suma una visita', (select visitas from clientes), 1);
+select prueba.igual('y el total en dólares', (select total_usd from clientes), 3.50::numeric);
+select prueba.debe_fallar('el cajero no borra clientes', $$ delete from clientes $$, 'permission denied');
+
 \echo '--- Otro negocio'
 select prueba.como('00000000-0000-0000-0000-0000000000b1');
 select prueba.igual('el laboratorio no ve el catálogo de la farmacia', (select count(*) from productos), 0::bigint);
+select prueba.igual('ni sus clientes', (select count(*) from clientes), 0::bigint);
 select prueba.debe_fallar('ni vende en la farmacia', $$ select vender((select f from ids), '{"rif":"V-1","nombre":"X"}', '[{"producto_id":1,"cantidad":1,"precio_usd":3}]') $$, 'no vende');
 \echo '--- Todas las pruebas pasaron'

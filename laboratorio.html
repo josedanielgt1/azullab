@@ -1850,7 +1850,7 @@ const FX_SYS = (() => {
     {neg:'Farmacia', razon:'Azullab Farmacia, C.A.', rif:'J-XXXXXXXX-1', v:20723504.90, iva:684473.54},
     {neg:'CrossFit', razon:'Fitness Lab Evolution, C.A.', rif:'J-XXXXXXXX-2', v:521743.94, iva:71964.69}];
   return {
-    negocio:'Azullab Laboratorio', hoy:'2026-10-27',
+    negocio:'Azullab Laboratorio', hoy:new Intl.DateTimeFormat('en-CA', {timeZone: 'America/Caracas'}).format(new Date()),
     fiscal:{razon:'Grupo Empresarial Azullab, C.A.', rif:'J-50134578-3', dom:'La Azulita, municipio Andrés Bello, estado Mérida', tel:'0424-7535017 / 0424-7723883',
       impNom:'Imprenta digital por elegir (muestra)', impRif:'J-00000000-0', serie:'00', prov:'SNAT/XXXX/2026 (muestra)', provFecha:'',
       talNum:'T-0001', talSerie:'01', talDesde:1, talHasta:50, contador:'Por asignar'},
@@ -1929,7 +1929,7 @@ const FX = (() => {
   const ampm = h => { const [H, Mi] = String(h).split(':').map(Number); return `${String(H % 12 || 12).padStart(2, '0')}:${String(Mi).padStart(2, '0')} ${H < 12 ? 'a. m.' : 'p. m.'}`; };
   const now = () => { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
   const hasRif = id => /^[JGVEPC]-\d{8}-\d$/.test(String(id || '').replace(/\./g, '').toUpperCase());
-  const MES = '2026-10', MES_T = 'octubre 2026';
+  const MES = Y.hoy.slice(0, 7), MES_T = new Date(Y.hoy + 'T12:00:00').toLocaleDateString('es-VE', {month: 'long', year: 'numeric'});  /* el mes de hoy */
   const M = {Y, r2, fd, B, ampm, hasRif, MES_T};
 
   /* ---------- Datos fiscales del emisor: un solo lugar ---------- */
