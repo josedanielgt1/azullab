@@ -9,7 +9,8 @@
    ===================================================================== */
 (() => {
   const C = window.Cuadre;
-  if (!C || !C.listo) return;
+  if (!C || !C.listo || C.comunListo) return;   // una sola vez, aunque el archivo se cargue dos veces
+  C.comunListo = true;
   const db = C.db, esc = C.esc;
   const RTXT = {dueno: 'Dueño', gerente: 'Gerente', regente: 'Farmacéutico regente', cajero: 'Cajero', almacen: 'Almacén',
                 atencion: 'Atención', bioanalista: 'Bioanalista', toma_muestras: 'Toma de muestras', coach: 'Coach'};
@@ -143,6 +144,7 @@
     ['FAC', 'NC', 'ND'].forEach(t => { const u = (ult || []).find(x => x.tipo === t); FX.n[t] = u ? +u.numero + 1 : 1; });
   }
   C.cargarDocumentos = cargarDocumentos;
+  C.docLocal = uuid => mapaDocs.get(uuid);
 
   /* Notas de crédito y débito: las emite la base; la pantalla arma el documento con ese número */
   let notaPase = false, notaReal = null;

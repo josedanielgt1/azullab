@@ -750,7 +750,7 @@ const INSIGNIA = (size, claro, negocio) => `<div class="insignia${claro?' claro'
 
 /* ======================= Catálogo de exámenes ======================= */
 const TODAY = new Date(2026, 9, 27);
-const HOY = '27-10-2026';
+const HOY = new Intl.DateTimeFormat('es-VE', {day:'2-digit', month:'2-digit', year:'numeric', timeZone:'America/Caracas'}).format(new Date()).replace(/\//g, '-');
 const TUBOS = {
   morado:{n:'Tapa morada · EDTA', c:'#7c4dbd'}, rojo:{n:'Tapa roja · suero', c:'#c62828'}, amarillo:{n:'Tapa amarilla · gel', c:'#e2ad00'},
   celeste:{n:'Tapa celeste · citrato', c:'#3db2e8'}, gris:{n:'Tapa gris · fluoruro', c:'#8a8f98'},
@@ -1042,7 +1042,7 @@ V.dashboard = () => {
   const owner = S.role==='Dueño';
   const tot = ORD.reduce((a,o)=>a+o.usd,0);
   const cnt = {}; ORD.forEach(o=>exOf(o).forEach(x=>cnt[x]=(cnt[x]||0)+1));
-  const top = Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,6), mx = top[0][1];
+  const top = Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,6), mx = top.length ? top[0][1] : 1;
   const pays = {}; ORD.forEach(o=>pays[o.pay]=(pays[o.pay]||0)+o.usd);
   return `${owner?'':`<div class="rolebar">${ic('flask')}<span>Vista técnica: muestras, resultados y reactivos. No muestra dinero de caja.</span></div>`}
   <div class="kpis">
@@ -1221,7 +1221,7 @@ V.resultados = () => {
   ${o ? `<section class="panel"><div class="hd"><h2>Resultados de ${o.n}</h2><span class="small muted" id="prog">${filledOf(o)} de ${paramsOf(o).length} valores</span></div>
     <div class="bd" style="display:grid;gap:12px">${ordHead(o)}</div>
     <div class="bd flush" style="border-top:1px solid var(--renglon)">${resRows(o, true)}</div>
-    <div class="bd row" style="border-top:1px dashed var(--renglon)"><button class="btn sm" data-act="demofill" data-o="${o.n}">Llenar con valores de muestra</button><span class="spacer"></span>
+    <div class="bd row" style="border-top:1px dashed var(--renglon)"><span class="spacer"></span>
       <button class="btn" data-act="toast" data-m="Borrador guardado: otro bioanalista puede seguirlo">Guardar borrador</button><button class="btn primary" data-act="tovalid" data-o="${o.n}">${ic('shield')}Enviar a validación</button></div></section>`
   : '<section class="panel"><div class="empty"><b>No hay muestras en proceso</b><span>Cuando la sala marque una muestra como tomada, aparece aquí.</span></div></section>'}</div>`;
 };
@@ -1286,7 +1286,7 @@ function spark(pts, r, d, u){
     ${pts.map((p,i)=>`<circle class="pt ${p[2]?'h':''}" cx="${x(i)}" cy="${y(p[1])}" r="5"/><text x="${x(i)}" y="${y(p[1])-11}" text-anchor="middle" style="fill:var(--tinta);font-weight:600">${fv(p[1],d)}</text><text x="${x(i)}" y="${H-8}" text-anchor="middle">${p[0]}</text>`).join('')}</svg>`;
 }
 V.pacientes = () => {
-  const p = patBy(S.pat), os = ORD.filter(o=>o.pat===p.id), h = HIST[p.id]||{};
+  const p = patBy(S.pat) || PATS[0]; if (!p) return '<p class="lead">Todavía no hay pacientes: se registran al atender a alguien en Recepción.</p>'; S.pat = p.id; const os = ORD.filter(o=>o.pat===p.id), h = HIST[p.id]||{};
   const keys = Object.keys(h);
   const charts = keys.slice(0,2).map(k => { let pr; EX.forEach(e=>e.ps.forEach(x=>{ if (x.k===k) pr = x; }));
     const pts = h[k].map(([dt,v])=>[dt.slice(0,5)+'-'+dt.slice(8), v, !!flagOf(pr,v,p.s)]);
@@ -1343,7 +1343,7 @@ V.caja = () => {
   const r = S.rate, t = ORD.reduce((a,o)=>a+o.usd,0), by = {}; ORD.forEach(o=>by[o.pay]=(by[o.pay]||0)+o.usd);
   return `<div class="kpis">
     <div class="kpi hero"><span class="l">Facturado hoy</span><span class="v num">${usd(t)}</span><span class="s num">${bs(t*r)}</span></div>
-    <div class="kpi"><span class="l">Facturas emitidas</span><span class="v num">${ORD.length}</span><span class="s num">${ORD[0].fac} a ${ORD[ORD.length-1].fac}</span></div>
+    <div class="kpi"><span class="l">Facturas emitidas</span><span class="v num">${ORD.length}</span><span class="s num">${ORD.length ? ORD[0].fac+' a '+ORD[ORD.length-1].fac : '—'}</span></div>
     <div class="kpi"><span class="l">IVA cobrado</span><span class="v num">Bs 0,00</span><span class="s">Servicios exentos</span></div>
     <div class="kpi"><span class="l">Medio de facturación</span><span class="v" style="font-size:20px;line-height:34px">Imprenta digital</span><span class="s">Talonario si se va el internet</span></div></div>
   <div class="row"><button class="btn primary" data-act="cierre">${ic('printer')}Cierre de caja del día</button><button class="btn" data-act="nav" data-v="libros">${ic('book')}Libros y declaración del mes</button><button class="btn" data-act="nav" data-v="docs">Facturas y notas</button></div>
@@ -1495,14 +1495,15 @@ S.ord = newOrd(); S.pform = null;
 function alertsOf(p, v, needAy){
   const a = []; v = v || {};
   if (p.alerg) a.push(['bad','alert',`Alergia: ${p.alerg}`]);
-  if (p.ant.includes('Toma anticoagulantes') || p.ant.includes('Problemas de coagulación') || ANTICO.test(p.meds+' '+(v.medsHoy||''))) a.push(['warn','alert','Anticoagulado o sangra fácil: presionar 3 a 5 minutos después de la punción']);
+  const ant = p.ant || [];
+  if (ant.includes('Toma anticoagulantes') || ant.includes('Problemas de coagulación') || ANTICO.test((p.meds||'')+' '+(v.medsHoy||''))) a.push(['warn','alert','Anticoagulado o sangra fácil: presionar 3 a 5 minutos después de la punción']);
   if (ageOf(p.b) < 18) a.push(['info','users', p.rep ? `Menor de edad · viene con ${p.rep.n} (${p.rep.par.toLowerCase()})` : 'Menor de edad: falta el representante']);
   if (v.emb==='Sí') a.push(['info','check', `Embarazada${v.fur?' · FUR '+fmtDate(v.fur):''}`]);
   if (v.emb==='No sabe') a.push(['warn','alert', `Posible embarazo${v.fur?' · FUR '+fmtDate(v.fur):''}`]);
   if (needAy){ if (!v.ay) a.push(['warn','clock','Pide ayuno: pregunta cuántas horas lleva']);
     else if (v.ay==='No está en ayunas' || v.ay==='Menos de 8 horas') a.push(['bad','clock',`Pide ayuno y dijo: ${v.ay.toLowerCase()}. Se anota en el informe`]);
     else a.push(['ok','clock',`Ayuno: ${v.ay.toLowerCase()}`]); }
-  if (p.ant.includes('Diabetes')) a.push(['info','flask','Diabético']);
+  if (ant.includes('Diabetes')) a.push(['info','flask','Diabético']);
   return a;
 }
 const alertsH = (p, v, needAy) => { const a = alertsOf(p, v, needAy); return a.length ? `<div class="alertas">${a.map(([c,i,t])=>`<span class="al ${c}">${ic(i)}<span>${t}</span></span>`).join('')}</div>` : ''; };
@@ -1517,7 +1518,7 @@ function patCard(p, inRec){
       ${inRec ? `<button class="btn sm" data-act="pedit">Actualizar datos</button><button class="btn sm" data-act="patclear">Cambiar paciente</button>` : `<button class="btn sm" data-act="pedit2" data-p="${p.id}">Editar ficha</button>`}</div>
     <div class="pdat2">${kv('Edad y sexo', `${age} años · ${sexTxt(p.s)}`)}${kv('Nacimiento', fmtDate(p.b))}${kv('Teléfono', p.tel+(p.tel2?' · '+p.tel2:''))}${kv('Correo', p.mail)}
       ${kv('Dirección', [p.dir,p.sector,p.mun].filter(Boolean).join(', '))}${kv('Ocupación', p.ocup)}${kv('Tipo de sangre', p.sangre)}${kv('Seguro o convenio', p.seg)}</div>
-    <div class="pdat2 one">${kv('Antecedentes', p.ant.length ? p.ant.join(' · ') : 'Ninguno conocido')}${kv('Medicamentos que toma', p.meds || 'Ninguno')}
+    <div class="pdat2 one">${kv('Antecedentes', (p.ant||[]).length ? p.ant.join(' · ') : 'Ninguno conocido')}${kv('Medicamentos que toma', p.meds || 'Ninguno')}
       ${kv('Alergias', p.alerg ? `<span style="color:var(--bad)">${p.alerg}</span>` : 'Ninguna conocida')}${resp}</div>
     ${inRec ? `<p class="small muted">Paciente desde ${p.alta}. Confirma con él que el teléfono y los medicamentos siguen iguales.</p>` : `<p class="small muted">Paciente desde ${p.alta}${p.orig?' · llegó por: '+p.orig.toLowerCase():''}.</p>`}
   </div>`;
@@ -1539,7 +1540,7 @@ function patForm(d, edit){
     <h3 class="fsec">Salud</h3>
     <div class="fgrid">${fsel('sangre','Tipo de sangre',d.sangre,SANGRE)}${fi('meds','Medicamentos que toma',d.meds,'placeholder="Nombre y dosis, o ninguno"')}${fi('alerg','Alergias',d.alerg,'placeholder="Medicamentos, látex, yodo… o ninguna"')}</div>
     <div class="grid" style="gap:4px"><span class="small" style="font-weight:600;color:var(--tinta-3)">Antecedentes: marca los que tenga</span>
-      <div class="chks">${ANTS.map(a=>`<label class="chk"><input type="checkbox" data-pfa="${a}" ${d.ant.includes(a)?'checked':''}>${a}</label>`).join('')}</div></div>
+      <div class="chks">${ANTS.map(a=>`<label class="chk"><input type="checkbox" data-pfa="${a}" ${(d.ant||[]).includes(a)?'checked':''}>${a}</label>`).join('')}</div></div>
     <h3 class="fsec">Contacto de emergencia</h3>
     <div class="fgrid">${fi('emer','Nombre',d.emer)}${fi('emerPar','Parentesco',d.emerPar,'placeholder="Esposa, hijo…"')}${fi('emerTel','Teléfono',d.emerTel,'inputmode="tel"')}</div>
     <h3 class="fsec">Representante <span>· obligatorio si es menor de 18 años</span></h3>
@@ -1617,7 +1618,7 @@ function ordHead(o){ const p = patBy(o.pat), v = o.vis || {};
 
 /* ---------- Pacientes ---------- */
 V.pacientes = () => {
-  const p = patBy(S.pat), os = ORD.filter(o=>o.pat===p.id), h = HIST[p.id]||{}, keys = Object.keys(h);
+  const p = patBy(S.pat) || PATS[0]; if (!p) return '<p class="lead">Todavía no hay pacientes: se registran al atender a alguien en Recepción.</p>'; S.pat = p.id; const os = ORD.filter(o=>o.pat===p.id), h = HIST[p.id]||{}, keys = Object.keys(h);
   const visits = x => (HIST[x.id] ? Math.max(...Object.values(HIST[x.id]).map(a=>a.length)) : 0) + ORD.filter(o=>o.pat===x.id).length;
   const charts = keys.slice(0,2).map(k => { let pr; EX.forEach(e=>e.ps.forEach(x=>{ if (x.k===k) pr = x; }));
     const pts = h[k].map(([dt,v])=>[dt.slice(0,5)+'-'+dt.slice(8), v, !!flagOf(pr,v,p.s)]);
@@ -1681,7 +1682,7 @@ bcvFetch(); setInterval(bcvFetch, 60*60*1000);
 const _dash = V.dashboard;
 V.dashboard = () => { const h = _dash(); if (S.role!=='Dueño') return h;
   const by = f => { const m = {}; ORD.forEach(o=>{ const k = f(patBy(o.pat)) || 'Sin dato'; m[k] = (m[k]||0)+1; }); return Object.entries(m).sort((a,b)=>b[1]-a[1]); };
-  const bars = rows => { const mx = rows[0][1]; return rows.map(([k,v])=>`<div class="hbar"><span>${k}</span><div class="trk"><div class="fill" style="width:${v/mx*100}%"></div></div><span class="val">${v} ${v===1?'paciente':'pacientes'}</span></div>`).join(''); };
+  const bars = rows => { if (!rows.length) return '<p class="small muted">Todavía sin datos</p>'; const mx = rows[0][1]; return rows.map(([k,v])=>`<div class="hbar"><span>${k}</span><div class="trk"><div class="fill" style="width:${v/mx*100}%"></div></div><span class="val">${v} ${v===1?'paciente':'pacientes'}</span></div>`).join(''); };
   return h + `<div class="grid g2"><section class="panel"><div class="hd"><h2>De dónde vienen los pacientes</h2><span class="small muted">Hoy, por municipio</span></div><div class="bd hbars">${bars(by(p=>p.mun))}</div></section>
     <section class="panel"><div class="hd"><h2>Cómo supieron de nosotros</h2><span class="small muted">Sirve para saber dónde anunciarse</span></div><div class="bd hbars">${bars(by(p=>p.orig))}</div></section></div>`; };
 
@@ -1714,7 +1715,7 @@ document.addEventListener('click', e => {
     const data = {ci:t(d.ci), nom:t(d.nom), ape:t(d.ape), n:t(d.nom)+' '+t(d.ape), s:d.s, b:d.b, tel:t(d.tel), tel2:t(d.tel2), mail:t(d.mail), dir:t(d.dir), sector:t(d.sector), mun:d.mun, ocup:t(d.ocup), sangre:d.sangre, ant:[...d.ant], meds:t(d.meds), alerg:/^ningun/i.test(t(d.alerg))?'':t(d.alerg),
       emer: t(d.emer) ? {n:t(d.emer), par:t(d.emerPar)||'—', tel:t(d.emerTel)||'—'} : null, rep: t(d.repN) ? {n:t(d.repN), ci:t(d.repCi)||'—', par:t(d.repPar)||'Representante', tel:t(d.repTel)} : null, seg:d.seg, orig:d.orig};
     if (id) { Object.assign(patBy(id), data); toast('Ficha actualizada'); }
-    else { const nid = 'P' + (PATS.length+1); PATS.push(Object.assign({id:nid, alta:HOY}, data)); S.ord.pat = nid; toast(`${data.n} quedó registrado. La próxima vez aparece con solo poner la cédula`); }
+    else { const nid = 'N' + Date.now(); PATS.push(Object.assign({id:nid, alta:HOY}, data)); S.ord.pat = nid; toast(`${data.n} quedó registrado. La próxima vez aparece con solo poner la cédula`); }
     if (inPac) { S.pform = null; render(); } else { S.ord.draft = null; S.ord.edit = null; rerenderRec(); const f = $('#vis-ay'); f && f.focus(); }
     return;
   }
@@ -1742,7 +1743,7 @@ function openModal(html){ const m = $('#modal'); m.innerHTML = html; m.hidden = 
 function closeModal(){ const m = $('#modal'); m.hidden = true; m.innerHTML = ''; }
 let tt; function toast(msg){ const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(tt); tt = setTimeout(()=>t.hidden = true, 2800); }
 function go(v){ if (v!=='login' && !can(v)) { toast('Tu usuario no tiene acceso a esa sección'); v = HOME[S.role]; } S.view = v; S.sidebar = false; render(); window.scrollTo(0,0); }
-const nextN = () => 'L-' + String(Math.max(...ORD.map(o=>+o.n.slice(2)))+1).padStart(4,'0');
+let nextN = () => 'L-' + String(Math.max(0, ...ORD.map(o=>+o.n.slice(2)||0))+1).padStart(4,'0');  /* la base asigna el definitivo */
 function waModal(o){ const p = patBy(o.pat);
   return `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="wt" style="max-width:460px"><div class="hd"><h2 id="wt">Enviar por WhatsApp</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div>
   <div class="bd"><p class="small muted">Para ${p.n} · ${p.tel}</p>
@@ -1771,7 +1772,7 @@ document.addEventListener('click', e => {
       rerenderRec(); const n = $('#np-n'); n && n.focus(); break; }
     case 'patclear': S.ord.pat = null; S.ord.newPat = null; rerenderRec(); break;
     case 'np-save': { const n = ($('#np-n').value||'').trim(); if (!n) { toast('Escribe el nombre del paciente'); $('#np-n').focus(); break; }
-      const id = 'P'+(PATS.length+1); PATS.push({id, ci:S.ord.newPat.ci, n, s:$('#np-s').value, b:$('#np-b').value||'1990-01-01', tel:($('#np-t').value||'').trim()||'—'});
+      const id = 'N'+Date.now(); PATS.push({id, ci:S.ord.newPat.ci, n, s:$('#np-s').value, b:$('#np-b').value||'1990-01-01', tel:($('#np-t').value||'').trim()||'—'});
       S.ord.pat = id; S.ord.newPat = null; rerenderRec(); toast(`${n} quedó registrado`); break; }
     case 'addperf': { const c = b.dataset.c; if (S.ord.items.some(it=>it.k==='perf'&&it.c===c)) { toast('Ese perfil ya está en la orden'); break; }
       const pf = perfBy(c), before = S.ord.items.length; S.ord.items = S.ord.items.filter(it=>!(it.k==='ex' && pf.ex.includes(it.c)));
@@ -1799,7 +1800,7 @@ document.addEventListener('click', e => {
       o.st = 'Por validar'; S.sel.validacion = o.n; toast(`${o.n} enviada a validación${critOf(o).length?' · tiene valor crítico':''}`); render(); break; }
     case 'aviso': o.aviso = {to: o.med ? medTxt(o.med) : 'El paciente', t: nowT(), by: S.role==='Bioanalista' ? S.user : BIO}; toast('Aviso registrado en la orden'); render(); break;
     case 'repetir': o.st = 'En proceso'; S.sel.resultados = o.n; toast(`${o.n} devuelta: se repite la prueba`); render(); break;
-    case 'validar': o.st = 'Validado'; o.val = {by:BIO, t:nowT()}; S.sel.entrega = o.n; render();
+    case 'validar': o.st = 'Validado'; o.val = {by:S.user, t:nowT()}; S.sel.entrega = o.n; render();
       openModal(`<div class="sheet" style="max-width:420px"><div class="hd"><h2>${o.n} firmada</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div><div class="bd" style="justify-items:center;text-align:center"><span class="sello verde grande estampar">Validado<small>${BIO} · ${o.val.t}</small></span><p>El informe de ${patBy(o.pat).n} ya puede entregarse. Atención lo ve en Entrega de resultados.</p><button class="btn primary" data-act="close">Listo</button></div></div>`); break;
     case 'print': window.print(); break;
     case 'wa': openModal(waModal(o)); break;
@@ -2419,5 +2420,5 @@ FX.boot();
 </script>
 <!-- FX:FIN -->
 <script src="js/cuadre-comun.js"></script>
-<script src="js/cuadre-comun.js"></script>
+<script src="js/laboratorio-real.js"></script>
 </body></html>

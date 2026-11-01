@@ -12,7 +12,7 @@
    ===================================================================== */
 (() => {
   const C = window.Cuadre;
-  if (!C || !C.listo) return;
+  if (!C || !C.listo || C.farmacia) return;
   const db = C.db;
   const A = () => C.acceso || {};
   const EMP = () => A().empresa_id;
