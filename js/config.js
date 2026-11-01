@@ -3,6 +3,6 @@
    protege los datos con usuario, clave y permisos por rol.
    NUNCA pongas aquí la service_role ni la secret key. */
 window.CUADRE_CONFIG = {
-  url: '',
+  url: 'https://sklqsvnyecyhqvmnulir.supabase.co',
   key: ''
 };
