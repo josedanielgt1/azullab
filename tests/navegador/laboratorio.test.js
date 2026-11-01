@@ -3,7 +3,7 @@ const { chromium } = require('playwright'); const mock = require('./mock');
 (async () => {
   const b = await chromium.launch(); let fallas = 0; const ok = (c, m) => { console.log((c ? 'ok   ' : 'FALLA ') + m); if (!c) fallas++; };
   const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Caracas' }).format(new Date());
-  const T = { examenes: [], perfiles_lab: [], medicos: [], pacientes: [], ordenes: [], docs: [], seq: 1, rpc: [], patch: [] };
+  const T = { examenes: [], perfiles_lab: [], medicos: [], pacientes: [], ordenes: [], docs: [], colecciones: [], seq: 1, rpc: [], patch: [] };
   const filtrar = (rows, u) => rows.filter(r => [...u.searchParams].every(([k, v]) => {
     if (['select', 'order', 'limit', 'offset', 'columns', 'on_conflict'].includes(k)) return true;
     const [op, ...rest] = v.split('.'); const val = rest.join('.');
@@ -13,6 +13,8 @@ const { chromium } = require('playwright'); const mock = require('./mock');
     const t = p.replace('/rest/v1/', '');
     if (p === '/rest/v1/documentos' && m === 'GET') return out(T.docs);
     if (p === '/rest/v1/perfiles') return out([{ user_id: 'u-d', nombre: 'José Guerrero' }]);
+    if (p === '/rest/v1/colecciones' && m === 'GET') return out(filtrar(T.colecciones, u));
+    if (p === '/rest/v1/colecciones' && m === 'POST') { T.colecciones = T.colecciones.filter(c => c.nombre !== body.nombre).concat([body]); return out(body); }
     if (p === '/rest/v1/rpc/tasa_del_dia') return { body: 100 };
     if (T[t] && m === 'GET') return out(filtrar(T[t], u).map(r => t === 'ordenes' ? { ...r, documentos: T.docs.find(d => d.id === r.documento_id) } : r));
     if (T[t] && m === 'POST') { const rows = (Array.isArray(body) ? body : [body]).map(r => ({ activo: true, ...r, id: T.seq++ }));
@@ -31,7 +33,7 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   const entrar = async () => { await pg.goto('http://localhost:8765/laboratorio.html'); await pg.fill('#lu', 'jose@azullab.com'); await pg.fill('#lp', 'clave-buena'); await pg.click('#loginForm [type=submit]');
     await pg.waitForFunction(() => !document.getElementById('loginForm'), null, { timeout: 8000 }); };
   await entrar();
-  ok(await pg.evaluate(() => EX.length + PERF.length + PATS.length + ORD.length) === 0, 'instalación nueva: sin exámenes, pacientes ni órdenes de muestra');
+  ok(await pg.evaluate(() => EX.length + PERF.length + PATS.length + ORD.length + REAC.length + Object.keys(HIST).length) === 0, 'instalación nueva: sin exámenes, pacientes, órdenes, reactivos ni historial de muestra');
   const vistas = await pg.evaluate(() => NAV.flatMap(g => g.items.map(i => i[1])));
   for (const v of vistas) { const n = errs.length; await pg.evaluate(x => go(x), v).catch(e => errs.push(v + ': ' + e.message)); if (errs.length > n) console.log('   rota vacía:', v, errs.slice(n).join(' | ').slice(0, 200)); }
   ok(errs.length === 0, `las ${vistas.length} pantallas abren con todo vacío`);
@@ -56,9 +58,15 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   // Toma de muestras
   await pg.evaluate(() => { const o = ORD[0]; o.st = 'En proceso'; o.toma = '07:05'; render(); }); await pg.click('body'); await pg.waitForTimeout(500);
   ok(T.ordenes[0].estado === 'En proceso' && T.ordenes[0].datos.toma === '07:05', 'la toma de muestras se guarda en la base');
+  // Reactivos
+  await pg.evaluate(() => go('reactivos')); await pg.click('[data-act="lab-reac"]');
+  for (const [k, v] of Object.entries({ 'rq-n': 'Reactivo de glucosa', 'rq-l': 'gl2611a', 'rq-e': '2027-03-31', 'rq-q': '420', 'rq-d': '22' })) await pg.fill('#' + k, v);
+  await pg.click('#lab-reac-f [type=submit]'); await pg.waitForTimeout(600);
+  const rc = T.colecciones.find(c => c.nombre === 'equipo_reactivos');
+  ok(rc && rc.datos[0].l === 'GL2611A' && rc.datos[0].q === 420, 'la entrada de reactivo se guarda en la base');
   // Recargar
   await pg.reload(); await pg.waitForFunction(() => !document.getElementById('loginForm') && ORD.length === 1 && PATS.length === 1, null, { timeout: 8000 }).catch(() => {});
-  ok(await pg.evaluate(() => ORD[0].st === 'En proceso' && ORD[0].pat === PATS[0].id && ORD[0].fac === '00000001' && EX.length >= 20 && MEDICOS.length >= 1), 'al recargar siguen ahí paciente, orden, estado, factura y catálogo');
+  ok(await pg.evaluate(() => ORD[0].st === 'En proceso' && ORD[0].pat === PATS[0].id && ORD[0].fac === '00000001' && EX.length >= 20 && MEDICOS.length >= 1 && REAC.length === 1), 'al recargar siguen ahí paciente, orden, estado, factura, catálogo y reactivos');
   for (const v of vistas) { const n = errs.length; await pg.evaluate(x => go(x), v).catch(e => errs.push(v + ': ' + e.message)); if (errs.length > n) console.log('   rota con datos:', v, errs.slice(n).join(' | ').slice(0, 200)); }
   ok(errs.length === 0, 'sin errores de JavaScript ' + errs.join(' | ').slice(0, 300));
   await b.close(); process.exit(fallas ? 1 : 0);

@@ -16,6 +16,7 @@
   const db = C.db;
   const A = () => C.acceso || {};
   const EMP = () => A().empresa_id;
+  const EMPLEADOS = () => (0, eval)('EMP');   // la lista de empleados de la página (aquí EMP es el negocio)
   const avisar = t => toast(t);
   const r2 = n => Math.round(n * 100) / 100;
   const p8 = n => String(n).padStart(8, '0');
@@ -348,7 +349,10 @@
     ['empresa_extra', () => ({wa: EMPRESA.wa, mail: EMPRESA.mail}), v => { EMPRESA.wa = v.wa || ''; EMPRESA.mail = v.mail || ''; }, {wa: '', mail: ''}],
     ['equipo_fallas', () => S.fallas, v => { S.fallas.length = 0; S.fallas.push(...v); }, []],
     ['equipo_cotizaciones', () => S.cots, v => { S.cots.length = 0; S.cots.push(...v); }, []],
-    ['equipo_notas', () => S.notas, v => { S.notas.length = 0; S.notas.push(...v); }, []]];
+    ['equipo_notas', () => S.notas, v => { S.notas.length = 0; S.notas.push(...v); }, []],
+    // Nómina: datos de los empleados y novedades del período (solo dueño y gerente)
+    ['privado_nomina_empleados', () => EMPLEADOS(), v => { EMPLEADOS().length = 0; EMPLEADOS().push(...v); }, []],
+    ['privado_nomina_novedades', () => S.nov, v => { Object.keys(S.nov).forEach(k => delete S.nov[k]); Object.assign(S.nov, v); }, {}]];
   const gCol = new Map();
   const puedeCol = n => n.startsWith('equipo_') || ['dueno', 'gerente'].includes(A().rol);
   async function cargarColecciones() {
@@ -393,20 +397,55 @@
         id: m.producto_id, l: m.lotes ? m.lotes.lote : '', q: Math.abs(+m.cantidad), mot, nota: nota.join(' · '), u: nom[m.usuario] || ''}); });
   }
 
+  /* ---------------- Ganancias y gastos: cifras de la base ---------------- */
+  let resumen = [], resumenEn = 0;
+  async function cargarResumen() {
+    if (!['dueno', 'gerente'].includes(A().rol)) return;
+    const {data, error} = await db.rpc('resumen_mensual', {p_empresa: EMP(), p_meses: 3});
+    if (error) return;
+    resumen = Array.isArray(data) ? data : []; resumenEn = Date.now();
+    const m = resumen[resumen.length - 1] || {};
+    FIN.mes = {ventas: +m.ventas_usd || 0, costo: +m.costo_usd || 0, gastos: +m.gastos_usd || 0};
+  }
+  FIN.meses = () => resumen.map((r, i) => { const n = new Date(r.mes + 'T12:00:00').toLocaleDateString('es-VE', {month: 'long'});
+    return [n.replace(/^./, x => x.toUpperCase()) + (i === resumen.length - 1 ? ' (en curso)' : ''), +r.ventas_usd, +r.costo_usd, +r.gastos_usd]; });
+  FIN.proximos = () => {
+    const hoy = hoyVE(), hasta = diasA(hoy, 15), dias = f => Math.round((new Date(f + 'T12:00:00') - new Date(hoy + 'T12:00:00')) / 864e5), out = [];
+    COMPRAS.filter(c => c.total_usd - c.pagado_usd > 0.004 && c.vence && c.vence <= hasta)
+      .forEach(c => out.push([dmy(c.vence), 'Droguería', `${c.proveedor}, factura ${c.numero}`, r2(c.total_usd - c.pagado_usd), Math.max(dias(c.vence), 0)]));
+    S.gastos.filter(x => x.fijo).forEach(x => {
+      const d = +String(x.f).slice(0, 2) || 1, [y, mo] = hoy.split('-').map(Number);
+      let f = new Date(y, mo - 1, d); if (f.toISOString().slice(0, 10) < hoy) f = new Date(y, mo, d);
+      const iso = new Intl.DateTimeFormat('en-CA').format(f);
+      if (iso <= hasta && !out.some(o => o[1] === x.cat && o[2] === x.desc)) out.push([dmy(iso), x.cat, x.desc, x.usd, dias(iso)]);
+    });
+    return out.sort((a, b) => a[4] - b[4]);
+  };
+  const vFinance = V.finance;
+  V.finance = () => {
+    if (Date.now() - resumenEn > 15000) cargarResumen().then(() => { if (S.view === 'finance') render(); });
+    return vFinance();
+  };
+
   C.farmacia = {recargar, sincronizar};
 
   /* ---------------- Al entrar ---------------- */
   C.alEntrar(async a => {
     if (a.tipo !== 'farmacia') return;
-    await cargarCatalogo();
+    // Cada paso por su cuenta: si uno falla, los demás igual cargan (y lo de muestra se vacía)
+    const paso = async (n, f) => { try { await f(); } catch (x) { console.error('Cuadre farmacia: ' + n, x); } };
+    await paso('catálogo', cargarCatalogo);
     RECV = []; S.cart = []; S.cashea.length = 0; S.precioAvisos.length = 0;
-    await cargarClientes();
+    await paso('clientes', cargarClientes);
     ventasDeHoy();
-    await cargarProveedores();
-    await cargarCompras();
-    await cargarGastos();
-    await cargarColecciones();
-    await cargarMovimientos();
+    await paso('proveedores', cargarProveedores);
+    await paso('compras', cargarCompras);
+    await paso('gastos', cargarGastos);
+    await paso('configuración', cargarColecciones);
+    await paso('movimientos', cargarMovimientos);
+    await paso('resumen', cargarResumen);
+    DIF.length = 0;   // el diferencial cambiario necesita los saldos del banco: sin datos de muestra
+    if (!EMPLEADOS().some(e => e.id === S.empSel)) S.empSel = EMPLEADOS()[0] ? EMPLEADOS()[0].id : null;
     tablero();
   });
 })();

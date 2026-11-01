@@ -16,27 +16,28 @@ Las pantallas de `farmacia.html`, `laboratorio.html` y `crossfit.html` son las m
 | **Farmacia** | Catálogo (vacío al instalar), códigos únicos, compras por lote, venta que factura y descuenta el lote que vence antes, salidas, devoluciones a su lote, clientes | ✅ |
 | **Laboratorio** | Catálogo vacío con opción de cargar el catálogo base, pacientes, médicos, orden con su factura (L-0001), toma, resultados, validación solo del bioanalista, entrega, anulación con nota de crédito | ✅ |
 | **CrossFit** | Planes, productos y horario que arma el dueño, socios, cobro con IVA 16 % que corre el vencimiento, entrada con cédula, reservas, pizarra del día | ✅ |
+| Farmacia: administración | Droguerías con RIF, factura de compra (número y control), Libro de Compras, cuentas por pagar y pagos, gastos, cuentas bancarias, configuración, fallas, cotizaciones, nómina (empleados y novedades), Ganancias y gastos con cifras reales, tablero con las ventas reales | ✅ |
+| Laboratorio: reactivos e historial | Entrada y corrección de reactivos; historial de resultados del paciente con sus órdenes | ✅ |
 
-Pruebas: **168 de base de datos** (`supabase/tests/correr.sh`) y **102 de navegador** (`tests/navegador/correr.sh`).
+Pruebas: **193 de base de datos** (`supabase/tests/correr.sh`) y **113 de navegador** (`tests/navegador/correr.sh`).
 
 ## Qué todavía muestra datos de muestra
 
 | Negocio | Módulo | Qué falta |
 | --- | --- | --- |
-| Farmacia | Proveedores, cuentas y bancos, ganancias y gastos | Guardarlos en la base y empezar vacíos |
-| Farmacia | Libro de compras | Pedir RIF, número y control de la factura del proveedor al recibir la compra |
-| Farmacia | Nómina | Empleados, novedades y recibos en la base |
+| Farmacia | Diferencial cambiario | Necesita los saldos diarios del banco (hoy queda vacío) |
+| Farmacia | Nómina | Empleados y novedades ya se guardan; falta guardar los pagos de cada quincena y los recibos emitidos |
 | Farmacia | Récipes y libro de controlados | Adaptar `recipes/recipes_supabase.sql` a la base actual (es lo más delicado por la ley) |
 | Farmacia | Cotizaciones, fallas, Cashea, Azul Puntos, tienda web, sucursales | Guardar o apagar hasta la fase 2 |
-| Farmacia | Gráficos del tablero (ventas por día y por cajero) | Calcularlos con las ventas reales |
-| Laboratorio | Reactivos e insumos | Guardarlos en la base |
+| Farmacia | Azul Puntos, tienda web, sucursales | Usan cifras fijas de la maqueta: decidir si van en esta entrega |
+| Laboratorio | Reactivos | Se guardan; falta que cada resultado validado descuente lo que gastó |
 | Los tres | Páginas «Alcance de la propuesta», «Alcance y regalo», «Fase 2» | Decidir si se quitan para el cliente |
 | Los tres | Trabajo sin internet | Hoy se necesita internet para facturar |
 | CrossFit | App del socio | Vuelve cuando los socios tengan su usuario |
 
 ## Lo que hace falta de ti
 
-1. **Pegar en el SQL Editor** `supabase/pendiente_sql_editor.sql` (migraciones 0003 a 0008). Una sola vez, completo, y Run.
+1. **Pegar en el SQL Editor** `supabase/pendiente_sql_editor.sql` (migraciones 0003 a 0010). Una sola vez, completo, y Run.
 2. **Subir la función `usuarios`**: Supabase → Edge Functions → Deploy a new function → Via Editor, nombre `usuarios`, pegar `supabase/functions/usuarios/index.ts` y Deploy. Sin esto, los usuarios nuevos se crean en Authentication y se les da acceso con «Dar acceso».
 3. **GitHub Pages** (para «Olvidé mi clave» y para entrar desde cualquier equipo): Settings → Pages → rama `claude/inspiring-pascal-ljb7rr`, carpeta raíz. En Supabase → Authentication → URL Configuration: Site URL `https://josedanielgt1.github.io/azullab/` y en Redirect URLs `https://josedanielgt1.github.io/azullab/**`.
 4. **Imprenta digital**: cuando la escojan, se conecta para el número de control.

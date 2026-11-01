@@ -63,7 +63,18 @@ insert into gastos (empresa_id, usd, datos) values ((select f from ids), 650, '{
 update gastos set anulado = true;
 select prueba.debe_fallar('los gastos no se borran', $$ delete from gastos $$, 'permission denied');
 insert into colecciones (empresa_id, nombre, datos) values ((select f from ids), 'config', '{"gan":30}'), ((select f from ids), 'privado_cuentas', '[{"b":"Banesco"}]');
+-- Una venta: 4 Losartán (costo 2) a 3 = 1200 Bs exentos; una NC de 1 = 300 Bs y su devolución
+update empresas set datos_confirmados = true;
+create temp table v1 as select * from vender((select f from ids), '{"rif":"V-1","nombre":"X"}', '[{"producto_id":1,"cantidad":4,"precio_usd":3}]');
+grant select on v1 to authenticated;
+select emitir_nota((select id from v1), 'NC', '[{"descripcion":"Losartán","cantidad":1,"precio_bs":300,"alicuota":"E","ref":{"producto_id":1}}]', 'Devolución', true);
+insert into gastos (empresa_id, usd, datos) values ((select f from ids), 100, '{"cat":"Servicios"}');
+select prueba.igual('ventas del mes: 12 − 3', (select ventas_usd from resumen_mensual((select f from ids), 1)), 9.00::numeric);
+select prueba.igual('costo de lo vendido: 4 × 2 − 1 × 2', (select costo_usd from resumen_mensual((select f from ids), 1)), 6.00::numeric);
+select prueba.igual('gastos del mes (sin los anulados)', (select gastos_usd from resumen_mensual((select f from ids), 1)), 100.00::numeric);
+select prueba.igual('tres meses', (select count(*) from resumen_mensual((select f from ids), 3)), 3::bigint);
 select prueba.como('00000000-0000-0000-0000-0000000000c1');
+select prueba.debe_fallar('el cajero no ve las ganancias', $$ select * from resumen_mensual((select f from ids)) $$, 'Solo el dueño');
 select prueba.igual('el cajero ve la configuración', (select datos->>'gan' from colecciones where nombre = 'config'), '30');
 select prueba.igual('pero no las cuentas del banco', (select count(*) from colecciones where nombre = 'privado_cuentas'), 0::bigint);
 select prueba.igual('ni los gastos', (select count(*) from gastos), 0::bigint);

@@ -846,8 +846,8 @@ const DAYS = [{d:'Mar 20',v:968.40},{d:'Mié 21',v:1104.20},{d:'Jue 22',v:1032.7
 const daysTo = e => Math.round((new Date(e+'T00:00:00') - TODAY)/86400000);
 const fmtDate = e => { const [y,m,d] = e.split('-'); return `${d}/${m}/${y}`; };
 const lotState = e => { const d = daysTo(e); return d < 0 ? ['bad','Vencido'] : d <= CFG.venc ? ['warn',`Vence en ${d} días`] : ['ok','Vigente']; };
-const todayUSD = () => S.todayBase.usd + S.sales.slice(0, S.sales.length - 6).reduce((a,s)=>a+s.usd,0);
-const todayN = () => S.todayBase.n + (S.sales.length - 6);
+const todayUSD = () => S.sales.reduce((a,s)=>a+s.usd,0);
+const todayN = () => S.sales.length;
 const ROLES = {
   'Dueño':        {user:'Daniela Uzcátegui', login:'daniela.u', caja:'Todas las cajas', views:'all',
                    desc:'Ve todo: ventas por cajero, ganancias, fiscal, compras, usuarios y la fase 2.'},
@@ -1828,17 +1828,19 @@ function islrPanel(){
   <p class="base-legal">Decreto 1.808: la farmacia, como empresa, retiene ISLR al pagar alquiler, honorarios, servicios, fletes y publicidad, entrega el comprobante y en enero el ARCV. A las personas naturales se les resta el sustraendo (UT de Bs ${UT}) y solo se les retiene si el pago pasa de ${bs(utMin())}. El plazo para enterar lo confirma el contador.</p></section>`;
 }
 const DIF = [['20/10/2026',662400,875.10],['21/10/2026',701250,876.90],['22/10/2026',648900,878.20],['23/10/2026',731800,879.60],['24/10/2026',812300,880.40],['25/10/2026',455600,881.10],['26/10/2026',694300,881.88]];
+/* Las cifras reales las pone js/farmacia-real.js (FIN.mes, FIN.meses, FIN.proximos) */
+const FIN = {mes:{ventas:0, costo:0, gastos:0}, meses:() => [], proximos:() => []};
 function finanzas(){
-  const ingresos = 27840 + (todayUSD()-S.todayBase.usd), costo = ingresos*0.74, bruta = ingresos-costo;
-  const dif = 142.35, gastos = S.gastos.reduce((a,g)=>a+g.usd,0) + dif, neta = bruta-gastos;
+  const ingresos = FIN.mes.ventas, costo = FIN.mes.costo, bruta = ingresos-costo;
+  const dif = 0, gastos = FIN.mes.gastos + dif, neta = bruta-gastos;
   return {ingresos, costo, bruta, gastos, dif, neta};
 }
 V.finance = () => {
   const F = finanzas(), pct = (a,b) => (a/b*100).toFixed(1).replace('.',',')+' %';
-  const meses = [['Agosto',22410,16583,2980],['Septiembre',25960,19210,3060],['Octubre (al 26)',F.ingresos,F.costo,F.gastos]];
-  const cats = {}; S.gastos.forEach(g=>cats[g.cat]=(cats[g.cat]||0)+g.usd); cats['Diferencial cambiario'] = F.dif;
-  const catArr = Object.entries(cats).sort((a,b)=>b[1]-a[1]), mx = catArr[0][1];
-  const proximos = [['30/10/2026','Nómina','Segunda quincena',900,4],['01/11/2026','Alquiler','Local comercial, noviembre',650,6],['05/11/2026','Servicios','Internet',35,10],['07/11/2026','Droguería','Cobeca, factura 0048213',412.60,12]];
+  const meses = FIN.meses();
+  const cats = {}; S.gastos.forEach(g=>cats[g.cat]=(cats[g.cat]||0)+g.usd); if (F.dif) cats['Diferencial cambiario'] = F.dif;
+  const catArr = Object.entries(cats).sort((a,b)=>b[1]-a[1]), mx = catArr.length ? catArr[0][1] || 1 : 1;
+  const proximos = FIN.proximos();
   return `<div class="row"><p class="lead">Cuánto gana de verdad la farmacia: ventas menos lo que costó la mercancía, menos los gastos del mes. Se calcula solo con cada venta, compra y gasto.</p><span class="spacer"></span><button class="btn primary" data-act="gasto">${ic('plus')}Registrar gasto</button></div>
   <div class="kpis">
     <div class="kpi"><span class="l">Ventas del mes</span><span class="v">${usd(F.ingresos)}</span><span class="s num">${bs(F.ingresos*S.rate)}</span></div>
@@ -1850,12 +1852,12 @@ V.finance = () => {
   <section class="panel doc"><div class="hd"><h2>Mes a mes</h2><span class="muted small">En dólares</span></div><div class="bd flush tbl-wrap"><table><thead><tr><th>Mes</th><th class="r">Ventas</th><th class="r">Costo</th><th class="r">Utilidad bruta</th><th class="r">Gastos</th><th class="r">Utilidad neta</th><th class="r">Margen</th></tr></thead>
     <tbody>${meses.map(([m,i,c,g])=>`<tr><td>${m}</td><td class="r">${nf(i)}</td><td class="r">${nf(c)}</td><td class="r">${nf(i-c)}</td><td class="r">(${nf(g)})</td><td class="r"><b>${nf(i-c-g)}</b></td><td class="r">${pct(i-c-g,i)}</td></tr>`).join('')}</tbody></table></div></section>
   <div class="grid g-dash" style="align-items:start">
-    <section class="panel"><div class="hd"><h2>Gastos de octubre</h2><span class="muted small">${S.gastos.length} registrados</span></div><div class="bd flush tbl-wrap"><table><thead><tr><th>Fecha</th><th>Gasto</th><th>Pagado desde</th><th>Tipo</th><th class="r">Monto $</th><th></th></tr></thead>
+    <section class="panel"><div class="hd"><h2>Gastos registrados</h2><span class="muted small">${S.gastos.length} registrados</span></div><div class="bd flush tbl-wrap"><table><thead><tr><th>Fecha</th><th>Gasto</th><th>Pagado desde</th><th>Tipo</th><th class="r">Monto $</th><th></th></tr></thead>
     <tbody>${S.gastos.map((g,i)=>`<tr><td class="num">${g.f}</td><td class="tt"><b style="font-weight:600">${g.cat}</b><div class="small muted">${g.desc}</div></td><td class="small">${g.cta}</td><td>${g.fijo?'<span class="pill info">Fijo</span>':'<span class="pill">Variable</span>'}</td><td class="r">${nf(g.usd)}</td><td><button class="btn sm" data-act="gastoedit" data-i="${i}" aria-label="Editar gasto ${g.desc}">${ic('edit')}</button></td></tr>`).join('')}
     <tr><td class="num">26/10/2026</td><td><b style="font-weight:600">Diferencial cambiario</b><div class="small muted">Bolívares que perdieron valor en el banco</div></td><td class="small">Calculado</td><td><span class="pill warn">Automático</span></td><td class="r">${nf(F.dif)}</td><td></td></tr></tbody>
     <tfoot><tr><td></td><td>Total</td><td></td><td></td><td class="r"><span>${nf(F.gastos)}</span></td><td></td></tr></tfoot></table></div></section>
     <div class="grid" style="align-content:start">
-    <section class="panel"><div class="hd"><h2>En qué se va la plata</h2><span class="muted small">Octubre</span></div><div class="bd hbars">${catArr.map(([k,v])=>`<div class="hbar"><span>${k}</span><div class="trk"><div class="fill" style="width:${v/mx*100}%"></div></div><span class="val">${usd(v)}</span></div>`).join('')}</div></section>
+    <section class="panel"><div class="hd"><h2>En qué se va la plata</h2><span class="muted small">${new Date().toLocaleDateString('es-VE', {month:'long', year:'numeric'})}</span></div><div class="bd hbars">${catArr.map(([k,v])=>`<div class="hbar"><span>${k}</span><div class="trk"><div class="fill" style="width:${v/mx*100}%"></div></div><span class="val">${usd(v)}</span></div>`).join('')}</div></section>
     <section class="panel"><div class="hd"><h2>Próximos pagos</h2><span class="muted small">El sistema avisa antes</span></div><div class="bd flush list">
     ${proximos.map(p=>`<div class="it"><div class="t"><b>${p[1]} · ${p[2]}</b><span class="small muted num">${p[0]}</span></div><div style="text-align:right"><div class="num" style="font-weight:700">${usd(p[3])}</div><span class="pill ${p[4]<=CFG.aviso?'warn':'ghost'}">En ${p[4]} días</span></div></div>`).join('')}</div></section>
     </div>
@@ -2144,6 +2146,7 @@ function userModal(u){
   </form></div>`;
 }
 V.employees = () => {
+  if (!EMP.length) return `<div class="row"><p class="lead">Todavía no hay empleados. Agrega a cada persona con su cargo, salario y datos del banco: la nómina, los recibos y el archivo para el banco salen de aquí.</p><span class="spacer"></span><button class="btn primary" data-act="empnew">${ic('plus')}Nuevo empleado</button></div>`;
   const A = activos(), sel = EMP.find(e=>e.id===S.empSel) || EMP[1], c = costoMes(sel), m = mesesDesde(sel.ing), u = userOf(sel), eg = EMP.length - A.length;
   const tot = A.reduce((a,e)=>a+e.sal/S.rate+e.bono+e.cesta,0), real = A.reduce((a,e)=>a+costoMes(e).total,0);
   const asis = [['Wilmer Rivas','07:58','Almacén'],['Lcda. Rosángela Paredes','08:02','Regente'],['Kevin Albarrán','08:05','Caja 1'],['Mariela Contreras','08:10','Caja 2']].filter(a=>A.some(e=>e.n===a[0]));
@@ -2253,6 +2256,7 @@ V.payroll = () => {
       return `<tr><td style="min-width:200px"><b style="font-weight:600">${e.n}</b><div class="small muted">Ingreso ${fmtDate(e.ing)}</div></td><td class="num">${m} meses</td><td class="r">${nf(sd)}</td><td class="r">${nf(15*tri*sd)}<div class="small muted num">${15*tri} días · ${tri} trimestres</div></td><td class="small">${m>=12?'15 + 15 días':`Desde el ${aniv(e)}: 15 días de vacaciones y 15 de bono`}</td><td class="r">${nf(du*sd)}<div class="small muted num">${dd(du)} días</div></td></tr>`; }).join('')}</tbody></table></div>
     <p class="base-legal">LOTTT: garantía de prestaciones de 15 días por trimestre (art. 142); vacaciones de 15 días hábiles más 1 por año y bono vacacional de 15 días más 1 por año (arts. 190 y 192); utilidades de 30 a 120 días (art. 131). Todo se calcula sobre el salario. El sistema lo lleva al día y avisa antes de cada pago.</p>`;
   } else if (tab==='liq'){
+    if (!EMP.length) return '<p class="lead">Sin empleados todavía.</p>';
     const L = S.liq || {id:(A[0]||EMP[0]).id, m:'Renuncia', f:'2026-10-31'}, e = EMP.find(x=>x.id===L.id) || EMP[0], r = liquidacion(e, L.m, L.f);
     body = `<div class="bd"><div class="grid g3" style="gap:10px">
       <div class="field"><label for="lq-e">Empleado</label><select id="lq-e" class="input">${fOpt(EMP.map(x=>[x.id,x.n]), e.id)}</select></div>

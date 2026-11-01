@@ -88,7 +88,7 @@
   }
 
   /* ---------------- Órdenes ---------------- */
-  const FIJOS = ['n', 'pat', 'items', 'usd', 'fac', 'ctrl', 'cont', 'doc', 't', 'med', 'urg', 'vis', 'st', '_id'];
+  const FIJOS = ['n', 'pat', 'items', 'usd', 'fac', 'ctrl', 'cont', 'doc', 't', 'med', 'urg', 'vis', 'st', '_id', 'fecha', 'fechaIso'];
   const ordDatos = o => { const d = {}; Object.keys(o).forEach(k => { if (!FIJOS.includes(k)) d[k] = o[k]; }); return d; };
   const ordFirma = o => JSON.stringify({estado: o.st, datos: ordDatos(o)});
   async function cargarOrdenes() {
@@ -103,7 +103,8 @@
       const o = {by: nombres[r.creado_por] || '', res: {}, ...(r.datos || {}), n: r.numero, pat: 'P' + r.paciente_id, items: (r.items || []).map(i => ({k: i.k, c: i.c})),
         st: r.estado, t: hm(r.creado_en), med: medIdx(r.medico), urg: r.urgente, vis: r.visita || {}, usd: +r.total_usd,
         fac: d.numero ? (d.origen === 'contingencia' ? 'C-' : '') + p8(d.numero) : '', ctrl: d.numero_control || 'Pendiente de imprenta', cont: d.origen === 'contingencia',
-        doc: C.docLocal ? C.docLocal(r.documento_id) : null, _id: r.id};
+        doc: C.docLocal ? C.docLocal(r.documento_id) : null, _id: r.id,
+        fechaIso: r.creado_en, fecha: new Intl.DateTimeFormat('es-VE', {day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Caracas'}).format(new Date(r.creado_en)).replace(/\//g, '-')};
       ORD.push(o); g.ord.set(o._id, ordFirma(o));
     });
   }
@@ -112,7 +113,7 @@
   let enCurso = null, otraVez = false;
   async function sincronizar() {
     if (enCurso) { otraVez = true; return enCurso; }
-    enCurso = (async () => { do { otraVez = false; await subir(); } while (otraVez); })()
+    enCurso = (async () => { do { otraVez = false; await subir(); await subirReactivos(); } while (otraVez); })()
       .catch(async x => { avisar('No se pudo guardar: ' + C.msg(x)); await cargarOrdenes().catch(() => {}); render(); })
       .finally(() => { enCurso = null; });
     return enCurso;
@@ -188,6 +189,56 @@
     finally { if (b.isConnected && b.textContent === 'Creando la orden…') { b.disabled = false; b.innerHTML = txt; } }
   }, true);
 
+  /* ---------------- Reactivos e insumos ---------------- */
+  let reacGuardado = '[]';
+  async function cargarReactivos() {
+    const {data} = await db.from('colecciones').select('datos').eq('empresa_id', EMP()).eq('nombre', 'equipo_reactivos').maybeSingle();
+    REAC.length = 0; if (data && Array.isArray(data.datos)) REAC.push(...data.datos);
+    reacGuardado = JSON.stringify(REAC);
+  }
+  async function subirReactivos() {
+    const j = JSON.stringify(REAC); if (j === reacGuardado) return;
+    const {error} = await db.from('colecciones').upsert({empresa_id: EMP(), nombre: 'equipo_reactivos', datos: REAC, actualizado: new Date().toISOString()}, {onConflict: 'empresa_id,nombre'});
+    if (error) throw error; reacGuardado = j;
+  }
+  const num = v => parseFloat(String(v || '').replace(/\./g, '').replace(',', '.'));
+  const reacModal = i => { const r = i == null ? null : REAC[i], v = k => r ? C.esc(r[k]) : '';
+    return `<div class="sheet" role="dialog" aria-modal="true" style="max-width:520px"><div class="hd"><h2>${r ? 'Corregir ' + C.esc(r.n) : 'Entrada de reactivo o insumo'}</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div>
+    <form class="bd" id="lab-reac-f" data-i="${i == null ? '' : i}" style="display:grid;gap:10px">
+      <div class="field"><label for="rq-n">Nombre</label><input id="rq-n" class="input" value="${v('n')}" required></div>
+      <div class="grid g2" style="gap:10px"><div class="field"><label for="rq-a">Área</label><input id="rq-a" class="input" value="${v('a') || 'Química'}"></div>
+        <div class="field"><label for="rq-l">Lote</label><input id="rq-l" class="input num" value="${v('l')}" required></div></div>
+      <div class="grid g2" style="gap:10px"><div class="field"><label for="rq-e">Vence</label><input id="rq-e" class="input" type="date" value="${v('e')}" required></div>
+        <div class="field"><label for="rq-q">Cantidad${r ? ' que hay' : ' que entra'}</label><input id="rq-q" class="input num" inputmode="decimal" value="${r ? String(r.q).replace('.', ',') : ''}" required></div></div>
+      <div class="grid g2" style="gap:10px"><div class="field"><label for="rq-u">Unidad</label><input id="rq-u" class="input" value="${v('u') || 'pruebas'}"></div>
+        <div class="field"><label for="rq-d">Se gastan por día</label><input id="rq-d" class="input num" inputmode="decimal" value="${r ? String(r.d).replace('.', ',') : ''}" required></div></div>
+      <button class="btn primary big" type="submit">${ic('check')}Guardar</button></form></div>`; };
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-act="lab-reac"]'); if (!b) return;
+    e.stopImmediatePropagation(); openModal(reacModal(b.dataset.i === undefined ? null : +b.dataset.i));
+  }, true);
+  document.addEventListener('submit', e => {
+    if (e.target.id !== 'lab-reac-f') return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    const g = id => document.getElementById(id).value.trim();
+    const x = {n: g('rq-n'), a: g('rq-a') || 'Química', l: g('rq-l').toUpperCase(), e: g('rq-e'), q: num(g('rq-q')), u: g('rq-u') || 'pruebas', d: num(g('rq-d'))};
+    if (!x.n || !x.l || !x.e || !(x.q >= 0) || !(x.d > 0)) { avisar('Completa nombre, lote, vencimiento, cantidad y consumo por día'); return; }
+    const i = e.target.dataset.i;
+    if (i !== '') REAC[+i] = x;
+    else { const y = REAC.find(r => r.n === x.n && r.l === x.l); if (y) { y.q = +(y.q + x.q).toFixed(3); y.e = x.e; y.d = x.d; } else REAC.push(x); }
+    closeModal(); render(); avisar(i !== '' ? 'Existencia corregida' : 'Entrada registrada');
+  }, true);
+
+  /* ---------------- Historial de resultados de cada paciente ---------------- */
+  function armarHistorial() {
+    Object.keys(HIST).forEach(k => delete HIST[k]);
+    const hoy = new Intl.DateTimeFormat('es-VE', {day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Caracas'}).format(new Date()).replace(/\//g, '-');
+    ORD.filter(o => ['Validado', 'Entregado'].includes(o.st) && o.fecha && o.fecha !== hoy)
+      .sort((a, b) => a.fechaIso.localeCompare(b.fechaIso))
+      .forEach(o => Object.entries(o.res || {}).forEach(([k, v]) => { const n = +v; if (!isFinite(n) || v === '') return;
+        const h = HIST[o.pat] = HIST[o.pat] || {}; (h[k] = h[k] || []).push([o.fecha, n]); }));
+  }
+
   C.laboratorio = {sincronizar, cargarOrdenes};
 
   /* ---------------- Al entrar ---------------- */
@@ -197,6 +248,8 @@
     await cargarMedicos();
     await cargarPacientes();
     await cargarOrdenes();
+    await cargarReactivos().catch(x => console.error('Cuadre laboratorio: reactivos', x));
+    armarHistorial();
     if (S.ord && typeof newOrd === 'function') S.ord = newOrd();
     S.queue.length = 0;
   });

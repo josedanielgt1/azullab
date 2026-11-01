@@ -22,6 +22,7 @@ const { chromium } = require('playwright'); const mock = require('./mock');
     if (tabla && m === 'PATCH') { const rs = filtrar(T[tabla], u); rs.forEach(r => Object.assign(r, body)); return out(rs); }
     if (p === '/rest/v1/perfiles') return out([{ user_id: 'u-d', nombre: 'José Guerrero' }]);
     if (p === '/rest/v1/rpc/tasa_del_dia') return { body: 100 };
+    if (p === '/rest/v1/rpc/resumen_mensual') return { body: [{ mes: '2026-09-01', ventas_usd: 100, costo_usd: 60, gastos_usd: 10 }, { mes: '2026-10-01', ventas_usd: 200, costo_usd: 120, gastos_usd: 20 }, { mes: '2026-11-01', ventas_usd: 50, costo_usd: 30, gastos_usd: 5 }] };
     if (p.startsWith('/rest/v1/rpc/')) T.rpc.push({ f: p.slice(13), body });
     if (p === '/rest/v1/rpc/recibir_factura') { if (!T.proveedores.some(x => x.id === body.p_factura.proveedor_id)) return { status: 400, body: { message: 'Escoge la droguería' } };
       T.compras.push({ id: T.seq++, empresa_id: 'E', proveedor: 'Cobeca', numero: body.p_factura.numero, control: body.p_factura.control, fecha: body.p_factura.fecha, tipo: 'FAC', tasa: 100, exento_usd: 30, gravable_usd: 0, iva_usd: 0, total_usd: 30, pagado_usd: 0, vence: body.p_factura.fecha, rif: 'J-12345678-9' }); }
@@ -42,12 +43,14 @@ const { chromium } = require('playwright'); const mock = require('./mock');
       T.docs.push(d); return { body: d }; }
     if (p === '/rest/v1/rpc/salida_inventario') { const l = T.lotes.find(x => x.id === body.p_lote); if (body.p_cantidad > l.cantidad) return { status: 400, body: { message: 'La salida debe ser entre 1 y ' + l.cantidad } }; l.cantidad -= body.p_cantidad; return { body: l }; }
   };
-  const ctx = await b.newContext(); const pg = await ctx.newPage(); const errs = []; pg.on('pageerror', e => errs.push(e.message));
+  const ctx = await b.newContext(); const pg = await ctx.newPage(); const errs = []; pg.on('pageerror', e => errs.push(e.message)); pg.on('console', m => { if (m.type() === 'error') console.log('   consola:', m.text().slice(0, 200)); });
   mock(pg, { tasas: [{ fecha: hoy, tasa: 100 }], rest });
   await pg.goto('http://localhost:8765/farmacia.html'); await pg.fill('#lu', 'jose@azullab.com'); await pg.fill('#lp', 'clave-buena'); await pg.click('#loginForm [type=submit]');
   await pg.waitForFunction(() => !document.getElementById('loginForm'), null, { timeout: 8000 });
   ok(await pg.evaluate(() => P.length) === 0, 'instalación nueva: el catálogo arranca vacío');
   ok(await pg.evaluate(() => CLIENTS.length + S.sales.length + FX.docs.length + DROG.length + S.gastos.length + CUENTAS.length + COMPRAS_LIBRO.length + S.fallas.length + S.cots.length + S.movs.length) === 0, 'sin clientes, ventas, facturas, droguerías, gastos, cuentas, compras ni fallas de muestra');
+  ok(await pg.evaluate(() => EMP.length === 0 && DIF.length === 0), 'nómina y diferencial cambiario sin datos de muestra');
+  ok(await pg.evaluate(() => FIN.mes.ventas === 50 && FIN.meses().length === 3 && finanzas().neta === 15), 'Ganancias y gastos usa las cifras de la base (50 − 30 − 5 = 15)');
   const vistas = await pg.evaluate(() => NAV.flatMap(g => g.items.map(i => i[1])));
   for (const v of vistas) { const n = errs.length; await pg.evaluate(x => go(x), v).catch(e => errs.push(v + ': ' + e.message)); if (errs.length > n) console.log('   rota con catálogo vacío:', v, errs.slice(n).join(' | ').slice(0, 160)); }
   ok(errs.length === 0, `las ${vistas.length} pantallas abren con todo vacío`);
