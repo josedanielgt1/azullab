@@ -1498,9 +1498,10 @@ V.purchases = () => {
   let body = '';
   if (S.buyTab==='scan') body = `
       <div class="grid g3" style="gap:10px">
-        <div class="field"><label for="dr">Droguería</label><select id="dr" class="input">${DROG.map(d=>`<option>${d.n}</option>`).join('')}</select></div>
-        <div class="field"><label for="fn">N° de factura</label><input id="fn" class="input" value="0051877"></div>
-        <div class="field"><label for="fd">Fecha de la factura</label><input id="fd" class="input" type="date" value="2026-10-26"></div>
+        <div class="field"><label for="dr">Droguería</label><select id="dr" class="input">${DROG.length?'':'<option value="">Agrega la droguería en Proveedores</option>'}${DROG.map(d=>`<option ${(S.fac||{}).dr===d.n?'selected':''}>${d.n}</option>`).join('')}</select></div>
+        <div class="field"><label for="fn">N° de factura</label><input id="fn" class="input num" value="${(S.fac||{}).fn||''}"></div>
+        <div class="field"><label for="fc">N° de control</label><input id="fc" class="input num" placeholder="00-000000" value="${(S.fac||{}).fc||''}"></div>
+        <div class="field"><label for="fd">Fecha de la factura</label><input id="fd" class="input" type="date" value="${(S.fac||{}).fd||new Intl.DateTimeFormat('en-CA', {timeZone:'America/Caracas'}).format(new Date())}"></div>
       </div>
       <div class="search">${ic('search')}<input id="scan" class="input" placeholder="Escanea el código o escribe el nombre y pulsa Enter" aria-label="Escanear producto"></div>
       ${RECV.length?`<div class="tbl-wrap"><table><thead><tr><th>Producto</th><th>Lote</th><th>Vence</th><th class="r">Cant.</th><th class="r">Costo $</th><th class="r">Ganancia %</th><th class="r">Precio de venta</th><th></th></tr></thead>
@@ -2865,7 +2866,7 @@ document.addEventListener('submit', e => {
     if (ri && !ben) { toast('Escribe a quién se le paga para hacer el comprobante de retención'); $('#g-ben').focus(); return; }
     const gi = e.target.dataset.i, old = gi!=='' && gi!==undefined ? S.gastos[+gi] : null, tz = old && old.ret ? old.ret.tasa : S.rate;
     const ret = ri ? {k:ri.split('-')[0], pn:ri.endsWith('pn'), a:ben, tasa:tz, bs:$('#g-mon').value==='bs' ? v : v*tz, comp:old && old.ret ? old.ret.comp : 'Por entregar'} : null;
-    const rg = {f:old?old.f:'26/10/2026', cat:$('#g-cat').value, desc:d||$('#g-cat').value, cta:$('#g-cta').value, usd:+usdV.toFixed(2), fijo:$('#g-rec').value==='1', ret};
+    const rg = {f:old?old.f:new Intl.DateTimeFormat('es-VE', {day:'2-digit', month:'2-digit', year:'numeric', timeZone:'America/Caracas'}).format(new Date()), cat:$('#g-cat').value, desc:d||$('#g-cat').value, cta:$('#g-cta').value, usd:+usdV.toFixed(2), fijo:$('#g-rec').value==='1', ret};
     if (old) { S.gastos[+gi] = rg; closeModal(); render(); toast(`Gasto actualizado: ${rg.cat} · ${usd(usdV)}. La utilidad del mes ya lo refleja`); return; }
     S.gastos.push(rg);
     const rc = ret && islrCalc(ret.bs, ret.k, ret.pn);

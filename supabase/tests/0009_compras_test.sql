@@ -1,0 +1,74 @@
+-- Pruebas de la migración 0001. Correr con:  supabase/tests/correr.sh
+\set ON_ERROR_STOP on
+\set QUIET on
+set client_min_messages = notice;
+
+-- ---------- Ayudas ----------
+create schema prueba;
+grant usage on schema prueba to authenticated, anon, service_role;
+
+create function prueba.como(u uuid) returns void language sql as $$
+  select set_config('request.jwt.claim.sub', u::text, false), set_config('request.jwt.claim.role', 'authenticated', false)
+$$;
+
+-- Corre una sentencia y exige que falle con un texto dado
+create function prueba.debe_fallar(caso text, sentencia text, texto text) returns void language plpgsql as $$
+begin
+  begin
+    execute sentencia;
+  exception when others then
+    if sqlerrm ilike '%' || texto || '%' then raise notice 'ok   %', caso; return; end if;
+    raise exception 'FALLA %: esperaba "%", salió "%"', caso, texto, sqlerrm;
+  end;
+  raise exception 'FALLA %: debía fallar y no falló', caso;
+end $$;
+
+create function prueba.igual(caso text, obtenido anyelement, esperado anyelement) returns void language plpgsql as $$
+begin
+  if obtenido is distinct from esperado then raise exception 'FALLA %: salió %, esperaba %', caso, obtenido, esperado; end if;
+  raise notice 'ok   %', caso;
+end $$;
+
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000d', 'jose@azullab.com'), ('00000000-0000-0000-0000-0000000000a1', 'almacen@azullab.com'), ('00000000-0000-0000-0000-0000000000c1', 'cajero@azullab.com');
+create temp table ids as select (select id from empresas where tipo = 'farmacia') f;
+grant select on ids to authenticated;
+insert into miembros (user_id, empresa_id, rol) values ('00000000-0000-0000-0000-0000000000a1', (select f from ids), 'almacen'), ('00000000-0000-0000-0000-0000000000c1', (select f from ids), 'cajero');
+insert into tasas_bcv (fecha, tasa) values (current_date, 100);
+
+\echo '--- Proveedores y factura de compra'
+set role authenticated;
+select prueba.como('00000000-0000-0000-0000-0000000000a1');
+insert into proveedores (empresa_id, nombre, rif, credito_dias) values ((select f from ids), 'Cobeca', 'J-12345678-9', 15);
+select prueba.debe_fallar('no se repite el proveedor', $$ insert into proveedores (empresa_id, nombre) values ((select f from ids), 'COBECA') $$, 'duplicate key');
+select prueba.debe_fallar('RIF de proveedor con formato', $$ insert into proveedores (empresa_id, nombre, rif) values ((select f from ids), 'X', 'J-1') $$, 'check constraint');
+insert into productos (empresa_id, codigo, nombre, iva, costo, precio) values ((select f from ids), '1', 'Losartán', 'E', 2, 3), ((select f from ids), '2', 'Champú', 'G', 4, 5);
+create temp table c1 as select * from recibir_factura((select f from ids), jsonb_build_object('proveedor_id', 1, 'numero', '0048213', 'control', '00-118204', 'fecha', current_date),
+  '[{"producto_id":1,"lote":"A1","vence":"2028-01-01","cantidad":10,"costo":2},{"producto_id":2,"lote":"B1","vence":"2028-01-01","cantidad":5,"costo":4}]');
+grant select on c1 to authenticated;
+select prueba.igual('exento: 10 × 2', (select exento_usd from c1), 20.00::numeric);
+select prueba.igual('gravable: 5 × 4 con IVA 3,20', (select iva_usd from c1), 3.20::numeric);
+select prueba.igual('total 43,20', (select total_usd from c1), 43.20::numeric);
+select prueba.igual('vence con el crédito del proveedor', (select vence from c1), current_date + 15);
+select prueba.igual('los lotes entraron', (select sum(cantidad) from lotes), 15.000::numeric);
+select prueba.igual('la referencia queda en el movimiento', (select referencia from movimientos limit 1), 'Cobeca · factura 0048213');
+select prueba.debe_fallar('la misma factura no se registra dos veces', $$ select recibir_factura((select f from ids), '{"proveedor_id":1,"numero":"0048213"}', '[]') $$, 'duplicate key');
+select prueba.debe_fallar('sin número de factura no', $$ select recibir_factura((select f from ids), '{"proveedor_id":1,"numero":" "}', '[]') $$, 'número de la factura');
+select prueba.debe_fallar('almacén no paga facturas', $$ select pagar_compra((select id from c1), 10) $$, 'Solo el dueño');
+
+\echo '--- Pagos, gastos y configuración'
+select prueba.como('00000000-0000-0000-0000-00000000000d');
+select prueba.igual('abono de 20', (select pagado_usd from pagar_compra((select id from c1), 20, 'Transferencia')), 20.00::numeric);
+select prueba.debe_fallar('no se paga más de lo que se debe', $$ select pagar_compra((select id from c1), 30) $$, 'entre 0,01 y 23.2');
+insert into gastos (empresa_id, usd, datos) values ((select f from ids), 650, '{"cat":"Alquiler"}');
+update gastos set anulado = true;
+select prueba.debe_fallar('los gastos no se borran', $$ delete from gastos $$, 'permission denied');
+insert into colecciones (empresa_id, nombre, datos) values ((select f from ids), 'config', '{"gan":30}'), ((select f from ids), 'privado_cuentas', '[{"b":"Banesco"}]');
+select prueba.como('00000000-0000-0000-0000-0000000000c1');
+select prueba.igual('el cajero ve la configuración', (select datos->>'gan' from colecciones where nombre = 'config'), '30');
+select prueba.igual('pero no las cuentas del banco', (select count(*) from colecciones where nombre = 'privado_cuentas'), 0::bigint);
+select prueba.igual('ni los gastos', (select count(*) from gastos), 0::bigint);
+select prueba.igual('ni las compras', (select count(*) from compras), 0::bigint);
+insert into colecciones (empresa_id, nombre, datos) values ((select f from ids), 'equipo_fallas', '[{"p":"Acetaminofén"}]');
+select prueba.igual('pero sí anota fallas', (select count(*) from colecciones where nombre = 'equipo_fallas'), 1::bigint);
+select prueba.debe_fallar('ni cambia la configuración', $$ insert into colecciones (empresa_id, nombre, datos) values ((select f from ids), 'otra', '{}') $$, 'row-level security');
+\echo '--- Todas las pruebas pasaron'

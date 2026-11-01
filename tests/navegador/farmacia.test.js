@@ -3,7 +3,7 @@ const { chromium } = require('playwright'); const mock = require('./mock');
 (async () => {
   const b = await chromium.launch(); let fallas = 0; const ok = (c, m) => { console.log((c ? 'ok   ' : 'FALLA ') + m); if (!c) fallas++; };
   const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Caracas' }).format(new Date());
-  const T = { productos: [], lotes: [], clientes: [], docs: [], seq: 1, rpc: [] };
+  const T = { productos: [], lotes: [], clientes: [], docs: [], proveedores: [], compras: [], gastos: [], colecciones: [], movimientos: [], seq: 1, rpc: [] };
   const filtrar = (rows, u) => rows.filter(r => [...u.searchParams].every(([k, v]) => {
     if (['select', 'order', 'limit', 'offset', 'columns', 'on_conflict'].includes(k)) return true;
     const [op, ...rest] = v.split('.'); const val = rest.join('.');
@@ -12,7 +12,9 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   const rest = async (st, { m, p, u, b: body, q }) => {
     const uno = (q.headers()['accept'] || '').includes('vnd.pgrst.object');
     const out = x => ({ body: uno ? (Array.isArray(x) ? x[0] : x) : x });
-    const tabla = { '/rest/v1/productos': 'productos', '/rest/v1/lotes': 'lotes', '/rest/v1/clientes': 'clientes', '/rest/v1/documentos': 'docs' }[p];
+    const tabla = { '/rest/v1/productos': 'productos', '/rest/v1/lotes': 'lotes', '/rest/v1/clientes': 'clientes', '/rest/v1/documentos': 'docs', '/rest/v1/proveedores': 'proveedores', '/rest/v1/compras': 'compras', '/rest/v1/gastos': 'gastos', '/rest/v1/movimientos': 'movimientos' }[p];
+    if (p === '/rest/v1/colecciones' && m === 'GET') return out(T.colecciones);
+    if (p === '/rest/v1/colecciones' && m === 'POST') { T.colecciones = T.colecciones.filter(c => c.nombre !== body.nombre).concat([body]); return out(body); }
     if (tabla && m === 'GET') return out(filtrar(T[tabla], u));
     if (tabla && m === 'POST') { const r = { activo: true, visitas: 0, total_usd: 0, puntos: 0, ...body, id: T.seq++ }; if (tabla === 'clientes') r.cedula_rif = r.cedula_rif.toUpperCase();
       if (tabla === 'productos' && T.productos.some(x => x.codigo && x.codigo === r.codigo)) return { status: 409, body: { message: 'Uno de los códigos ya está en otro producto' } };
@@ -21,7 +23,9 @@ const { chromium } = require('playwright'); const mock = require('./mock');
     if (p === '/rest/v1/perfiles') return out([{ user_id: 'u-d', nombre: 'José Guerrero' }]);
     if (p === '/rest/v1/rpc/tasa_del_dia') return { body: 100 };
     if (p.startsWith('/rest/v1/rpc/')) T.rpc.push({ f: p.slice(13), body });
-    if (p === '/rest/v1/rpc/recibir_compra') return { body: body.p_items.map(i => { let l = T.lotes.find(x => x.producto_id === i.producto_id && x.lote === i.lote.toUpperCase() && x.vence === i.vence);
+    if (p === '/rest/v1/rpc/recibir_factura') { if (!T.proveedores.some(x => x.id === body.p_factura.proveedor_id)) return { status: 400, body: { message: 'Escoge la droguería' } };
+      T.compras.push({ id: T.seq++, empresa_id: 'E', proveedor: 'Cobeca', numero: body.p_factura.numero, control: body.p_factura.control, fecha: body.p_factura.fecha, tipo: 'FAC', tasa: 100, exento_usd: 30, gravable_usd: 0, iva_usd: 0, total_usd: 30, pagado_usd: 0, vence: body.p_factura.fecha, rif: 'J-12345678-9' }); }
+    if (p === '/rest/v1/rpc/recibir_factura' || p === '/rest/v1/rpc/recibir_compra') return { body: body.p_items.map(i => { let l = T.lotes.find(x => x.producto_id === i.producto_id && x.lote === i.lote.toUpperCase() && x.vence === i.vence);
       if (l) l.cantidad += i.cantidad; else { l = { id: T.seq++, empresa_id: 'E', producto_id: i.producto_id, lote: i.lote.toUpperCase(), vence: i.vence, cantidad: i.cantidad, costo: i.costo, precio: null }; T.lotes.push(l); } return l; }) };
     if (p === '/rest/v1/rpc/vender') {
       for (const it of body.p_items) { const disp = T.lotes.filter(l => l.producto_id === it.producto_id && l.vence >= hoy).reduce((t, l) => t + l.cantidad, 0);
@@ -43,7 +47,7 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   await pg.goto('http://localhost:8765/farmacia.html'); await pg.fill('#lu', 'jose@azullab.com'); await pg.fill('#lp', 'clave-buena'); await pg.click('#loginForm [type=submit]');
   await pg.waitForFunction(() => !document.getElementById('loginForm'), null, { timeout: 8000 });
   ok(await pg.evaluate(() => P.length) === 0, 'instalación nueva: el catálogo arranca vacío');
-  ok(await pg.evaluate(() => CLIENTS.length + S.sales.length + FX.docs.length) === 0, 'sin clientes, ventas ni facturas de muestra');
+  ok(await pg.evaluate(() => CLIENTS.length + S.sales.length + FX.docs.length + DROG.length + S.gastos.length + CUENTAS.length + COMPRAS_LIBRO.length + S.fallas.length + S.cots.length + S.movs.length) === 0, 'sin clientes, ventas, facturas, droguerías, gastos, cuentas, compras ni fallas de muestra');
   const vistas = await pg.evaluate(() => NAV.flatMap(g => g.items.map(i => i[1])));
   for (const v of vistas) { const n = errs.length; await pg.evaluate(x => go(x), v).catch(e => errs.push(v + ': ' + e.message)); if (errs.length > n) console.log('   rota con catálogo vacío:', v, errs.slice(n).join(' | ').slice(0, 160)); }
   ok(errs.length === 0, `las ${vistas.length} pantallas abren con todo vacío`);
@@ -61,10 +65,21 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   await pg.evaluate(() => { S.altTmp = []; openModal(prodModal(P[0])); });
   await pg.fill('#p-marg', '60'); await pg.click('#prodForm [type=submit]'); await pg.waitForTimeout(500);
   ok(T.productos[0].precio === 3.2 && T.productos[0].margen === 60, 'editar la ganancia actualiza el precio en la base (3,20)');
-  // Compra
+  // Droguería y compra con su factura
+  await pg.evaluate(() => go('suppliers')); await pg.fill('#drogname', 'Cobeca'); await pg.click('[data-act="drogadd"]');
+  await pg.waitForFunction(() => DROG[0] && DROG[0]._id, null, { timeout: 5000 }).catch(() => {});
+  await pg.fill('[data-drog="0"][data-f="rif"]', 'j123456789'); await pg.press('[data-drog="0"][data-f="rif"]', 'Tab'); await pg.waitForTimeout(500);
+  ok(T.proveedores.length === 1 && T.proveedores[0].rif === 'J-12345678-9', 'la droguería se guarda con su RIF normalizado');
   await pg.evaluate(() => { RECV.push({ id: 1, l: 'gv25', e: '2028-03-31', q: 10, c: 2 }, { id: 1, l: 'GV24', e: '2027-01-31', q: 5, c: 2 }); go('purchases'); });
+  await pg.click('[data-act="receive"]'); await pg.waitForTimeout(400);
+  ok((await pg.textContent('#toast')).includes('número de la factura') && T.lotes.length === 0, 'sin número de factura no se recibe');
+  await pg.fill('#fn', '0048213'); await pg.fill('#fc', '00-118204');
   await pg.click('[data-act="receive"]'); await pg.waitForFunction(() => P[0].stock === 15 && P[0].lots.every(l => l.id), null, { timeout: 10000 }).catch(() => {});
   ok(T.lotes.length === 2 && T.lotes.reduce((t, l) => t + l.cantidad, 0) === 15, 'la compra crea los lotes en la base');
+  const rf = T.rpc.find(r => r.f === 'recibir_factura');
+  ok(rf && rf.body.p_factura.numero === '0048213' && rf.body.p_factura.control === '00-118204' && rf.body.p_factura.proveedor_id === T.proveedores[0].id, 'con la factura del proveedor (número, control y droguería)');
+  await pg.waitForFunction(() => COMPRAS_LIBRO.length === 1, null, { timeout: 5000 }).catch(() => {});
+  ok(await pg.evaluate(() => COMPRAS_LIBRO.length === 1 && COMPRAS_LIBRO[0][2] === '0048213'), 'la factura aparece en el Libro de Compras');
   ok(await pg.evaluate(() => P[0].stock === 15 && P[0].lots.every(l => l.id)), 'la pantalla muestra 15 con los lotes de la base');
   // Venta
   await pg.evaluate(() => go('pos')); await pg.click('[data-act="add"][data-id="1"]'); await pg.click('[data-act="add"][data-id="1"]');
@@ -100,6 +115,15 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   await pg.selectOption('#sa-l', 'GV25'); await pg.fill('#sa-q', '2'); await pg.click('#salidaForm [type=submit]'); await pg.waitForTimeout(600);
   ok(T.rpc.some(r => r.f === 'salida_inventario' && r.body.p_cantidad === 2), 'la salida pasa por la base');
   ok(T.lotes.find(l => l.lote === 'GV25').cantidad === 8 && await pg.evaluate(() => P[0].stock) === 12, 'y descuenta el lote: queda 12');
+  // Cuentas por pagar y gasto
+  await pg.evaluate(() => go('suppliers')); await pg.click('[data-act="fr-pagar"]'); await pg.fill('#fr-m', '10'); await pg.click('#fr-pago [type=submit]'); await pg.waitForTimeout(400);
+  ok(T.rpc.some(r => r.f === 'pagar_compra' && r.body.p_monto === 10), 'registrar pago a la droguería pasa por la base');
+  await pg.evaluate(() => { S.gastos.push({ f: '01/11/2026', cat: 'Alquiler', desc: 'Local', cta: 'Banesco', usd: 650, fijo: true, ret: null }); render(); }); await pg.click('body'); await pg.waitForTimeout(500);
+  ok(T.gastos.length === 1 && T.gastos[0].usd === 650 && T.gastos[0].datos.cat === 'Alquiler', 'el gasto se guarda en la base');
+  await pg.evaluate(() => { S.gastos.splice(0, 1); render(); }); await pg.click('body'); await pg.waitForTimeout(500);
+  ok(T.gastos[0].anulado === true, 'anular un gasto lo marca anulado (no se borra)');
+  await pg.evaluate(() => { CFG.gan = 35; S.fallas.push({ p: 'Acetaminofén', u: 'José' }); }); await pg.click('body'); await pg.waitForTimeout(500);
+  ok(T.colecciones.some(c => c.nombre === 'config' && c.datos.gan === 35) && T.colecciones.some(c => c.nombre === 'equipo_fallas'), 'la configuración y las fallas se guardan');
   // Cliente nuevo
   await pg.evaluate(() => { CLIENTS.unshift({ ci: 'V-12.990.441', name: 'José Peña', tel: '—', visits: 0, total: 0, last: '—', pts: 0 }); render(); });
   await pg.click('body'); await pg.waitForTimeout(500);
