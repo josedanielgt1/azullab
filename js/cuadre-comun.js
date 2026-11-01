@@ -26,6 +26,20 @@
   const iniciales = n => String(n || '?').split(/\s+/).filter(w => /^[A-ZÁÉÍÓÚÑ]/i.test(w)).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?';
   const fechaHora = f => f ? new Date(f).toLocaleString('es-VE', {day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'}) : 'Nunca ha entrado';
 
+  /* ---------------- Fase 2: guardada, fuera de la vista ----------------
+     Las pantallas de la fase 2 (Azul Puntos, tienda web, sucursales; portal, equipos, convenios,
+     calidad y grupo del laboratorio) siguen en los archivos. Para volver a mostrarlas: FASE2 = true. */
+  const FASE2 = false;
+  C.alEntrar(async () => {
+    if (FASE2 || typeof NAV !== 'object' || typeof V !== 'object') return;
+    const i = NAV.findIndex(g => g.f2); if (i < 0) return;
+    const vistas = NAV[i].items.map(it => it[1]); NAV.splice(i, 1);
+    vistas.forEach(v => { V[v] = () => '<p class="lead">Esta pantalla es de la fase 2 y todavía no está activa.</p>'; });
+    if (typeof F2 === 'object') F2.length = 0;
+    if (Cuadre.destino && vistas.includes(Cuadre.destino)) Cuadre.destino = '';
+  });
+  if (!FASE2) document.head.insertAdjacentHTML('beforeend', '<style>.phase.f1,.phase.f2{display:none}</style>');
+
   /* La fecha de hoy de verdad (las maquetas traían una fija) */
   try { if (typeof TODAY === 'object' && TODAY.setTime) { const [y, m, d] = hoyVE().split('-').map(Number); TODAY.setTime(new Date(y, m - 1, d).getTime()); } } catch (_) {}
 
@@ -167,24 +181,28 @@
   const NEG = {farmacia: 'Farmacia', laboratorio: 'Laboratorio', crossfit: 'CrossFit'};
   let grupo = [];
   async function cargarGrupo() {
-    grupo = [];
-    if (A().rol !== 'dueno') return;
+    // Se arma aparte y se cambia de una vez: si dos cargas se cruzan, no se suman filas repetidas
+    const nuevo = [];
+    if (A().rol !== 'dueno') { grupo = nuevo; return; }
     const {data: emps} = await db.from('empresas').select('id,tipo,razon_social,rif');
     const otras = (emps || []).filter(e => e.id !== A().empresa_id);
     const desde = hoyVE().slice(0, 7) + '-01T00:00:00-04:00';
     for (const e of otras) {
       const ds = await todo(() => db.from('documentos').select('tipo,total,iva_general,iva_reducida,igtf,estado').eq('empresa_id', e.id).gte('fecha', desde));
       const s = d => d.tipo === 'NC' ? -1 : 1, ok = ds.filter(d => d.estado !== 'rechazado');
-      grupo.push({tipo: e.tipo, neg: NEG[e.tipo], razon: e.razon_social, rif: e.rif,
+      if (nuevo.some(g => g.tipo === e.tipo)) continue;
+      nuevo.push({tipo: e.tipo, neg: NEG[e.tipo], razon: e.razon_social, rif: e.rif,
         v: Math.round(ok.reduce((t, d) => t + s(d) * (+d.total - +d.igtf), 0) * 100) / 100,
         iva: Math.round(ok.reduce((t, d) => t + s(d) * (+d.iva_general + +d.iva_reducida), 0) * 100) / 100});
     }
+    grupo = nuevo;
   }
   if (typeof FX_SYS === 'object' && FX_SYS.grupo) {
     const grupoOriginal = FX_SYS.grupo;
     FX_SYS.grupo = M => {
       const propio = grupoOriginal(M).find(g => g.propio);
-      return [propio, ...grupo].filter(Boolean).sort((a, b) => Object.keys(NEG).indexOf(a.tipo || A().tipo) - Object.keys(NEG).indexOf(b.tipo || A().tipo));
+      // Un renglón por negocio: el propio y los demás, sin repetir
+      return [propio, ...grupo.filter(g => g.tipo !== A().tipo)].filter(Boolean).sort((a, b) => Object.keys(NEG).indexOf(a.tipo || A().tipo) - Object.keys(NEG).indexOf(b.tipo || A().tipo));
     };
   }
   C.alEntrar(async () => { try { await cargarGrupo(); } catch (x) { console.error('Cuadre: grupo', x); } });

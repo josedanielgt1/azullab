@@ -213,6 +213,8 @@ tbody tr:hover td{background:var(--acento-suave)}
 /* ---------- Caja ---------- */
 .pos{display:grid;grid-template-columns:minmax(0,1fr) 392px;gap:20px;align-items:start}
 #cartbox{position:sticky;top:96px;filter:drop-shadow(0 1px 1px rgba(26,36,64,.14)) drop-shadow(0 6px 14px rgba(26,36,64,.08))}
+/* El panel de la venta nunca pasa del alto de la pantalla: si crece, se desplaza por dentro y el botón de cobrar siempre se alcanza */
+@media (min-width:601px){#cartbox{max-height:calc(100vh - 110px);overflow-y:auto;overscroll-behavior:contain}}
 .search{position:relative}
 .search svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--tinta-3)}
 .search .input{padding-left:42px;min-height:52px;font-size:16px}
@@ -808,7 +810,7 @@ function fig(id, cls='fig'){
 
 /* ======================= Datos de muestra ======================= */
 const TODAY = new Date(2026, 9, 27);
-const HOY = '27-10-2026';
+const HOY = new Intl.DateTimeFormat('es-VE', {day:'2-digit', month:'2-digit', year:'numeric', timeZone:'America/Caracas'}).format(new Date()).replace(/\//g, '-');
 let RATE = 881.88;  /* la reemplaza la tasa BCV de la base al entrar */
 const PLANES = [
   {id:'ilim', n:'Mensual ilimitado', p:35, d:30},

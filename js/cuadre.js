@@ -95,9 +95,13 @@ window.Cuadre = (() => {
        op.abrir(acceso): pone el rol y el nombre en el estado y abre la primera pantalla */
     montar(op) {
       const err = t => { const p = document.getElementById('login-err'); if (p) { p.textContent = t; p.hidden = !t; } };
+      let abriendo = false;   // una sola apertura aunque la sesión guardada y el formulario lleguen a la vez
       const abrir = async a => {
+        if (abriendo || (api.acceso && api.acceso.empresa_id === a.empresa_id && api.acceso.user === a.user)) return;
+        abriendo = true;
         api.acceso = {...a, tipo: op.tipo};
         for (const g of ganchos) { try { await g(api.acceso); } catch (x) { console.error('Cuadre: al entrar', x); } }
+        abriendo = false;
         op.abrir(a);
       };
 

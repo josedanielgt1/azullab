@@ -91,6 +91,7 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   ok(await pg.evaluate(() => P[0].stock === 15 && P[0].lots.every(l => l.id)), 'la pantalla muestra 15 con los lotes de la base');
   // Venta
   await pg.evaluate(() => go('pos')); await pg.click('[data-act="add"][data-id="1"]'); await pg.click('[data-act="add"][data-id="1"]');
+  ok(await pg.evaluate(() => { const c = getComputedStyle(document.getElementById('cartbox')); return c.maxHeight !== 'none' && c.overflowY === 'auto'; }), 'el panel de la venta se desplaza por dentro: el botón de cobrar siempre se alcanza');
   await pg.click('[data-act="checkout"]'); await pg.click('[data-act="addpay"]');
   await pg.click('[data-act="emit"]'); await pg.waitForFunction(() => document.body.textContent.includes('00000001'), null, { timeout: 5000 }).catch(() => {});
   await pg.waitForFunction(() => document.getElementById('modal').textContent.includes('00000001') && P[0].stock === 13, null, { timeout: 8000 }).catch(() => {});
@@ -153,9 +154,9 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   // Cuentas y bancos, Azul Puntos y libro de ventas: sin cifras de muestra
   await pg.evaluate(() => go('banks')); const tb = await pg.textContent('#app');
   ok(tb.includes('Cobrado hoy') && !tb.includes('Unidad Educativa') && !tb.includes('Yorbelis'), 'Cuentas y bancos muestra lo cobrado hoy, sin deudores de muestra');
-  await pg.evaluate(() => go('loyalty')); ok(!(await pg.textContent('#app')).includes('318'), 'Azul Puntos sin cifras de muestra');
   ok(await pg.evaluate(() => LIBRO.length === FX.docs.length && LIBRO[0][1].startsWith('Factura')), 'el libro de ventas del módulo fiscal sale de las facturas');
-  ok(await pg.evaluate(() => NAV.find(g => g.g === 'Operación').items.some(i => i[1] === 'recipes') && NAV.find(g => g.g === 'Administración').items.some(i => i[1] === 'suppliers')), 'Récipes y Proveedores salen de «Fase 2»');
+  ok(await pg.evaluate(() => NAV.find(g => g.g === 'Operación').items.some(i => i[1] === 'recipes') && NAV.find(g => g.g === 'Administración').items.some(i => i[1] === 'suppliers')), 'Récipes y Proveedores quedan en el menú');
+  ok(await pg.evaluate(() => !NAV.some(g => g.f2) && !NAV.some(g => g.items.some(i => ['loyalty', 'store', 'branches'].includes(i[1])))), 'la fase 2 no aparece en el menú');
   // Quincena de hoy y su pago guardado
   ok(await pg.evaluate(() => /quincena de/.test(QUIN.nombre) && !/octubre de 2026/.test(QUIN.nombre + 'x') && QUIN.id.length === 9), 'la quincena se calcula con la fecha de hoy');
   await pg.evaluate(() => { S.nomPagos = S.nomPagos || []; S.nomPagos.push({ periodo: QUIN.id, nombre: QUIN.nombre, fecha: new Date().toISOString(), total: 100, personas: [] }); }); await pg.click('body'); await pg.waitForTimeout(500);

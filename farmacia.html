@@ -227,6 +227,8 @@ tbody tr:hover td{background:var(--acento-suave)}
 /* ---------- Caja ---------- */
 .pos{display:grid;grid-template-columns:minmax(0,1fr) 392px;gap:20px;align-items:start}
 #cartbox{position:sticky;top:96px;filter:drop-shadow(0 1px 1px rgba(26,36,64,.14)) drop-shadow(0 6px 14px rgba(26,36,64,.08))}
+/* El panel de la venta nunca pasa del alto de la pantalla: si crece, se desplaza por dentro y el botón de cobrar siempre se alcanza */
+@media (min-width:601px){#cartbox{max-height:calc(100vh - 110px);overflow-y:auto;overscroll-behavior:contain}}
 .search{position:relative}
 .search svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--tinta-3)}
 .search .input{padding-left:42px;min-height:52px;font-size:16px}
@@ -922,7 +924,7 @@ function shell(inner){
   <div class="main">
     <header class="top">
       <button class="menu-btn" data-act="menu" aria-label="Abrir menú">${ic('menu')}</button>
-      <div class="ttl"><h1>${S.view==='dashboard'&&S.role==='Cajero'?'Mi turno':TITLES[S.view]}</h1><span class="folio">Folio ${folio(S.view)} · 26-10-2026</span>${phase}</div>
+      <div class="ttl"><h1>${S.view==='dashboard'&&S.role==='Cajero'?'Mi turno':TITLES[S.view]}</h1><span class="folio">Folio ${folio(S.view)} · ${new Intl.DateTimeFormat('es-VE', {day:'2-digit', month:'2-digit', year:'numeric', timeZone:'America/Caracas'}).format(new Date()).replace(/\//g,'-')}</span>${phase}</div>
       <div class="chips">
         ${(()=>{ const n = S.fallas.filter(f=>f.nuevo).length; return S.role!=='Cajero' && n ? `<button class="chip alerta" data-act="verfallas" title="Fallas anotadas por los cajeros" aria-label="${n} ${n===1?'falla nueva':'fallas nuevas'}">${ic('alert')}<b>${n}</b><span class="lbl"> ${n===1?'falla nueva':'fallas nuevas'}</span></button>` : ''; })()}
         ${(()=>{ const n = S.precioAvisos.length; return S.role==='Dueño' && n ? `<button class="chip alerta" data-act="verprecios" title="Compras que entraron con la opción por defecto" aria-label="${n} ${n===1?'precio por revisar':'precios por revisar'}">${ic('coins')}<b>${n}</b><span class="lbl"> ${n===1?'precio por revisar':'precios por revisar'}</span></button>` : ''; })()}
@@ -986,7 +988,7 @@ V.dashboard = () => {
   ${owner?'':`<div class="rolebar">${ic('shield')}<span>Vista de farmacéutico regente: operación y fiscal. Las ventas por cajero y las ganancias solo las ve el dueño.</span></div>`}
   <div class="kpis">
     <div class="kpi hero"><span class="l">Ventas de hoy</span><span class="v">${usd(tu)}</span><span class="s num">${bs(tu*S.rate)}</span></div>
-    <div class="kpi"><span class="l">Facturas emitidas</span><span class="v num">${todayN()}</span><span class="s">Ticket promedio ${usd(tu/todayN())}</span></div>
+    <div class="kpi"><span class="l">Facturas emitidas</span><span class="v num">${todayN()}</span><span class="s">Ticket promedio ${usd(todayN()?tu/todayN():0)}</span></div>
     <div class="kpi"><span class="l">Por vencer (${CFG.venc} días)</span><span class="v num" style="color:var(--warn)">${exp.filter(e=>e.d>=0).length} lotes</span><span class="s">${exp.filter(e=>e.d<0).length} vencido para retirar</span></div>
     <div class="kpi"><span class="l">Bajo el mínimo</span><span class="v num" style="color:var(--bad)">${low.length} productos</span><span class="s">Pedir a droguería</span></div>
   </div>
@@ -995,14 +997,14 @@ V.dashboard = () => {
     <section class="panel"><div class="hd"><h2>Ventas de los últimos 7 días</h2><span class="muted small">En dólares, a tasa BCV de cada día</span></div>
       <div class="bd chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Ventas diarias de la semana">${grid}${bars}</svg></div></section>
     <section class="panel"><div class="hd"><h2>Estado del sistema</h2></div><div class="bd">
-      ${S.medio==='digital'?`<div class="stat"><span class="row" style="gap:8px">${ic('receipt')}Imprenta digital</span>${S.online?'<span class="pill ok">Conectada</span>':'<span class="pill warn">Talonario de contingencia</span>'}</div>
-      <div class="stat"><span class="muted">Números de control (octubre)</span><span class="num">${nf0(FX.n.ctrl-1)} de 1.500</span></div>
-      <div class="stat"><span class="muted">Último número de control</span><span class="num">${FX.F.serie}-${String(FX.n.ctrl-1).padStart(8,'0')}</span></div>`
+      ${S.medio==='digital'?`<div class="stat"><span class="row" style="gap:8px">${ic('receipt')}Imprenta digital</span>${S.online?(FX.F.prov&&!/muestra/i.test(FX.F.prov)?'<span class="pill ok">Configurada</span>':'<span class="pill warn">Por conectar</span>'):'<span class="pill warn">Talonario de contingencia</span>'}</div>
+      <div class="stat"><span class="muted">Facturas del mes</span><span class="num">${nf0(FX.docs.filter(d=>d.tipo==='FAC').length)}</span></div>
+      <div class="stat"><span class="muted">Próxima factura</span><span class="num">${String(FX.n.FAC).padStart(8,'0')}</span></div>`
       :`<div class="stat"><span class="row" style="gap:8px">${ic('printer')}Impresora fiscal</span><span class="pill ok">Conectada</span></div>
       <div class="stat"><span class="muted">Modelo y serial</span><span class="num">HKA80 · Z7C0012345</span></div>
       <div class="stat"><span class="muted">Último Reporte Z</span><span class="num">#00${S.z-1} · 25/10 20:04</span></div>`}
       <div class="stat"><span class="row" style="gap:8px">${ic(S.online?'cloud':'cloudoff')}Internet</span>${S.online?'<span class="pill ok">En línea</span>':'<span class="pill warn">Sin conexión</span>'}</div>
-      <div class="stat"><span class="muted">Respaldo en la nube</span><span class="num">${S.online?'Hace 1 min':S.queue.length+' pendientes'}</span></div>
+      <div class="stat"><span class="muted">Respaldo en la nube</span><span class="num">${(()=>{ const c = (window.Cuadre && Cuadre.leerLocal && Cuadre.leerLocal('cola')) || []; return S.online ? (c.length ? c.length+' por subir' : 'Al día') : c.length+' guardadas en el equipo'; })()}</span></div>
       <div class="stat"><span class="muted">Tasa BCV del día</span><span class="num">${nf(S.rate)} Bs/$</span></div>
     </div></section>
   </div>
