@@ -4,5 +4,5 @@
    NUNCA pongas aquí la service_role ni la secret key. */
 window.CUADRE_CONFIG = {
   url: 'https://sklqsvnyecyhqvmnulir.supabase.co',
-  key: ''
+  key: 'sb_publishable_flT-X6E8S-rBRAoOuydCHw_4yqLXgDS'
 };
