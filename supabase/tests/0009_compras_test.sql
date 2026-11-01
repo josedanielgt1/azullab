@@ -82,4 +82,20 @@ select prueba.igual('ni las compras', (select count(*) from compras), 0::bigint)
 insert into colecciones (empresa_id, nombre, datos) values ((select f from ids), 'equipo_fallas', '[{"p":"Acetaminofén"}]');
 select prueba.igual('pero sí anota fallas', (select count(*) from colecciones where nombre = 'equipo_fallas'), 1::bigint);
 select prueba.debe_fallar('ni cambia la configuración', $$ insert into colecciones (empresa_id, nombre, datos) values ((select f from ids), 'otra', '{}') $$, 'row-level security');
+\echo '--- Facturas de compra sin inventario (laboratorio, CrossFit)'
+reset role;
+insert into miembros (user_id, empresa_id, rol) select '00000000-0000-0000-0000-00000000000d', id, 'dueno' from empresas where tipo = 'laboratorio' on conflict do nothing;
+set role authenticated;
+select prueba.como('00000000-0000-0000-0000-00000000000d');
+create temp table rc as select * from registrar_compra((select id from empresas where tipo = 'laboratorio'),
+  jsonb_build_object('proveedor', 'Distribuidora de reactivos', 'rif', 'j123456789', 'numero', '0004521', 'control', '00-31877', 'fecha', current_date, 'exento_bs', 0, 'gravable_bs', 1000,
+                     'retencion', jsonb_build_object('k', 'ser', 'pn', false)));
+grant select on rc to authenticated;
+select prueba.igual('compra de servicio: base 1000 Bs, IVA 160 Bs → 11,60 $', (select total_usd from rc), 11.60::numeric);
+select prueba.igual('con el RIF normalizado', (select rif from rc), 'J-12345678-9');
+select prueba.igual('y la retención anotada', (select datos->'retencion'->>'k' from rc), 'ser');
+select prueba.debe_fallar('la misma factura no se registra dos veces', $$ select registrar_compra((select id from empresas where tipo = 'laboratorio'), '{"proveedor":"Distribuidora de reactivos","numero":"0004521","gravable_bs":5}') $$, 'duplicate key');
+select prueba.debe_fallar('sin monto no', $$ select registrar_compra((select id from empresas where tipo = 'laboratorio'), '{"proveedor":"X","numero":"1"}') $$, 'monto');
+select prueba.como('00000000-0000-0000-0000-0000000000c1');
+select prueba.debe_fallar('el cajero no registra compras', $$ select registrar_compra((select f from ids), '{"proveedor":"X","numero":"2","exento_bs":5}') $$, 'Solo el dueño');
 \echo '--- Todas las pruebas pasaron'

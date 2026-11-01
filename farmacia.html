@@ -3262,7 +3262,7 @@ const FX = (() => {
     if (!pn) return {pc, sus:0, ret:r2(bsA * r)};
     if (bsA <= utMin()) return {pc, sus:0, ret:0, bajo:true};
     const sus = r2(M.UT * r * UTF); return {pc, sus, ret:r2(bsA * r - sus)}; };
-  M.islr = () => Y.islr().map((x, i) => ({...x, bsA:r2(x.bsA), ...M.islrCalc(x.bsA, x.k, x.pn), num:x.num || `ISLR-202610-${String(i + 1).padStart(4, '0')}`, ent:x.ent || 'Por enterar'}));
+  M.islr = () => Y.islr().map((x, i) => ({...x, bsA:r2(x.bsA), ...M.islrCalc(x.bsA, x.k, x.pn), num:x.num || `ISLR-${Y.hoy.slice(0, 7).replace('-', '')}-${String(i + 1).padStart(4, '0')}`, ent:x.ent || 'Por enterar'}));
 
   /* ---------- Borrador de la declaración de IVA (forma 30) ---------- */
   M.f30 = () => {
@@ -3566,6 +3566,8 @@ const FX = (() => {
       <div class="fx-sub">Talonario de contingencia y contador</div>
       <div class="grid g2" style="gap:10px">${fi('talNum', 'Talonario', '', 'T-0001')}${fi('contador', 'Contador del negocio')}</div>
       <div class="grid g2" style="gap:10px">${fi('talDesde', 'Talonario: primer número', 'num', '1')}${fi('talHasta', 'Talonario: último número', 'num', '50')}</div>
+      <div class="fx-sub">Para la declaración de IVA (lo da el contador)</div>
+      <div class="grid g2" style="gap:10px">${fi('excedente', 'Excedente de crédito fiscal del mes anterior (Bs)', 'num', '0,00')}${fi('declPrev', 'Última declaración de IVA', '', 'declarada el 14-10-2026')}</div>
       <label class="fx-ck"><input type="checkbox" id="fx-f-conf" ${F.rifMuestra ? '' : 'checked'}><span>RIF y razón social confirmados con el cliente</span></label>
       <div class="fx-iva"><b>IVA de este negocio</b><span>${Y.ivaNota}</span><span class="pill warn" style="justify-self:start">Que el contador lo confirme</span></div>
       <button class="btn primary" type="submit">${ic('check')}Guardar datos fiscales</button>

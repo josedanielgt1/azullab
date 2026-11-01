@@ -113,6 +113,7 @@
     if (error) { avisar(/duplicate|unique/i.test(error.message) ? 'Ese RIF ya lo tiene otro negocio del grupo' : C.msg(error)); return; }
     if (!data) { avisar('Solo el dueño cambia los datos fiscales'); return; }
     C.empresa = data;
+    await guardarFiscalMes(e.target);
     Object.entries(CAMPOS).forEach(([k, col]) => { if (data[col] != null) FX.F[k] = data[col]; });
     FX.F.talDesde = data.talonario_desde; FX.F.talHasta = data.talonario_hasta;
     FX.F.rifMuestra = !data.datos_confirmados;
@@ -194,9 +195,9 @@
     FX_SYS.excedente = 0; FX_SYS.declPrev = '';
   }
   C.alEntrar(async a => {
-    if (typeof FX_SYS === 'object' && a.tipo !== 'farmacia') { FX_SYS.compras = () => []; FX_SYS.islr = () => []; }   // laboratorio y CrossFit: sin módulo de compras todavía
+    if (typeof FX_SYS === 'object' && a.tipo !== 'farmacia') { try { await cargarComprasServ(); } catch (x) { console.error(x); } conectarComprasServ(); }
     const {data} = await db.from('colecciones').select('datos').eq('empresa_id', A().empresa_id).eq('nombre', 'privado_fiscal').maybeSingle();
-    if (data && data.datos && typeof FX_SYS === 'object') { FX_SYS.excedente = +data.datos.excedente || 0; FX_SYS.declPrev = data.datos.declPrev || ''; }
+    if (data && data.datos && typeof FX_SYS === 'object') { FX_SYS.excedente = +data.datos.excedente || 0; FX_SYS.declPrev = data.datos.declPrev || ''; FX.F.excedente = String(FX_SYS.excedente).replace('.', ','); FX.F.declPrev = FX_SYS.declPrev; }
   });
 
   /* Notas de crédito y débito: las emite la base; la pantalla arma el documento con ese número */
@@ -243,6 +244,56 @@
     if (reintegrar && C.farmacia) { await C.farmacia.recargar(lineas.filter(l => l.ref).map(l => l.ref.producto_id)); if (C.recargarControlados) await C.recargarControlados(); repintar(); }
   }, true);
   C.alEntrar(async () => { if (typeof FX === 'object' && FX.docs) await cargarDocumentos(); });
+
+  /* ---------------- Facturas de compra (laboratorio y CrossFit): libro de compras y retenciones ---------------- */
+  let comprasServ = [];
+  const dmyC = iso => iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(0, 4);
+  async function cargarComprasServ() {
+    comprasServ = [];
+    if (!['dueno', 'gerente'].includes(A().rol)) return;
+    const desde = hoyVE().slice(0, 7) + '-01';
+    comprasServ = await todo(() => db.from('compras').select('*').eq('empresa_id', A().empresa_id).gte('fecha', desde).order('fecha'));
+  }
+  const delMesC = c => c.fecha.slice(0, 7) === hoyVE().slice(0, 7);
+  function conectarComprasServ() {
+    FX_SYS.compras = () => comprasServ.filter(delMesC).map(c => { const d = c.datos || {};
+      return {f: c.fecha, tipo: c.tipo, num: c.numero, ctrl: c.control || '', afecta: '', rif: c.rif || '', prov: c.proveedor,
+        ex: d.exento_bs != null ? +d.exento_bs : Math.round(c.exento_usd * c.tasa * 100) / 100, bg: d.gravable_bs != null ? +d.gravable_bs : Math.round(c.gravable_usd * c.tasa * 100) / 100}; });
+    FX_SYS.islr = () => comprasServ.filter(c => delMesC(c) && c.datos && c.datos.retencion && c.datos.retencion.k).map(c => { const d = c.datos;
+      return {f: c.fecha, ben: c.proveedor, rif: c.rif || '', k: d.retencion.k, pn: !!d.retencion.pn, bsA: (+d.exento_bs || 0) + (+d.gravable_bs || 0), comp: d.retencion.comp || 'Por entregar'}; });
+    const vLibros = V.libros;
+    V.libros = () => (['dueno', 'gerente'].includes(A().rol) ? `<div class="row" style="margin-bottom:12px"><p class="lead" style="margin:0">Las facturas de tus proveedores (reactivos, insumos, servicios, alquiler) entran al Libro de Compras; si les retuviste ISLR, el comprobante sale solo.</p><span class="spacer"></span><button class="btn primary" data-act="cx-compra">${icono('plus')}Registrar factura de compra</button></div>` : '') + vLibros();
+  }
+  const compraModal = () => hoja('Factura de compra', `<form class="bd" id="cx-compra-f" style="display:grid;gap:10px">
+      <div class="grid g2" style="gap:10px"><div class="field"><label for="cx-p">Proveedor</label><input id="cx-p" class="input" required list="cx-provs"><datalist id="cx-provs">${[...new Set(comprasServ.map(c => c.proveedor))].map(p => `<option>${esc(p)}</option>`).join('')}</datalist></div>
+        <div class="field"><label for="cx-r">RIF del proveedor</label><input id="cx-r" class="input num" placeholder="J-00000000-0"></div></div>
+      <div class="grid g2" style="gap:10px"><div class="field"><label for="cx-n">N° de factura</label><input id="cx-n" class="input num" required></div>
+        <div class="field"><label for="cx-c">N° de control</label><input id="cx-c" class="input num" placeholder="00-000000"></div></div>
+      <div class="grid g2" style="gap:10px"><div class="field"><label for="cx-f">Fecha</label><input id="cx-f" class="input" type="date" value="${hoyVE()}"></div><div></div></div>
+      <div class="grid g2" style="gap:10px"><div class="field"><label for="cx-e">Monto exento (Bs)</label><input id="cx-e" class="input num" inputmode="decimal" placeholder="0,00"></div>
+        <div class="field"><label for="cx-g">Base gravable (Bs, sin IVA)</label><input id="cx-g" class="input num" inputmode="decimal" placeholder="0,00"></div></div>
+      <div class="grid g2" style="gap:10px"><div class="field"><label for="cx-k">Retención de ISLR</label><select id="cx-k" class="input"><option value="">No se retuvo</option>${Object.entries(FX.ISLR || {}).map(([k, v]) => `<option value="${k}">${esc(v[0])}</option>`).join('')}</select></div>
+        <label class="row" style="gap:8px;align-self:end"><input type="checkbox" id="cx-pn"><span>El proveedor es persona natural</span></label></div>
+      ${pie('Registrar factura')}</form>`);
+  document.addEventListener('click', e => { if (!e.target.closest('[data-act="cx-compra"]')) return; e.stopImmediatePropagation(); openModal(compraModal()); }, true);
+  document.addEventListener('submit', async e => {
+    if (e.target.id !== 'cx-compra-f') return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    const g = id => (document.getElementById(id).value || '').trim(), nb = v => parseFloat(String(v || '').replace(/\./g, '').replace(',', '.')) || 0;
+    const k = g('cx-k');
+    const {error} = await db.rpc('registrar_compra', {p_empresa: A().empresa_id, p_factura: {proveedor: g('cx-p'), rif: g('cx-r'), numero: g('cx-n'), control: g('cx-c'), fecha: g('cx-f'),
+      exento_bs: nb(g('cx-e')), gravable_bs: nb(g('cx-g')), retencion: k ? {k, pn: document.getElementById('cx-pn').checked} : null}});
+    if (error) { errModal(/duplicate/i.test(error.message) ? 'Esa factura de ese proveedor ya está registrada' : C.msg(error)); return; }
+    await cargarComprasServ(); closeModal(); repintar(); avisar('Factura registrada en el Libro de Compras');
+  }, true);
+
+  /* Excedente del mes anterior y última declaración: los guarda Datos fiscales */
+  async function guardarFiscalMes(form) {
+    const ex = form.querySelector('[data-fxf="excedente"]'), dp = form.querySelector('[data-fxf="declPrev"]'); if (!ex) return;
+    const datos = {excedente: parseFloat(String(ex.value || '0').replace(/\./g, '').replace(',', '.')) || 0, declPrev: (dp.value || '').trim()};
+    const {error} = await db.from('colecciones').upsert({empresa_id: A().empresa_id, nombre: 'privado_fiscal', datos, actualizado: new Date().toISOString()}, {onConflict: 'empresa_id,nombre'});
+    if (!error) { FX_SYS.excedente = datos.excedente; FX_SYS.declPrev = datos.declPrev; FX.F.excedente = ex.value; FX.F.declPrev = datos.declPrev; }
+  }
 
   /* ---------------- Usuarios ---------------- */
   const EQ = {lista: null, cargando: false, error: ''};
