@@ -76,7 +76,7 @@
   async function sincronizar() {
     if (enCurso) { otraVez = true; return enCurso; }
     enCurso = (async () => {
-      do { otraVez = false; await subirCatalogo(); await subirClientes(); await subirProveedores(); await subirGastos(); await subirColecciones(); } while (otraVez);
+      do { otraVez = false; await subirCatalogo(); await subirClientes(); await subirProveedores(); await subirGastos(); await subirColecciones(); await subirRecipes(); } while (otraVez);
     })().catch(x => avisar('No se pudo guardar: ' + C.msg(x))).finally(() => { enCurso = null; });
     return enCurso;
   }
@@ -182,7 +182,7 @@
       if (error) throw error;
       venta = data; const ids = items.map(i => i.producto_id), cliente = S.client;
       b.disabled = false; b.innerHTML = txt; pase = true; b.click();
-      await recargar(ids); if (cliente) await cargarClientes(); tablero();
+      await recargar(ids); if (cliente) await cargarClientes(); tablero(); if (P.some(p => ids.includes(p.id) && p.ctrl)) await C.recargarControlados();
       if (S.view !== 'pos') render(); else rerenderPOS();
     } catch (x) { avisar(C.msg(x)); }
     finally { if (b.isConnected) { b.disabled = false; if (b.textContent === 'Facturando…') b.innerHTML = txt; } }
@@ -214,7 +214,7 @@
         });
         p.stock = p.lots.reduce((t, l) => t + l.q, 0);
       });
-      S.fac = {}; await cargarCompras();
+      S.fac = {}; await cargarCompras(); await C.recargarControlados();
       await sincronizar(); render();
     })().catch(x => avisar(C.msg(x)));
   };
@@ -233,7 +233,7 @@
     const {error} = await db.rpc('salida_inventario', {p_lote: l.id, p_cantidad: q, p_motivo: mot + (nota ? ' · ' + nota : '')});
     if (error) { avisar(C.msg(error)); return; }
     salidaOk = true; f.requestSubmit();
-    await recargar([p.id]); render();
+    await recargar([p.id]); if (p.ctrl) await C.recargarControlados(); render();
   }, true);
 
   /* ---------------- Proveedores ---------------- */
@@ -427,6 +427,69 @@
     return vFinance();
   };
 
+  /* ---------------- Récipes, médicos y libro de controlados ---------------- */
+  const veSalud = () => ['dueno', 'gerente', 'regente'].includes(A().rol);
+  const gMed = new Set();
+  const hmDe = f => new Date(f).toLocaleTimeString('es-VE', {hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Caracas'});
+  const fechaDe = f => dmy(new Intl.DateTimeFormat('en-CA', {timeZone: 'America/Caracas'}).format(new Date(f)));
+  const medIdx = (n, mpps) => { if (!n) return 0; let i = MEDICOS.findIndex(m => m.n === n); if (i < 0) { MEDICOS.push({n, mpps: mpps || '—', esp: '', rx: 0}); i = MEDICOS.length - 1; } return i; };
+  async function cargarRecipes() {
+    MEDICOS.length = 0; RX.length = 0; CTRL.length = 0; gMed.clear();
+    Object.keys(ALERTAS).forEach(k => delete ALERTAS[k]);   // las alertas de pacientes llegan en una próxima versión
+    const ms = await todo(() => db.from('medicos').select('*').eq('empresa_id', EMP()).eq('activo', true).order('nombre'));
+    ms.forEach(m => { MEDICOS.push({n: m.nombre, mpps: m.mpps || '—', esp: m.especialidad || '', rx: 0}); gMed.add(m.nombre); });
+    S.rxN = 1;
+    if (!veSalud()) return;
+    const desde = new Date(Date.now() - 730 * 864e5).toISOString();   // la ley pide guardarlos al menos 2 años
+    const [rs, ls] = await Promise.all([
+      todo(() => db.from('recipes').select('*').eq('empresa_id', EMP()).gte('fecha', desde).order('numero', {ascending: false})),
+      todo(() => db.from('libro_controlados').select('*').eq('empresa_id', EMP()).gte('fecha', desde).order('id'))]);
+    rs.forEach(r => { const i = medIdx(r.medico, r.mpps); MEDICOS[i].rx++;
+      RX.push({...(r.datos || {}), id: r.numero, f: fechaDe(r.fecha), h: hmDe(r.fecha), ci: r.paciente_ci, pac: r.paciente, med: i, tipo: r.tipo, num: r.numero_especial || undefined,
+        prod: r.producto, rec: +r.recetado, desp: +r.despachado, u: r.unidad || '', cron: r.cronico, orig: r.original || '', _id: r.id}); });
+    S.rxN = (rs[0] ? +rs[0].numero : 0) + 1;
+    ls.forEach(l => CTRL.push([fechaDe(l.fecha), l.producto, l.concepto, l.origen || '—', l.paciente_ci || '—', l.lote || '—', +l.entrada, +l.salida]));
+  }
+  C.recargarControlados = async () => { if (!veSalud()) return; try { await cargarRecipes(); } catch (x) { console.error(x); } };
+  const SUYOS_RX = ['id', 'f', 'h', 'ci', 'pac', 'med', 'tipo', 'num', 'prod', 'rec', 'desp', 'u', 'cron', 'orig', '_id'];
+  async function subirRecipes() {
+    for (const m of MEDICOS) {
+      if (gMed.has(m.n)) continue;
+      const {error} = await db.from('medicos').upsert({empresa_id: EMP(), nombre: m.n, mpps: m.mpps && m.mpps !== '—' ? m.mpps : null, especialidad: m.esp || null}, {onConflict: 'empresa_id,nombre'});
+      if (error) throw error; gMed.add(m.n);
+    }
+    if (!veSalud()) return;
+    for (const r of RX.slice()) {
+      if (r._id) continue;
+      const m = MEDICOS[r.med] || {}, pr = P.find(p => p.name === r.prod), datos = {};
+      Object.keys(r).forEach(k => { if (!SUYOS_RX.includes(k)) datos[k] = r[k]; });
+      const {data, error} = await db.from('recipes').insert({empresa_id: EMP(), paciente_ci: r.ci, paciente: r.pac, medico: m.n || null, mpps: m.mpps && m.mpps !== '—' ? m.mpps : null,
+        tipo: r.tipo, numero_especial: r.num || null, producto_id: pr ? pr.id : null, producto: r.prod, recetado: r.rec, despachado: r.desp, unidad: r.u, cronico: !!r.cron, original: r.orig, datos}).select().single();
+      if (error) { RX.splice(RX.indexOf(r), 1); render();
+        throw /duplicate/i.test(error.message) ? new Error(`El récipe especial N° ${r.num} ya está registrado: no se puede usar otra vez`) : error; }
+      r._id = data.id; r.id = data.numero; S.rxN = Math.max(S.rxN, data.numero + 1);
+    }
+  }
+  // «Otro médico (agregar)»: nombre y MPPS ahí mismo, en el récipe
+  document.addEventListener('change', e => {
+    if (e.target.id !== 'rx-med') return;
+    const box = document.getElementById('rx-medn');
+    if (e.target.value !== 'new') { if (box) box.remove(); return; }
+    e.stopImmediatePropagation();
+    if (!box) e.target.closest('.field').insertAdjacentHTML('afterend', `<div id="rx-medn" class="grid g2" style="gap:10px;grid-column:1/-1">
+      <div class="field"><label for="rx-mn">Nombre del médico</label><input id="rx-mn" class="input" placeholder="Dra. Laura Sosa"></div>
+      <div class="field"><label for="rx-mm">MPPS</label><input id="rx-mm" class="input num" placeholder="61.877"></div></div>`);
+    document.getElementById('rx-mn').focus();
+  }, true);
+  document.addEventListener('submit', e => {
+    if (e.target.id !== 'rxForm') return;
+    const sel = document.getElementById('rx-med'); if (!sel || sel.value !== 'new') return;
+    const n = (document.getElementById('rx-mn').value || '').trim(), mpps = (document.getElementById('rx-mm').value || '').trim();
+    if (!n || !mpps) { e.preventDefault(); e.stopImmediatePropagation(); avisar('Escribe el nombre y el MPPS del médico'); return; }
+    const i = medIdx(n, mpps);
+    sel.insertAdjacentHTML('afterbegin', `<option value="${i}">${C.esc(n)}</option>`); sel.value = String(i);
+  }, true);
+
   C.farmacia = {recargar, sincronizar};
 
   /* ---------------- Al entrar ---------------- */
@@ -444,6 +507,7 @@
     await paso('configuración', cargarColecciones);
     await paso('movimientos', cargarMovimientos);
     await paso('resumen', cargarResumen);
+    await paso('récipes', cargarRecipes);
     DIF.length = 0;   // el diferencial cambiario necesita los saldos del banco: sin datos de muestra
     if (!EMPLEADOS().some(e => e.id === S.empSel)) S.empSel = EMPLEADOS()[0] ? EMPLEADOS()[0].id : null;
     tablero();

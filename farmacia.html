@@ -2471,20 +2471,22 @@ V.recipes = () => {
     <div class="bd flush tbl-wrap"><table><thead><tr><th>Récipe</th><th>Paciente</th><th>Médico</th><th>Medicamento</th><th>Tipo</th><th>Estado</th><th>Original</th></tr></thead><tbody id="rxbody">${rxRows()}</tbody></table></div>
     <p class="base-legal">Cada récipe queda con su foto, quién lo despachó y con qué factura salió. No se puede entregar más de lo recetado ni usar dos veces un récipe especial: la base de datos lo impide aunque la pantalla falle.</p>`;
   } else if (tab==='paciente'){
-    const c = CLIENTS.find(x=>x.ci==='V-18.456.123'), al = ALERTAS[c.ci];
-    const hist = [['26/10/2026','Losartán potásico 50 mg','Dr. Alfredo Molina','1 de 2 cajas'],['12/10/2026','Metformina 850 mg','Dr. Alfredo Molina','2 de 2 cajas'],['28/09/2026','Losartán potásico 50 mg','Dr. Alfredo Molina','2 de 2 cajas'],['03/09/2026','Loratadina 10 mg','Dra. Mónica Briceño','1 de 1 caja']];
-    const trat = [['Losartán potásico 50 mg','1 al día','26/10/2026 · 30 tabletas','25/11/2026','22/11/2026'],['Metformina 850 mg','2 al día','12/10/2026 · 60 tabletas','11/11/2026','08/11/2026']];
-    body = `<div class="bd" style="display:grid;gap:14px">
-      <div class="row" style="align-items:flex-start"><div style="flex:1;min-width:220px"><h3 style="margin:0">${c.name}</h3><div class="small muted num">${c.ci} · ${c.tel} · ${c.pts} Azul Puntos</div><div class="small muted">Médico tratante: Dr. Alfredo Molina · MPPS 45.210</div></div>
-      <span class="pill bad">${ic('alert')}${al.txt}</span></div>
-      <p class="small muted" style="margin:0">Alerta anotada por ${al.por}. En la caja, si alguien le vende amoxicilina, sale: “Consulta a la regente antes de vender este producto a este cliente”. El cajero no ve el motivo.</p>
+    /* Ficha del paciente: sus récipes, lo que falta por entregar y su médico (de la base) */
+    const dig = x => String(x||'').replace(/\D/g,''), q = dig(S.rxPac), pacs = [...new Map(RX.map(r=>[dig(r.ci), r])).values()];
+    const mios = q ? RX.filter(r=>dig(r.ci)===q) : [], p0 = mios[0], cli = q ? CLIENTS.find(c=>dig(c.ci)===q) : null;
+    body = `<div class="bd" style="display:grid;gap:12px">
+      <div class="row"><div class="field" style="flex:1;min-width:220px"><label for="rx-pci">Cédula del paciente</label><input id="rx-pci" class="input num" value="${S.rxPac||''}" placeholder="V-18.456.123" list="rx-pacs"></div>
+        <datalist id="rx-pacs">${pacs.map(r=>`<option value="${r.ci}">${r.pac}</option>`).join('')}</datalist>
+        <button class="btn" data-act="rxpac" style="align-self:flex-end">${ic('search')}Ver ficha</button></div>
+      ${!q ? `<p class="small muted" style="margin:0">Escribe la cédula para ver sus récipes. ${pacs.length?`Hay ${pacs.length} ${pacs.length===1?'paciente':'pacientes'} con récipes.`:'Todavía no hay récipes registrados.'}</p>`
+        : !p0 ? '<p class="small muted" style="margin:0">Ese paciente no tiene récipes registrados.</p>'
+        : `<div><h3 style="margin:0">${p0.pac}</h3><div class="small muted num">${p0.ci}${cli&&cli.tel&&cli.tel!=='—'?' · '+cli.tel:''}${cli?' · '+cli.pts+' Azul Puntos':''}</div>
+           <div class="small muted">Médico tratante: ${(MEDICOS[p0.med]||{}).n||'—'}${(MEDICOS[p0.med]||{}).mpps?' · MPPS '+MEDICOS[p0.med].mpps:''}</div></div>`}
     </div>
-    <div class="bd flush tbl-wrap"><table><thead><tr><th>Tratamiento continuo</th><th>Dosis</th><th>Última compra</th><th>Se le acaba</th><th>Aviso por WhatsApp</th></tr></thead>
-      <tbody>${trat.map(t=>`<tr><td><b style="font-weight:600">${t[0]}</b></td><td>${t[1]}</td><td class="num small">${t[2]}</td><td class="num">${t[3]}</td><td><span class="pill info">${t[4]}</span></td></tr>`).join('')}</tbody></table></div>
-    <p class="small" style="margin:0;padding:14px 16px 6px;font-weight:600;color:var(--tinta-2);border-top:1px solid var(--renglon)">Historial de récipes</p>
-    <div class="bd flush tbl-wrap"><table><thead><tr><th>Fecha</th><th>Récipe de</th><th>Médico</th><th>Entregado</th></tr></thead>
-      <tbody>${hist.map(h=>`<tr><td class="num">${h[0]}</td><td>${h[1]}</td><td class="small">${h[2]}</td><td>${h[3].startsWith('1 de 2')?`<span class="pill warn">${h[3]}</span>`:h[3]}</td></tr>`).join('')}</tbody></table></div>
-    <p class="base-legal">Datos de salud: esta ficha solo la ven la regente y el dueño, y cada vez que alguien la abre queda registrado. Los recordatorios por WhatsApp salen solo si el paciente dio permiso.</p>`;
+    ${p0 ? `<div class="bd flush tbl-wrap"><table><thead><tr><th>Fecha</th><th>Récipe de</th><th>Tipo</th><th>Médico</th><th>Entregado</th></tr></thead>
+      <tbody>${mios.map(r=>`<tr><td class="num">${r.f}</td><td>${r.prod}${r.num?` <span class="small muted num">N° ${r.num}</span>`:''}</td><td class="small">${r.tipo==='especial'?'Especial':r.tipo==='antibiotico'?'Antibiótico':'Médico'}</td><td class="small">${(MEDICOS[r.med]||{}).n||'—'}</td>
+        <td>${r.desp<r.rec?`<span class="pill warn">${r.desp} de ${r.rec} ${r.u}</span>`:`${r.desp} de ${r.rec} ${r.u}`}</td></tr>`).join('')}</tbody></table></div>` : ''}
+    <p class="base-legal">Datos de salud: esta ficha solo la ven la regente y el dueño. Las alertas de alergias y los recordatorios de tratamientos continuos llegan en una próxima versión.</p>`;
   } else {
     let ex = {}; const rows = CTRL.map(r=>{ ex[r[1]] = (ex[r[1]]||0) + r[6] - r[7]; return [...r, ex[r[1]]]; });
     const prods = [...new Set(CTRL.map(r=>r[1]))].map(n=>({n, e:CTRL.filter(r=>r[1]===n).reduce((a,r)=>a+r[6],0), s:CTRL.filter(r=>r[1]===n).reduce((a,r)=>a+r[7],0)}));
@@ -2497,10 +2499,12 @@ V.recipes = () => {
     : tab==='paciente' ? `<button class="btn sm" data-act="toast" data-m="Recordatorio programado para el 22/11 por WhatsApp">${ic('wa')}Programar aviso</button>` : '';
   return `<div class="row"><p class="lead">Base de datos de récipes: cada récipe con su foto, el paciente y el médico. Controla los despachos parciales, avisa alergias en la caja y lleva el libro de controlados al día para la regente.</p><span class="spacer"></span><button class="btn primary" data-act="rxnew">${ic('plus')}Registrar récipe</button></div>
   <div class="kpis">
-    <div class="kpi"><span class="l">Récipes en octubre</span><span class="v num">186</span><span class="s">${RX.filter(r=>r.f==='26/10/2026').length+11} hoy</span></div>
+    ${(()=>{ const hoyF = new Intl.DateTimeFormat('es-VE', {day:'2-digit', month:'2-digit', year:'numeric', timeZone:'America/Caracas'}).format(new Date()), mesF = hoyF.slice(3);
+      return `<div class="kpi"><span class="l">Récipes del mes</span><span class="v num">${RX.filter(r=>r.f.slice(3)===mesF).length}</span><span class="s">${RX.filter(r=>r.f===hoyF).length} hoy</span></div>`; })()}
     <div class="kpi"><span class="l">Pendientes de retirar</span><span class="v num" style="color:var(--warn)">${pend}</span><span class="s">Despachos parciales</span></div>
-    <div class="kpi"><span class="l">Pacientes crónicos</span><span class="v num">46</span><span class="s">Con aviso por WhatsApp</span></div>
-    <div class="kpi hero"><span class="l">Resumen al Ministerio</span><span class="v num">10/11</span><span class="s">Controlados de octubre</span></div>
+    <div class="kpi"><span class="l">Pacientes crónicos</span><span class="v num">${new Set(RX.filter(r=>r.cron).map(r=>r.ci.replace(/\D/g,''))).size}</span><span class="s">Con tratamiento continuo</span></div>
+    <div class="kpi hero"><span class="l">Resumen al Ministerio</span>${(()=>{ const d = new Date(), sig = new Date(d.getFullYear(), d.getMonth()+1, 10), mes = d.toLocaleDateString('es-VE', {month:'long'});
+      return `<span class="v num">${String(sig.getDate()).padStart(2,'0')}/${String(sig.getMonth()+1).padStart(2,'0')}</span><span class="s">Controlados de ${mes}</span>`; })()}</div>
   </div>
   <section class="panel"><div class="hd"><h2>${tabs.find(t=>t[0]===tab)[1]}</h2>${hdBtns}</div>
     <div class="tabs" role="tablist">${tabs.map(([k,t])=>`<button role="tab" data-act="rxtab" data-k="${k}" class="${tab===k?'on':''}" aria-selected="${tab===k}">${t}</button>`).join('')}</div>
@@ -2714,6 +2718,7 @@ document.addEventListener('click', e => {
     case 'cierre': openModal(`<div class="sheet" style="max-width:440px"><div class="hd"><h2>Cierre del día</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div><div class="bd"><div class="printer"></div><div class="tkwrap"><pre class="ticket printing">${cierreText()}</pre><span class="sello tk-sello estampar">Cierre del día<small>26-10-2026 · 20:01</small></span></div><button class="btn" data-act="close">Listo</button></div></div>`); break;
     case 'invf': S.invFilter = b.dataset.c; render(); break;
     case 'rxtab': S.rxTab = b.dataset.k; render(); break;
+    case 'rxpac': S.rxPac = ($('#rx-pci').value||'').trim(); render(); break;
     case 'empsel': S.empSel = id; render(); break;
     case 'nomtab': S.nomTab = b.dataset.k; render(); break;
     case 'recibo': { const e = EMP.find(x=>x.id===id); openModal(`<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="rbt" style="max-width:440px"><div class="hd"><h2 id="rbt">Recibo de pago</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div><div class="bd"><div class="printer"></div><div class="tkwrap"><pre class="ticket printing">${reciboText(e)}</pre><span class="sello ${S.nomEstado==='pagada'?'verde':'ambar'} tk-sello estampar">${S.nomEstado==='pagada'?'Pagado':'Por pagar'}<small>${S.nomEstado==='pagada'?'30-10-2026':'Quincena del 30/10'}</small></span></div><div class="row"><button class="btn" style="flex:1" data-act="toast" data-m="Recibo enviado por WhatsApp a ${e.n}">${ic('wa')}WhatsApp</button><button class="btn" style="flex:1" data-act="close">Listo</button></div></div></div>`); break; }
@@ -2943,11 +2948,10 @@ document.addEventListener('submit', e => {
     const now = new Date(), hm = String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
     const known = CLIENTS.find(x=>x.ci.replace(/[^0-9]/g,'')===cid), ciF = known ? known.ci : (/^[VEJG]/.test(ci)?ci[0]:'V')+'-'+cid.replace(/\B(?=(\d{3})+(?!\d))/g,'.');
     const u = ctrl ? 'tabletas' : (rec===1?'caja':'cajas'), id = S.rxN++;
-    RX.unshift({id, f:'26/10/2026', h:hm, ci:ciF, pac, med, tipo, num:num||undefined, prod, rec, desp, u, cron, orig:cron?'Devuelto sellado':'Archivado'});
-    if (ctrl && desp) { const [tt, nm, ...ap] = MEDICOS[med].n.split(' '), last = CTRL.map(r=>r[1]).lastIndexOf(prod);
-      CTRL.splice(last+1, 0, ['26/10/2026', prod, 'Récipe especial N° '+num, `${tt} ${nm[0]}. ${ap.join(' ')} · ${MEDICOS[med].mpps}`, ciF, (prP.lots[0]||{l:'—'}).l, 0, desp]); }
+    RX.unshift({id, f:new Intl.DateTimeFormat('es-VE', {day:'2-digit', month:'2-digit', year:'numeric', timeZone:'America/Caracas'}).format(new Date()), h:hm, ci:ciF, pac, med, tipo, num:num||undefined, prod, rec, desp, u, cron, orig:cron?'Devuelto sellado':'Archivado'});
+    /* El libro de controlados se llena solo cuando el controlado se vende en la caja (con este récipe) */
     S.rxTab = 'lista'; S.rxq = ''; closeModal(); render();
-    toast(`${rxNum(id)} guardado. ${desp<rec?`Quedan ${rec-desp} ${u} pendientes en la ficha del paciente`:'Despacho completo'}${ctrl&&desp?' · anotado en el libro de controlados':''}`); return; }
+    toast(`${rxNum(id)} guardado. ${desp<rec?`Quedan ${rec-desp} ${u} pendientes en la ficha del paciente`:'Despacho completo'}${ctrl&&desp?' · se anota en el libro de controlados al venderlo en la caja':''}`); return; }
   if (e.target.id==='empForm'){ e.preventDefault(); const id = +e.target.dataset.id || 0, old = id ? EMP.find(x=>x.id===id) : null;
     const nm = ($('#em-n').value||'').trim(); if (!nm) { toast('Escribe el nombre'); $('#em-n').focus(); return; }
     const sal = parseVE($('#em-sal').value); if (!sal) { toast('Escribe el salario mensual en bolívares'); $('#em-sal').focus(); return; }

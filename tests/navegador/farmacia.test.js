@@ -3,7 +3,7 @@ const { chromium } = require('playwright'); const mock = require('./mock');
 (async () => {
   const b = await chromium.launch(); let fallas = 0; const ok = (c, m) => { console.log((c ? 'ok   ' : 'FALLA ') + m); if (!c) fallas++; };
   const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Caracas' }).format(new Date());
-  const T = { productos: [], lotes: [], clientes: [], docs: [], proveedores: [], compras: [], gastos: [], colecciones: [], movimientos: [], seq: 1, rpc: [] };
+  const T = { productos: [], lotes: [], clientes: [], docs: [], proveedores: [], compras: [], gastos: [], colecciones: [], movimientos: [], medicos: [], recipes: [], libro_controlados: [], seq: 1, rpc: [] };
   const filtrar = (rows, u) => rows.filter(r => [...u.searchParams].every(([k, v]) => {
     if (['select', 'order', 'limit', 'offset', 'columns', 'on_conflict'].includes(k)) return true;
     const [op, ...rest] = v.split('.'); const val = rest.join('.');
@@ -12,11 +12,12 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   const rest = async (st, { m, p, u, b: body, q }) => {
     const uno = (q.headers()['accept'] || '').includes('vnd.pgrst.object');
     const out = x => ({ body: uno ? (Array.isArray(x) ? x[0] : x) : x });
-    const tabla = { '/rest/v1/productos': 'productos', '/rest/v1/lotes': 'lotes', '/rest/v1/clientes': 'clientes', '/rest/v1/documentos': 'docs', '/rest/v1/proveedores': 'proveedores', '/rest/v1/compras': 'compras', '/rest/v1/gastos': 'gastos', '/rest/v1/movimientos': 'movimientos' }[p];
+    const tabla = { '/rest/v1/productos': 'productos', '/rest/v1/lotes': 'lotes', '/rest/v1/clientes': 'clientes', '/rest/v1/documentos': 'docs', '/rest/v1/proveedores': 'proveedores', '/rest/v1/compras': 'compras', '/rest/v1/gastos': 'gastos', '/rest/v1/movimientos': 'movimientos', '/rest/v1/medicos': 'medicos', '/rest/v1/recipes': 'recipes', '/rest/v1/libro_controlados': 'libro_controlados' }[p];
     if (p === '/rest/v1/colecciones' && m === 'GET') return out(T.colecciones);
     if (p === '/rest/v1/colecciones' && m === 'POST') { T.colecciones = T.colecciones.filter(c => c.nombre !== body.nombre).concat([body]); return out(body); }
     if (tabla && m === 'GET') return out(filtrar(T[tabla], u));
-    if (tabla && m === 'POST') { const r = { activo: true, visitas: 0, total_usd: 0, puntos: 0, ...body, id: T.seq++ }; if (tabla === 'clientes') r.cedula_rif = r.cedula_rif.toUpperCase();
+    if (tabla && m === 'POST') { const r = { activo: true, visitas: 0, total_usd: 0, puntos: 0, ...body, id: T.seq++ }; if (tabla === 'recipes') { r.numero = T.recipes.length + 1; r.fecha = new Date().toISOString(); }
+      if (tabla === 'medicos' && T.medicos.some(x => x.nombre === r.nombre)) return out(r); if (tabla === 'clientes') r.cedula_rif = r.cedula_rif.toUpperCase();
       if (tabla === 'productos' && T.productos.some(x => x.codigo && x.codigo === r.codigo)) return { status: 409, body: { message: 'Uno de los códigos ya está en otro producto' } };
       T[tabla].push(r); return out(r); }
     if (tabla && m === 'PATCH') { const rs = filtrar(T[tabla], u); rs.forEach(r => Object.assign(r, body)); return out(rs); }
@@ -48,7 +49,7 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   await pg.goto('http://localhost:8765/farmacia.html'); await pg.fill('#lu', 'jose@azullab.com'); await pg.fill('#lp', 'clave-buena'); await pg.click('#loginForm [type=submit]');
   await pg.waitForFunction(() => !document.getElementById('loginForm'), null, { timeout: 8000 });
   ok(await pg.evaluate(() => P.length) === 0, 'instalación nueva: el catálogo arranca vacío');
-  ok(await pg.evaluate(() => CLIENTS.length + S.sales.length + FX.docs.length + DROG.length + S.gastos.length + CUENTAS.length + COMPRAS_LIBRO.length + S.fallas.length + S.cots.length + S.movs.length) === 0, 'sin clientes, ventas, facturas, droguerías, gastos, cuentas, compras ni fallas de muestra');
+  ok(await pg.evaluate(() => CLIENTS.length + S.sales.length + FX.docs.length + DROG.length + S.gastos.length + CUENTAS.length + COMPRAS_LIBRO.length + S.fallas.length + S.cots.length + S.movs.length + RX.length + CTRL.length + MEDICOS.length + Object.keys(ALERTAS).length) === 0, 'sin clientes, ventas, facturas, droguerías, gastos, cuentas, compras, fallas, récipes ni libro de controlados de muestra');
   ok(await pg.evaluate(() => EMP.length === 0 && DIF.length === 0), 'nómina y diferencial cambiario sin datos de muestra');
   ok(await pg.evaluate(() => FIN.mes.ventas === 50 && FIN.meses().length === 3 && finanzas().neta === 15), 'Ganancias y gastos usa las cifras de la base (50 − 30 − 5 = 15)');
   const vistas = await pg.evaluate(() => NAV.flatMap(g => g.items.map(i => i[1])));
@@ -127,6 +128,17 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   ok(T.gastos[0].anulado === true, 'anular un gasto lo marca anulado (no se borra)');
   await pg.evaluate(() => { CFG.gan = 35; S.fallas.push({ p: 'Acetaminofén', u: 'José' }); }); await pg.click('body'); await pg.waitForTimeout(500);
   ok(T.colecciones.some(c => c.nombre === 'config' && c.datos.gan === 35) && T.colecciones.some(c => c.nombre === 'equipo_fallas'), 'la configuración y las fallas se guardan');
+  // Récipe con médico nuevo y pestañas de récipes
+  await pg.evaluate(() => { P[0].rx = true; go('recipes'); }); await pg.click('[data-act="rxnew"]'); await pg.selectOption('#rx-prod', 'Losartán 50 mg').catch(() => {});
+  await pg.fill('#rx-ci', 'V-18.456.123'); await pg.fill('#rx-pac', 'María Rondón'); await pg.selectOption('#rx-med', 'new');
+  await pg.fill('#rx-mn', 'Dr. Alfredo Molina'); await pg.fill('#rx-mm', '45.210'); await pg.fill('#rx-rec', '2'); await pg.fill('#rx-desp', '1');
+  await pg.click('#rxForm [type=submit]'); await pg.waitForFunction(() => RX[0] && RX[0]._id, null, { timeout: 5000 }).catch(() => {});
+  ok(T.medicos.length === 1 && T.medicos[0].mpps === '45.210', 'el médico nuevo se guarda con su MPPS');
+  ok(T.recipes.length === 1 && T.recipes[0].paciente === 'María Rondón' && T.recipes[0].producto_id === 1 && T.recipes[0].recetado === 2, 'el récipe se guarda en la base con su producto');
+  ok(await pg.evaluate(() => RX[0].id === 1), 'y toma el número que dio la base');
+  for (const k of ['lista', 'paciente', 'libro']) { const n = errs.length; await pg.evaluate(x => { S.rxTab = x; render(); }, k).catch(e => errs.push(k + ': ' + e.message)); if (errs.length > n) console.log('   pestaña rota:', k, errs.slice(n).join(' | ').slice(0, 160)); }
+  await pg.evaluate(() => { S.rxTab = 'paciente'; render(); }); await pg.fill('#rx-pci', 'V-18456123'); await pg.click('[data-act="rxpac"]');
+  ok((await pg.textContent('#app')).includes('María Rondón') && (await pg.textContent('#app')).includes('1 de 2'), 'la ficha del paciente muestra sus récipes y lo pendiente');
   // Cliente nuevo
   await pg.evaluate(() => { CLIENTS.unshift({ ci: 'V-12.990.441', name: 'José Peña', tel: '—', visits: 0, total: 0, last: '—', pts: 0 }); render(); });
   await pg.click('body'); await pg.waitForTimeout(500);
