@@ -29,6 +29,17 @@
   /* La fecha de hoy de verdad (las maquetas traían una fija) */
   try { if (typeof TODAY === 'object' && TODAY.setTime) { const [y, m, d] = hoyVE().split('-').map(Number); TODAY.setTime(new Date(y, m - 1, d).getTime()); } } catch (_) {}
 
+  /* ---------------- Sin conexión: el estado real del equipo ---------------- */
+  const ponerRed = () => { if (typeof S === 'object' && 'online' in S) { S.online = navigator.onLine; if (S.view && S.view !== 'login') repintar(); } };
+  window.addEventListener('online', ponerRed); window.addEventListener('offline', ponerRed);
+  if (typeof S === 'object' && 'online' in S) S.online = navigator.onLine;
+  // El botón de la maqueta que simulaba el corte ya no hace falta: el sistema lo detecta solo
+  document.addEventListener('click', e => { const b = e.target.closest('[data-act="net"]'); if (!b || !C.acceso) return;
+    e.stopImmediatePropagation(); avisar(navigator.onLine ? 'Hay internet: todo se guarda en la base al momento' : 'Sin internet: las ventas se guardan en este equipo y suben solas al volver'); }, true);
+  // Copia local de lo necesario para abrir sin internet
+  C.guardarLocal = (k, v) => { try { localStorage.setItem('cuadre.' + A().tipo + '.' + k, JSON.stringify(v)); } catch (_) {} };
+  C.leerLocal = k => { try { return JSON.parse(localStorage.getItem('cuadre.' + A().tipo + '.' + k) || 'null'); } catch (_) { return null; } };
+
   /* ---------------- Tasa BCV ---------------- */
   function ponerTasa(v, fecha) {
     if (!(v > 0)) return;
@@ -42,9 +53,10 @@
     ponerTasa(v, new Date().toISOString());
   }
   C.alEntrar(async () => {
-    const {data} = await db.from('tasas_bcv').select('fecha,tasa').order('fecha', {ascending: false}).limit(1);
-    const t = data && data[0];
-    if (t) ponerTasa(+t.tasa, t.fecha);
+    const {data, error} = await db.from('tasas_bcv').select('fecha,tasa').order('fecha', {ascending: false}).limit(1);
+    const t = error ? C.leerLocal('tasa') : data && data[0];
+    if (t) { ponerTasa(+t.tasa, t.fecha); if (!error) C.guardarLocal('tasa', t); }
+    if (error) return;
     if ((!t || t.fecha < hoyVE()) && soyDueno()) {
       try {
         const j = await (await fetch('https://ve.dolarapi.com/v1/dolares/oficial', {cache: 'no-store'})).json();
@@ -72,11 +84,13 @@
                   talHasta: 'talonario_hasta', contador: 'contador'};
   C.empresa = null;
   C.alEntrar(async a => {
-    const {data, error} = await db.from('empresas').select('*').eq('id', a.empresa_id).single();
-    if (error || !data) return;
+    let {data, error} = await db.from('empresas').select('*').eq('id', a.empresa_id).single();
+    if (error || !data) data = C.leerLocal('empresa'); else C.guardarLocal('empresa', data);
+    if (!data) return;
     C.empresa = data;
     if (typeof FX === 'object' && FX.F) {
       Object.entries(CAMPOS).forEach(([k, col]) => { if (data[col] != null) FX.F[k] = data[col]; });
+      FX.F.talDesde = data.talonario_desde; FX.F.talHasta = data.talonario_hasta;   // sin talonario cargado no se vende sin internet
       FX.F.rifMuestra = !data.datos_confirmados;
     }
   });
@@ -90,6 +104,7 @@
     if (!v.razon || !v.dom) { avisar('Falta la razón social o el domicilio fiscal'); return; }
     if (!rifOk(v.rif)) { avisar('El RIF debe quedar así: J-12345678-9'); return; }
     if (v.impRif && !rifOk(v.impRif)) { avisar('El RIF de la imprenta debe quedar así: J-12345678-9'); return; }
+    if ((v.talDesde || v.talHasta) && !(+v.talDesde >= 1 && +v.talHasta >= +v.talDesde)) { avisar('Revisa el talonario: el último número debe ser mayor que el primero'); return; }
     const fila = {datos_confirmados: document.getElementById('fx-f-conf').checked};
     Object.entries(CAMPOS).forEach(([k, col]) => { if (k in v) fila[col] = v[k] === '' && !['razon', 'rif', 'dom', 'serie'].includes(k) ? null : v[k]; });
     const b = e.target.querySelector('[type=submit]'); if (b) b.disabled = true;
@@ -99,6 +114,7 @@
     if (!data) { avisar('Solo el dueño cambia los datos fiscales'); return; }
     C.empresa = data;
     Object.entries(CAMPOS).forEach(([k, col]) => { if (data[col] != null) FX.F[k] = data[col]; });
+    FX.F.talDesde = data.talonario_desde; FX.F.talHasta = data.talonario_hasta;
     FX.F.rifMuestra = !data.datos_confirmados;
     repintar();
     avisar(data.datos_confirmados ? 'Datos fiscales guardados. Este negocio ya puede facturar' : 'Datos guardados. Marca «confirmados» para poder facturar');

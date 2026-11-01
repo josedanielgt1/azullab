@@ -42,7 +42,8 @@ insert into miembros (user_id, empresa_id, rol) values
   ('00000000-0000-0000-0000-0000000000a1', (select f from ids), 'almacen'),
   ('00000000-0000-0000-0000-0000000000b1', (select l from ids), 'atencion');
 update empresas set datos_confirmados = true;
-insert into tasas_bcv (fecha, tasa) values (current_date, 100);
+insert into tasas_bcv (fecha, tasa) values (current_date - 1, 90), (current_date, 100);
+update empresas set talonario_desde = 1, talonario_hasta = 50;
 
 \echo '--- Catálogo'
 set role authenticated;
@@ -140,6 +141,18 @@ select vender((select f from ids), '{"rif":"V-12.990.441","nombre":"José Peña"
 select prueba.igual('la venta le suma una visita', (select visitas from clientes), 1);
 select prueba.igual('y el total en dólares', (select total_usd from clientes), 3.50::numeric);
 select prueba.debe_fallar('el cajero no borra clientes', $$ delete from clientes $$, 'permission denied');
+
+\echo '--- Venta sin internet (contingencia)'
+select prueba.como('00000000-0000-0000-0000-0000000000c1');
+create temp table vc as select * from vender((select f from ids), '{"rif":"V-1","nombre":"X"}', '[{"producto_id":1,"cantidad":1,"precio_usd":2.75}]', '[]', 'contingencia', 7, (current_date - 1 + time '18:30')::timestamptz);
+select prueba.igual('queda con el número del talonario', (select numero from vc), 7::bigint);
+select prueba.igual('con la fecha en que se vendió', (select (fecha at time zone 'UTC')::date from vc), current_date - 1);
+select prueba.igual('y la tasa de ese día', (select tasa from vc), 90.0000::numeric);
+select prueba.igual('emitida (no espera a la imprenta)', (select estado::text from vc), 'emitido');
+select prueba.debe_fallar('el número del talonario no se repite', $$ select vender((select f from ids), '{"rif":"V-1","nombre":"X"}', '[{"producto_id":1,"cantidad":1,"precio_usd":3}]', '[]', 'contingencia', 7, now()) $$, 'duplicate key');
+select prueba.debe_fallar('ni se sale del talonario', $$ select vender((select f from ids), '{"rif":"V-1","nombre":"X"}', '[{"producto_id":1,"cantidad":1,"precio_usd":3}]', '[]', 'contingencia', 999, now()) $$, 'talonario');
+select prueba.debe_fallar('ni con fecha futura', $$ select vender((select f from ids), '{"rif":"V-1","nombre":"X"}', '[{"producto_id":1,"cantidad":1,"precio_usd":3}]', '[]', 'contingencia', 8, now() + interval '2 days') $$, 'Fecha');
+select prueba.igual('la venta normal sigue igual', (select origen::text from vender((select f from ids), '{"rif":"V-1","nombre":"X"}', '[{"producto_id":1,"cantidad":1,"precio_usd":3}]')), 'sistema');
 
 \echo '--- Otro negocio'
 select prueba.como('00000000-0000-0000-0000-0000000000b1');

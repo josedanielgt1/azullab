@@ -139,7 +139,7 @@
     }
   }
   // Después de cada acción del usuario, se guarda lo que haya cambiado
-  const tras = () => setTimeout(() => { if (A().tipo === 'farmacia' && S.view !== 'login') sincronizar(); }, 0);
+  const tras = () => setTimeout(() => { if (A().tipo === 'farmacia' && S.view !== 'login' && navigator.onLine) sincronizar(); }, 0);
   ['click', 'submit', 'change'].forEach(ev => document.addEventListener(ev, tras));
 
   /* ---------------- Ventas de hoy (Mi turno, cierre, reportes) ---------------- */
@@ -165,9 +165,9 @@
     if (pase) { pase = false; return; }   // segunda vuelta: la pantalla arma el ticket
     e.preventDefault(); e.stopImmediatePropagation();
     if (S.medio === 'maquina') { avisar('La máquina fiscal no está conectada: factura con imprenta digital'); return; }
-    if (!navigator.onLine) { avisar('Sin internet no se puede facturar todavía: el modo sin conexión viene en una próxima versión'); return; }
     const t = totals();
     if (t.rem > 0.005) { avisar('Falta cobrar ' + usd(t.rem)); return; }
+    if (!navigator.onLine) { if (ventaSinInternet()) { pase = true; b.click(); } return; }
     const txt = b.innerHTML; b.disabled = true; b.textContent = 'Facturando…';
     try {
       await sincronizar();   // por si hay un producto nuevo sin número de la base
@@ -562,6 +562,63 @@
     const mover = (v, grupo) => { const i = f2.items.findIndex(it => it[1] === v); if (i < 0) return; const [it] = f2.items.splice(i, 1); const g = NAV.find(x => x.g === grupo); if (g) g.items.push(it); const j = F2.indexOf(v); if (j >= 0) F2.splice(j, 1); };
     mover('recipes', 'Operación'); mover('suppliers', 'Administración'); })();
 
+  /* ---------------- Ventas sin internet: talonario de contingencia y cola ---------------- */
+  const COLA = () => C.leerLocal('cola') || [];
+  const guardarCola = c => C.guardarLocal('cola', c);
+  async function siguienteTalonario() {
+    const F = FX.F, desde = +F.talDesde || 1;
+    let n = desde;
+    try {
+      const {data} = await db.from('documentos').select('numero').eq('empresa_id', EMP()).eq('origen', 'contingencia').order('numero', {ascending: false}).limit(1);
+      if (data && data[0]) n = Math.max(n, +data[0].numero + 1);
+    } catch (_) {}
+    COLA().forEach(v => { n = Math.max(n, v.numero + 1); });
+    const loc = C.leerLocal('talonario'); if (loc) n = Math.max(n, +loc);
+    FX.n.tal = n;
+  }
+  function ventaSinInternet() {
+    const F = FX.F, n = FX.n.tal;
+    if (!F.talHasta || n < (+F.talDesde || 1) || n > +F.talHasta) {
+      avisar('Sin internet y sin talonario de contingencia disponible: cárgalo en Configuración (desde y hasta)'); return false; }
+    const items = S.cart.flatMap(c => { const p = P.find(x => x.id === c.id); return segs(p, c.q).map(sg => ({producto_id: p.id, cantidad: sg.q, precio_usd: sg.pv ?? p.price})); });
+    const cli = S.client ? {rif: S.client.ci, nombre: S.client.name, tel: S.client.tel && S.client.tel !== '—' ? S.client.tel : null} : {rif: 'V-00000000', nombre: 'Consumidor final'};
+    const cola = COLA();
+    cola.push({numero: n, fecha: new Date().toISOString(), cliente: cli, items, pagos: S.pays.map(p => ({metodo: p.k, monto_bs: r2(p.a * S.rate), divisa: !!p.div})), usuario: A().nombre});
+    guardarCola(cola); C.guardarLocal('talonario', n + 1);
+    return true;
+  }
+  let subiendo = false;
+  async function subirCola() {
+    if (subiendo || !navigator.onLine || A().tipo !== 'farmacia') return;
+    const cola = COLA(); if (!cola.length) return;
+    subiendo = true; let ok = 0, malas = [];
+    try {
+      for (const v of cola) {
+        const {error} = await db.rpc('vender', {p_empresa: EMP(), p_cliente: v.cliente, p_items: v.items, p_pagos: v.pagos, p_origen: 'contingencia', p_numero: v.numero, p_fecha: v.fecha});
+        if (!error || /duplicate/i.test(error.message)) ok++;            // repetida: ya había subido
+        else if (/Failed to fetch|network/i.test(error.message)) { malas.push(v); continue; }
+        else { v.error = C.msg(error); malas.push(v); }
+      }
+      guardarCola(malas);
+      if (ok) {
+        if (C.cargarDocumentos) await C.cargarDocumentos();
+        await cargarCatalogo(); ventasDeHoy(); tablero(); libroVentas(); render();
+        avisar(`${ok} ${ok === 1 ? 'venta sin conexión subió' : 'ventas sin conexión subieron'} a la base${malas.length ? `; ${malas.length} con problema: revisa Modo sin conexión` : ''}`);
+      } else if (malas.some(v => v.error)) avisar(`Hay ${malas.length} ${malas.length === 1 ? 'venta' : 'ventas'} sin conexión que no pudieron subir: revisa Modo sin conexión`);
+    } finally { subiendo = false; }
+  }
+  window.addEventListener('online', () => setTimeout(subirCola, 1500));
+  setInterval(subirCola, 60000);
+  // «Modo sin conexión»: lo que está en la cola de este equipo
+  const vOffline = V.offline;
+  V.offline = () => { const cola = COLA();
+    return `<section class="panel"><div class="hd"><h2>Ventas guardadas en este equipo</h2><span class="pill ${cola.length ? 'warn' : 'ok'}">${cola.length ? cola.length + ' por subir' : 'Todo subido'}</span></div><div class="bd flush tbl-wrap"><table><thead><tr><th>Talonario</th><th>Fecha</th><th>Cliente</th><th class="r">Renglones</th><th>Estado</th></tr></thead><tbody>
+      ${cola.map(v => `<tr><td class="num">${FX.F.talSerie}-${p8(v.numero)}</td><td class="num small">${new Date(v.fecha).toLocaleString('es-VE')}</td><td>${C.esc(v.cliente.nombre)}</td><td class="r">${v.items.length}</td><td>${v.error ? `<span class="pill bad">${C.esc(v.error)}</span>` : '<span class="pill warn">Esperando internet</span>'}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">No hay ventas pendientes.</td></tr>'}</tbody></table></div>
+      ${cola.length && navigator.onLine ? `<div class="bd"><button class="btn primary" data-act="fr-subir">${ic('sync')}Subir ahora</button></div>` : ''}</section>` + vOffline(); };
+  document.addEventListener('click', e => { if (e.target.closest('[data-act="fr-subir"]')) { e.stopImmediatePropagation(); subirCola(); } }, true);
+  // Copia local para abrir sin internet
+  function guardarCopia() { C.guardarLocal('catalogo', P); C.guardarLocal('clientes', CLIENTS); C.guardarLocal('proveedores', DROG); }
+
   C.farmacia = {recargar, sincronizar, alCambiarDocs: () => { tablero(); libroVentas(); }};
 
   /* ---------------- Al entrar ---------------- */
@@ -569,9 +626,9 @@
     if (a.tipo !== 'farmacia') return;
     // Cada paso por su cuenta: si uno falla, los demás igual cargan (y lo de muestra se vacía)
     const paso = async (n, f) => { try { await f(); } catch (x) { console.error('Cuadre farmacia: ' + n, x); } };
-    await paso('catálogo', cargarCatalogo);
+    await paso('catálogo', async () => { try { await cargarCatalogo(); } catch (x) { const c = C.leerLocal('catalogo'); if (!c) throw x; P.length = 0; P.push(...c); c.forEach(marcar); } });
     RECV = []; S.cart = []; S.precioAvisos.length = 0;
-    await paso('clientes', cargarClientes);
+    await paso('clientes', async () => { try { await cargarClientes(); } catch (x) { const c = C.leerLocal('clientes'); if (!c) throw x; CLIENTS.length = 0; CLIENTS.push(...c); } });
     ventasDeHoy();
     await paso('proveedores', cargarProveedores);
     await paso('compras', cargarCompras);
@@ -584,5 +641,8 @@
     DIF.length = 0;   // el diferencial cambiario necesita los saldos del banco: sin datos de muestra
     if (!EMPLEADOS().some(e => e.id === S.empSel)) S.empSel = EMPLEADOS()[0] ? EMPLEADOS()[0].id : null;
     tablero(); libroVentas();
+    if (navigator.onLine) guardarCopia();
+    await paso('talonario', siguienteTalonario);
+    setTimeout(subirCola, 2000);
   });
 })();

@@ -20,9 +20,10 @@ Las pantallas de `farmacia.html`, `laboratorio.html` y `crossfit.html` son las m
 | Farmacia: récipes y controlados | Récipes con número interno, médicos con MPPS, récipe especial sin repetir; la base no deja vender un controlado sin el récipe del paciente ni más de lo autorizado; el libro de controlados se llena solo con cada movimiento y cuadra con el inventario | ✅ |
 | Farmacia: bancos, puntos y alertas | Cuentas y bancos con lo cobrado hoy, deuda con droguerías y Cashea guardado; Azul Puntos con los clientes reales; libro de ventas del módulo fiscal con las facturas; alertas de alergias que registra la regente y la caja frena sin ver el motivo | ✅ |
 | Laboratorio: catálogo, reactivos e historial | Editor de exámenes (precio, tubo, parámetros, referencias por sexo, reactivo que gasta) y de perfiles; entrada y corrección de reactivos; al validar se descuenta el reactivo; historial del paciente con sus órdenes | ✅ |
+| Farmacia: sin internet | Detecta sola el corte; vende con el talonario de contingencia (número y control), guarda la venta en el equipo y la sube sola al volver con su fecha y la tasa de ese día; abre con la copia local del catálogo; publicado en https queda instalado en el equipo | ✅ |
 | Los tres: panel del grupo | El dueño ve las ventas reales del mes de los tres negocios | ✅ |
 
-Pruebas: **221 de base de datos** (`supabase/tests/correr.sh`) y **128 de navegador** (`tests/navegador/correr.sh`).
+Pruebas: **229 de base de datos** (`supabase/tests/correr.sh`) y **140 de navegador** (`tests/navegador/correr.sh`).
 
 ## Qué todavía muestra datos de muestra
 
@@ -37,15 +38,16 @@ Pruebas: **221 de base de datos** (`supabase/tests/correr.sh`) y **128 de navega
 | Farmacia | Cuentas y bancos | Conciliación con el estado de cuenta y diferencial cambiario: necesitan los movimientos del banco |
 | Laboratorio | Portal, equipos, convenios, calidad y grupo | Pantallas de muestra de la fase 2, marcadas como tal |
 | Los tres | Páginas «Alcance de la propuesta», «Alcance y regalo», «Fase 2» | Decidir si se quitan para el cliente |
-| Los tres | Trabajo sin internet | Hoy se necesita internet para facturar |
+| Laboratorio y CrossFit | Trabajo sin internet | La farmacia ya vende sin internet; en el laboratorio y el CrossFit todavía hace falta conexión para cobrar |
 | CrossFit | App del socio | Vuelve cuando los socios tengan su usuario |
 
 ## Lo que hace falta de ti
 
-1. **Pegar en el SQL Editor** `supabase/pendiente_sql_editor.sql` (migraciones 0003 a 0012). Una sola vez, completo, y Run.
+1. **Pegar en el SQL Editor** `supabase/pendiente_sql_editor.sql` (migraciones 0003 a 0013). Una sola vez, completo, y Run.
 2. **Subir la función `usuarios`**: Supabase → Edge Functions → Deploy a new function → Via Editor, nombre `usuarios`, pegar `supabase/functions/usuarios/index.ts` y Deploy. Sin esto, los usuarios nuevos se crean en Authentication y se les da acceso con «Dar acceso».
 3. **GitHub Pages** (para «Olvidé mi clave» y para entrar desde cualquier equipo): Settings → Pages → rama `claude/inspiring-pascal-ljb7rr`, carpeta raíz. En Supabase → Authentication → URL Configuration: Site URL `https://josedanielgt1.github.io/azullab/` y en Redirect URLs `https://josedanielgt1.github.io/azullab/**`.
-4. **Imprenta digital**: cuando la escojan, se conecta para el número de control.
+4. **Talonario de contingencia**: en Configuración → Datos fiscales, el rango del talonario (desde y hasta). Sin eso, la farmacia no puede vender sin internet.
+5. **Imprenta digital**: cuando la escojan, se conecta para el número de control.
 
 ## Decisiones tomadas
 

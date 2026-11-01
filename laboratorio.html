@@ -1921,7 +1921,7 @@ const FX_SYS = (() => {
 const FX = (() => {
   const Y = FX_SYS;
   const r2 = n => Math.round((+n + Number.EPSILON) * 100) / 100;
-  const p8 = n => String(n).padStart(8, '0');
+  const p8 = n => n == null || n === '' ? '—' : String(n).padStart(8, '0');
   const fd = iso => { const [y, m, d] = String(iso).split('-'); return `${d}-${m}-${y}`; };
   const E = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const U = s => String(s).toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -1945,7 +1945,7 @@ const FX = (() => {
   M.byNum = n => { const q = String(n).replace(/\D/g, '').replace(/^0+/, ''); return M.docs.find(d => d.tipo === 'FAC' && d.num.replace(/\D/g, '').replace(/^0+/, '') === q); };
   M.online = () => Y.online();
   M.talNext = () => M.F.talSerie + '-' + p8(M.n.tal);
-  M.talLeft = () => M.F.talHasta - M.n.tal + 1;
+  M.talLeft = () => M.F.talHasta ? M.F.talHasta - M.n.tal + 1 : 0;   /* sin talonario cargado: 0 */
 
   /* ---------- Totales por alícuota (en bolívares) ---------- */
   M.tot = d => {
@@ -2327,6 +2327,7 @@ const FX = (() => {
       <div class="grid g2" style="gap:10px">${fi('serie', 'Serie del número de control', 'num', '00')}${fi('prov', 'N.° de la providencia de autorización')}</div>
       <div class="fx-sub">Talonario de contingencia y contador</div>
       <div class="grid g2" style="gap:10px">${fi('talNum', 'Talonario', '', 'T-0001')}${fi('contador', 'Contador del negocio')}</div>
+      <div class="grid g2" style="gap:10px">${fi('talDesde', 'Talonario: primer número', 'num', '1')}${fi('talHasta', 'Talonario: último número', 'num', '50')}</div>
       <label class="fx-ck"><input type="checkbox" id="fx-f-conf" ${F.rifMuestra ? '' : 'checked'}><span>RIF y razón social confirmados con el cliente</span></label>
       <div class="fx-iva"><b>IVA de este negocio</b><span>${Y.ivaNota}</span><span class="pill warn" style="justify-self:start">Que el contador lo confirme</span></div>
       <button class="btn primary" type="submit">${ic('check')}Guardar datos fiscales</button>

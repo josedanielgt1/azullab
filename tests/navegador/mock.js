@@ -3,6 +3,7 @@ module.exports = function mock(page, o = {}) {
   const st = { llamadas: [], tasas: o.tasas || [], equipo: [{ user_id: 'u-d', nombre: 'José Guerrero', correo: 'jose@azullab.com', rol: 'dueno', caja: null, activo: true, ultima_entrada: null }],
     empresa: { id: 'E', tipo: o.tipo || 'farmacia', nombre: o.empresa || 'Azullab Farmacia', razon_social: 'Azullab Farmacia, C.A.', rif: 'J-00000001-0', domicilio: 'La Azulita', telefono: null, imprenta_serie: '00', talonario_serie: '01', talonario_desde: null, talonario_hasta: null, datos_confirmados: false },
     rol: o.rol || 'dueno', db: o.db || {} };
+  Object.assign(st.empresa, o.empresaExtra || {});
   const json = (r, b, status = 200) => r.fulfill({ status, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(b) });
   page.route('**/js/config.js', r => r.fulfill({ contentType: 'text/javascript', body: "window.CUADRE_CONFIG={url:'https://prueba.supabase.co',key:'pk'}" }));
   page.route('https://ve.dolarapi.com/**', r => json(r, { promedio: 300.5, fechaActualizacion: new Date().toISOString() }));

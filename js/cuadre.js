@@ -7,6 +7,9 @@
      <script src="js/vendor/supabase-2.118.0.js"></script>   (copia local: abre sin internet)
      <script src="js/config.js"></script>
    ===================================================================== */
+/* Publicado en internet (https), el sistema queda guardado en el equipo y abre sin conexión */
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+
 window.Cuadre = (() => {
   const C = window.CUADRE_CONFIG || {};
   const listo = !!(C.url && C.key && window.supabase);
