@@ -182,7 +182,7 @@
       if (error) throw error;
       venta = data; const ids = items.map(i => i.producto_id), cliente = S.client;
       b.disabled = false; b.innerHTML = txt; pase = true; b.click();
-      await recargar(ids); if (cliente) await cargarClientes(); tablero(); if (P.some(p => ids.includes(p.id) && p.ctrl)) await C.recargarControlados();
+      await recargar(ids); if (cliente) await cargarClientes(); tablero(); libroVentas(); if (P.some(p => ids.includes(p.id) && p.ctrl)) await C.recargarControlados();
       if (S.view !== 'pos') render(); else rerenderPOS();
     } catch (x) { avisar(C.msg(x)); }
     finally { if (b.isConnected) { b.disabled = false; if (b.textContent === 'Facturando…') b.innerHTML = txt; } }
@@ -350,6 +350,7 @@
     ['equipo_fallas', () => S.fallas, v => { S.fallas.length = 0; S.fallas.push(...v); }, []],
     ['equipo_cotizaciones', () => S.cots, v => { S.cots.length = 0; S.cots.push(...v); }, []],
     ['equipo_notas', () => S.notas, v => { S.notas.length = 0; S.notas.push(...v); }, []],
+    ['equipo_cashea', () => S.cashea, v => { S.cashea.length = 0; S.cashea.push(...v); }, []],
     // Nómina: datos de los empleados y novedades del período (solo dueño y gerente)
     ['privado_nomina_empleados', () => EMPLEADOS(), v => { EMPLEADOS().length = 0; EMPLEADOS().push(...v); }, []],
     ['privado_nomina_novedades', () => S.nov, v => { Object.keys(S.nov).forEach(k => delete S.nov[k]); Object.assign(S.nov, v); }, {}]];
@@ -435,7 +436,6 @@
   const medIdx = (n, mpps) => { if (!n) return 0; let i = MEDICOS.findIndex(m => m.n === n); if (i < 0) { MEDICOS.push({n, mpps: mpps || '—', esp: '', rx: 0}); i = MEDICOS.length - 1; } return i; };
   async function cargarRecipes() {
     MEDICOS.length = 0; RX.length = 0; CTRL.length = 0; gMed.clear();
-    Object.keys(ALERTAS).forEach(k => delete ALERTAS[k]);   // las alertas de pacientes llegan en una próxima versión
     const ms = await todo(() => db.from('medicos').select('*').eq('empresa_id', EMP()).eq('activo', true).order('nombre'));
     ms.forEach(m => { MEDICOS.push({n: m.nombre, mpps: m.mpps || '—', esp: m.especialidad || '', rx: 0}); gMed.add(m.nombre); });
     S.rxN = 1;
@@ -450,6 +450,37 @@
     S.rxN = (rs[0] ? +rs[0].numero : 0) + 1;
     ls.forEach(l => CTRL.push([fechaDe(l.fecha), l.producto, l.concepto, l.origen || '—', l.paciente_ci || '—', l.lote || '—', +l.entrada, +l.salida]));
   }
+  /* Alertas de pacientes: la regente las ve completas; la caja solo los principios a frenar */
+  const dig = x => String(x || '').replace(/\D/g, '');
+  async function cargarAlertas() {
+    Object.keys(ALERTAS).forEach(k => delete ALERTAS[k]); Object.keys(ALERTAS_LISTA).forEach(k => delete ALERTAS_LISTA[k]);
+    if (!veSalud()) return;
+    const rs = await todo(() => db.from('alertas_pacientes').select('*').eq('empresa_id', EMP()).eq('activo', true).order('id'));
+    rs.forEach(a => { (ALERTAS_LISTA[dig(a.cedula)] = ALERTAS_LISTA[dig(a.cedula)] || []).push(a);
+      const x = ALERTAS[a.cedula] = ALERTAS[a.cedula] || {txt: '', acts: [], por: ''}; x.txt = [x.txt, a.texto].filter(Boolean).join(' · '); x.acts.push(...a.principios); });
+  }
+  const preguntadas = new Set();
+  document.addEventListener('click', () => setTimeout(async () => {   // la caja pregunta por el cliente escogido
+    if (A().tipo !== 'farmacia' || veSalud() || !S.client || preguntadas.has(S.client.ci)) return;
+    const ci = S.client.ci; preguntadas.add(ci);
+    const {data} = await db.rpc('alerta_principios', {p_empresa: EMP(), p_cedula: ci});
+    if (data && data.length) ALERTAS[ci] = {txt: 'Consulta a la regente antes de vender este producto a este cliente', acts: data, por: ''};
+  }, 0));
+  document.addEventListener('click', async e => {
+    const b = e.target.closest('[data-act="rxala"],[data-act="rxalq"]'); if (!b) return;
+    e.stopImmediatePropagation();
+    if (b.dataset.act === 'rxala') {
+      const texto = (document.getElementById('rx-alt').value || '').trim(), pr = (document.getElementById('rx-alp').value || '').split(',').map(x => x.trim()).filter(Boolean);
+      if (!texto || !pr.length) { avisar('Escribe la alerta y al menos un principio activo'); return; }
+      const ci = RX.find(r => dig(r.ci) === dig(S.rxPac)); 
+      const {error} = await db.from('alertas_pacientes').insert({empresa_id: EMP(), cedula: ci ? ci.ci : S.rxPac, texto, principios: pr});
+      if (error) { avisar(C.msg(error)); return; }
+    } else {
+      const {error} = await db.from('alertas_pacientes').update({activo: false}).eq('id', +b.dataset.id);
+      if (error) { avisar(C.msg(error)); return; }
+    }
+    await cargarAlertas(); render(); avisar(b.dataset.act === 'rxala' ? 'Alerta guardada: la caja avisará' : 'Alerta quitada');
+  }, true);
   C.recargarControlados = async () => { if (!veSalud()) return; try { await cargarRecipes(); } catch (x) { console.error(x); } };
   const SUYOS_RX = ['id', 'f', 'h', 'ci', 'pac', 'med', 'tipo', 'num', 'prod', 'rec', 'desp', 'u', 'cron', 'orig', '_id'];
   async function subirRecipes() {
@@ -490,7 +521,48 @@
     sel.insertAdjacentHTML('afterbegin', `<option value="${i}">${C.esc(n)}</option>`); sel.value = String(i);
   }, true);
 
-  C.farmacia = {recargar, sincronizar};
+  /* ---------------- Cuentas y bancos: lo que la base sabe de verdad ---------------- */
+  FIN.compras = () => COMPRAS.slice(-6).reverse().map(c => [c.proveedor, c.numero, dmy(c.fecha), +c.total_usd, 'Recibida']);
+  V.banks = () => {
+    const hoy = hoyVE(), docs = FX.docs.filter(d => d.tipo === 'FAC' && d.fecha === hoy), por = {};
+    docs.forEach(d => d.pagos.forEach(p => { const k = p.k || '—'; por[k] = por[k] || {bs: 0, usd: 0, n: 0}; if (p.usd != null) por[k].usd += +p.usd; else por[k].bs += +p.bs || 0; por[k].n++; }));
+    const tot = Object.values(por).reduce((t, x) => t + x.usd + x.bs / S.rate, 0);
+    const deuda = COMPRAS.filter(c => c.total_usd - c.pagado_usd > 0.004).sort((a, b) => (a.vence || '').localeCompare(b.vence || ''));
+    const cz = S.cashea, czPend = cz.reduce((a, x) => a + (x.fin - x.cuota * x.pagadas), 0);
+    return `<p class="lead">Cuánto entró hoy por cada forma de pago, cuánto le deben a la farmacia (cuotas de Cashea) y cuánto debe a las droguerías.</p>
+    <div class="kpis k3">${Object.entries(por).map(([k, x]) => `<div class="kpi"><span class="l">${C.esc(k)} · hoy</span><span class="v">${x.usd ? usd(x.usd) : bs(x.bs)}</span><span class="s num">${x.n} ${x.n === 1 ? 'pago' : 'pagos'}</span></div>`).join('')}
+      <div class="kpi hero"><span class="l">Cobrado hoy</span><span class="v">${usd(tot)}</span><span class="s num">${bs(tot * S.rate)}</span></div></div>
+    <div class="grid g-dash">
+      <section class="panel"><div class="hd"><h2>Cuentas de la farmacia</h2><a href="#config" data-act="nav" data-v="config" class="small" style="color:var(--azul)">Editar en Configuración</a></div><div class="bd">
+        ${CUENTAS.map(c => `<div class="stat"><span><b>${C.esc(c.b)}</b> · ${C.esc(c.t || '')}</span><span class="small muted num">${C.esc(c.n || '')}</span></div>`).join('') || '<p class="small muted" style="margin:0">Todavía no hay cuentas registradas.</p>'}
+        <p class="small muted" style="margin-top:10px">La conciliación con el estado de cuenta del banco y el diferencial cambiario llegan en una próxima versión: necesitan los movimientos del banco.</p></div></section>
+      <section class="panel"><div class="hd"><h2>Por pagar a droguerías</h2><span class="muted small num">${usd(deuda.reduce((t, c) => t + c.total_usd - c.pagado_usd, 0))}</span></div><div class="bd flush list">
+        ${deuda.map(c => `<div class="it"><div class="t"><b>${C.esc(c.proveedor)} · Factura ${C.esc(c.numero)}</b><span class="small muted num">Vence ${c.vence ? dmy(c.vence) : '—'}</span></div><div class="num" style="font-weight:700">${usd(c.total_usd - c.pagado_usd)}</div></div>`).join('') || '<div class="it"><div class="t"><span class="muted">No se le debe a ninguna droguería.</span></div></div>'}
+      </div></section></div>
+    <section class="panel"><div class="hd"><h2>Por cobrar · Cashea</h2><span class="muted small num">${usd(czPend)}</span></div><div class="bd flush tbl-wrap"><table><thead><tr><th>Cliente</th><th class="r">Cuotas</th><th class="r">Pendiente $</th><th>Próxima</th></tr></thead>
+      <tbody>${cz.map(x => `<tr><td>${C.esc(x.c)}<div class="small muted num">Compra ${x.f} · ${usd(x.total)}</div></td><td class="r">${x.pagadas}/${CASHEA_CUOTAS}</td><td class="r">${nf(x.fin - x.cuota * x.pagadas)}</td><td class="num small">${usd(x.cuota)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">No hay ventas con Cashea pendientes.</td></tr>'}</tbody></table></div></section>`;
+  };
+
+  /* ---------------- Libro de ventas del módulo fiscal: las facturas del mes ---------------- */
+  function libroVentas() {
+    LIBRO.length = 0; LIBRO_DIG.length = 0;
+    FX.docs.forEach(d => {
+      const s = d.tipo === 'NC' ? -1 : 1, t = d.t || {}, k = x => r2(s * (+x || 0) / d.tasa);
+      LIBRO.push([dmy(d.fecha), (d.tipo === 'FAC' ? 'Factura ' : d.tipo === 'NC' ? 'Nota de crédito ' : 'Nota de débito ') + d.num, d.cli.id || '—', d.cli.n, k(t.total), k(t.ex), k(t.bg), k(t.ivg), k(d.igtf)]);
+      LIBRO_DIG.push(`${d.tipo === 'FAC' ? 'Factura' : d.tipo === 'NC' ? 'Nota de crédito' : 'Nota de débito'} ${d.num} · control ${d.ctrl}`);
+    });
+  }
+
+  /* ---------------- Pantallas de la fase 2 que siguen siendo muestra ---------------- */
+  const aviso = t => `<p class="fx-aviso" style="margin:0 0 12px">${ic('alert')}<span><b>Fase 2 · muestra.</b> ${t}</span></p>`;
+  ['store', 'branches'].forEach(v => { const o = V[v]; if (o) V[v] = () => aviso('Esta pantalla muestra cómo funcionará; las cifras no son reales todavía.') + o(); });
+  const vLoyalty = V.loyalty; V.loyalty = () => aviso('Los puntos ya se suman solos con cada venta (1 por dólar). El canje en la caja y los recordatorios por WhatsApp llegan en la fase 2.') + vLoyalty();
+  // Proveedores y récipes ya son reales: salen de «Fase 2» y van a su lugar en el menú
+  (() => { const f2 = NAV.find(g => g.f2); if (!f2) return;
+    const mover = (v, grupo) => { const i = f2.items.findIndex(it => it[1] === v); if (i < 0) return; const [it] = f2.items.splice(i, 1); const g = NAV.find(x => x.g === grupo); if (g) g.items.push(it); const j = F2.indexOf(v); if (j >= 0) F2.splice(j, 1); };
+    mover('recipes', 'Operación'); mover('suppliers', 'Administración'); })();
+
+  C.farmacia = {recargar, sincronizar, alCambiarDocs: () => { tablero(); libroVentas(); }};
 
   /* ---------------- Al entrar ---------------- */
   C.alEntrar(async a => {
@@ -498,7 +570,7 @@
     // Cada paso por su cuenta: si uno falla, los demás igual cargan (y lo de muestra se vacía)
     const paso = async (n, f) => { try { await f(); } catch (x) { console.error('Cuadre farmacia: ' + n, x); } };
     await paso('catálogo', cargarCatalogo);
-    RECV = []; S.cart = []; S.cashea.length = 0; S.precioAvisos.length = 0;
+    RECV = []; S.cart = []; S.precioAvisos.length = 0;
     await paso('clientes', cargarClientes);
     ventasDeHoy();
     await paso('proveedores', cargarProveedores);
@@ -508,8 +580,9 @@
     await paso('movimientos', cargarMovimientos);
     await paso('resumen', cargarResumen);
     await paso('récipes', cargarRecipes);
+    await paso('alertas', cargarAlertas);
     DIF.length = 0;   // el diferencial cambiario necesita los saldos del banco: sin datos de muestra
     if (!EMPLEADOS().some(e => e.id === S.empSel)) S.empSel = EMPLEADOS()[0] ? EMPLEADOS()[0].id : null;
-    tablero();
+    tablero(); libroVentas();
   });
 })();

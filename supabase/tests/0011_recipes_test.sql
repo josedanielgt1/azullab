@@ -75,4 +75,12 @@ select prueba.igual('la salida también va al libro', (select concepto from libr
 select prueba.igual('el libro cuadra con el inventario (30 − 15 − 2)', (select sum(entrada - salida) from libro_controlados), (select sum(cantidad) from lotes where producto_id = 1));
 select prueba.debe_fallar('el libro no se edita', $$ update libro_controlados set salida = 0 $$, 'permission denied');
 select prueba.debe_fallar('el número del récipe no se cambia', $$ update recipes set numero = 9 $$, 'permission denied');
+\echo '--- Alertas de pacientes'
+insert into alertas_pacientes (empresa_id, cedula, texto, principios) values ((select f from ids), 'v18.456.123', 'Alergia a la penicilina', '{Amoxicilina, Penicilina}');
+select prueba.igual('la cédula se normaliza', (select cedula from alertas_pacientes), 'V-18456123');
+select prueba.como('00000000-0000-0000-0000-0000000000c1');
+select prueba.igual('la caja ve qué principios frenar', alerta_principios((select f from ids), 'V-18.456.123'), '{amoxicilina,penicilina}'::text[]);
+select prueba.igual('pero no el motivo', (select count(*) from alertas_pacientes), 0::bigint);
+select prueba.igual('sin alerta, lista vacía', alerta_principios((select f from ids), 'V-1'), '{}'::text[]);
+select prueba.debe_fallar('la caja no registra alertas', $$ insert into alertas_pacientes (empresa_id, cedula, texto) values ((select f from ids), 'V-1', 'x') $$, 'row-level security');
 \echo '--- Todas las pruebas pasaron'

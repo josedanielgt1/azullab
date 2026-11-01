@@ -3,7 +3,7 @@ const { chromium } = require('playwright'); const mock = require('./mock');
 (async () => {
   const b = await chromium.launch(); let fallas = 0; const ok = (c, m) => { console.log((c ? 'ok   ' : 'FALLA ') + m); if (!c) fallas++; };
   const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Caracas' }).format(new Date());
-  const T = { productos: [], lotes: [], clientes: [], docs: [], proveedores: [], compras: [], gastos: [], colecciones: [], movimientos: [], medicos: [], recipes: [], libro_controlados: [], seq: 1, rpc: [] };
+  const T = { productos: [], lotes: [], clientes: [], docs: [], proveedores: [], compras: [], gastos: [], colecciones: [], movimientos: [], medicos: [], recipes: [], libro_controlados: [], alertas_pacientes: [], seq: 1, rpc: [] };
   const filtrar = (rows, u) => rows.filter(r => [...u.searchParams].every(([k, v]) => {
     if (['select', 'order', 'limit', 'offset', 'columns', 'on_conflict'].includes(k)) return true;
     const [op, ...rest] = v.split('.'); const val = rest.join('.');
@@ -12,7 +12,7 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   const rest = async (st, { m, p, u, b: body, q }) => {
     const uno = (q.headers()['accept'] || '').includes('vnd.pgrst.object');
     const out = x => ({ body: uno ? (Array.isArray(x) ? x[0] : x) : x });
-    const tabla = { '/rest/v1/productos': 'productos', '/rest/v1/lotes': 'lotes', '/rest/v1/clientes': 'clientes', '/rest/v1/documentos': 'docs', '/rest/v1/proveedores': 'proveedores', '/rest/v1/compras': 'compras', '/rest/v1/gastos': 'gastos', '/rest/v1/movimientos': 'movimientos', '/rest/v1/medicos': 'medicos', '/rest/v1/recipes': 'recipes', '/rest/v1/libro_controlados': 'libro_controlados' }[p];
+    const tabla = { '/rest/v1/productos': 'productos', '/rest/v1/lotes': 'lotes', '/rest/v1/clientes': 'clientes', '/rest/v1/documentos': 'docs', '/rest/v1/proveedores': 'proveedores', '/rest/v1/compras': 'compras', '/rest/v1/gastos': 'gastos', '/rest/v1/movimientos': 'movimientos', '/rest/v1/medicos': 'medicos', '/rest/v1/recipes': 'recipes', '/rest/v1/libro_controlados': 'libro_controlados', '/rest/v1/alertas_pacientes': 'alertas_pacientes' }[p];
     if (p === '/rest/v1/colecciones' && m === 'GET') return out(T.colecciones);
     if (p === '/rest/v1/colecciones' && m === 'POST') { T.colecciones = T.colecciones.filter(c => c.nombre !== body.nombre).concat([body]); return out(body); }
     if (tabla && m === 'GET') return out(filtrar(T[tabla], u));
@@ -139,10 +139,19 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   for (const k of ['lista', 'paciente', 'libro']) { const n = errs.length; await pg.evaluate(x => { S.rxTab = x; render(); }, k).catch(e => errs.push(k + ': ' + e.message)); if (errs.length > n) console.log('   pestaña rota:', k, errs.slice(n).join(' | ').slice(0, 160)); }
   await pg.evaluate(() => { S.rxTab = 'paciente'; render(); }); await pg.fill('#rx-pci', 'V-18456123'); await pg.click('[data-act="rxpac"]');
   ok((await pg.textContent('#app')).includes('María Rondón') && (await pg.textContent('#app')).includes('1 de 2'), 'la ficha del paciente muestra sus récipes y lo pendiente');
+  await pg.fill('#rx-alt', 'Alergia a la penicilina'); await pg.fill('#rx-alp', 'Amoxicilina, Penicilina'); await pg.click('[data-act="rxala"]'); await pg.waitForTimeout(500);
+  ok(T.alertas_pacientes.length === 1 && T.alertas_pacientes[0].principios.length === 2, 'la regente registra una alerta del paciente');
+  ok(await pg.evaluate(() => Object.values(ALERTAS).some(a => a.acts.includes('Amoxicilina'))), 'y la caja la tiene para frenar la venta');
   // Cliente nuevo
   await pg.evaluate(() => { CLIENTS.unshift({ ci: 'V-12.990.441', name: 'José Peña', tel: '—', visits: 0, total: 0, last: '—', pts: 0 }); render(); });
   await pg.click('body'); await pg.waitForTimeout(500);
   ok(T.clientes.length === 1 && T.clientes[0].cedula_rif === 'V-12990441', 'el cliente nuevo se guarda con la cédula normalizada');
+  // Cuentas y bancos, Azul Puntos y libro de ventas: sin cifras de muestra
+  await pg.evaluate(() => go('banks')); const tb = await pg.textContent('#app');
+  ok(tb.includes('Cobrado hoy') && !tb.includes('Unidad Educativa') && !tb.includes('Yorbelis'), 'Cuentas y bancos muestra lo cobrado hoy, sin deudores de muestra');
+  await pg.evaluate(() => go('loyalty')); ok(!(await pg.textContent('#app')).includes('318'), 'Azul Puntos sin cifras de muestra');
+  ok(await pg.evaluate(() => LIBRO.length === FX.docs.length && LIBRO[0][1].startsWith('Factura')), 'el libro de ventas del módulo fiscal sale de las facturas');
+  ok(await pg.evaluate(() => NAV.find(g => g.g === 'Operación').items.some(i => i[1] === 'recipes') && NAV.find(g => g.g === 'Administración').items.some(i => i[1] === 'suppliers')), 'Récipes y Proveedores salen de «Fase 2»');
   // Recargar: todo sigue ahí
   await pg.reload(); await pg.waitForFunction(() => !document.getElementById('loginForm') && P.length === 1 && FX.docs.length === 2, null, { timeout: 8000 }).catch(() => {});
   ok(await pg.evaluate(() => P.length === 1 && P[0].stock === 12 && CLIENTS.length === 1 && FX.docs.length === 2 && FX.docs[1].afecta === FX.docs[0].id), 'al recargar siguen ahí producto, existencia, cliente, factura y su nota');

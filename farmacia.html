@@ -1536,7 +1536,7 @@ V.purchases = () => {
     <div class="tabs" role="tablist">${[['scan','Escanear factura'],['file','Importar archivo'],['initial','Carga inicial']].map(([k,t])=>`<button role="tab" data-act="buytab" data-k="${k}" class="${S.buyTab===k?'on':''}" aria-selected="${S.buyTab===k}">${t}</button>`).join('')}</div>
     <div class="bd" style="display:grid;gap:14px">${body}</div></section>
   <section class="panel"><div class="hd"><h2>Compras recientes</h2></div><div class="bd flush list">
-    ${[['Cobeca','0048213','23/10/2026',412.60,'Recibida'],['Drolanca','0193377','20/10/2026',286.40,'Recibida'],['Dronena','0007712','16/10/2026',198.75,'Recibida'],['Cobeca','OC-0012','Pedido',154.20,'Pedido enviado']]
+    ${(FIN.compras ? FIN.compras() : [])
       .map(c=>`<div class="it"><div class="t"><b>${c[0]} · ${c[1]}</b><span class="small muted">${c[2]}</span></div><div style="text-align:right"><div class="num" style="font-weight:700">${usd(c[3])}</div><span class="pill ${c[4]==='Recibida'?'ok':'info'}">${c[4]}</span></div></div>`).join('')}
   </div></section></div>`;
 };
@@ -1829,7 +1829,7 @@ function islrPanel(){
 }
 const DIF = [['20/10/2026',662400,875.10],['21/10/2026',701250,876.90],['22/10/2026',648900,878.20],['23/10/2026',731800,879.60],['24/10/2026',812300,880.40],['25/10/2026',455600,881.10],['26/10/2026',694300,881.88]];
 /* Las cifras reales las pone js/farmacia-real.js (FIN.mes, FIN.meses, FIN.proximos) */
-const FIN = {mes:{ventas:0, costo:0, gastos:0}, meses:() => [], proximos:() => []};
+const FIN = {mes:{ventas:0, costo:0, gastos:0}, meses:() => [], proximos:() => [], compras:() => []};
 function finanzas(){
   const ingresos = FIN.mes.ventas, costo = FIN.mes.costo, bruta = ingresos-costo;
   const dif = 0, gastos = FIN.mes.gastos + dif, neta = bruta-gastos;
@@ -2393,9 +2393,9 @@ V.suppliers = () => `<p class="lead">Lo que se le debe a cada droguería, con d�
   .map(r=>`<tr><td><b>${r[0]}</b></td><td class="num">${r[1]}</td><td class="num">${r[2]}</td><td>${r[3]}</td><td class="num">${r[4]}</td><td class="r">${nf(r[5])}</td><td><span class="pill ${r[6]}">${r[7]}</span></td><td>${r[5]?'<button class="btn sm" data-act="toast" data-m="Pago registrado contra la factura">Registrar pago</button>':''}</td></tr>`).join('')}</tbody></table></div></section>`;
 
 V.loyalty = () => `<p class="lead">Programa de puntos para que el cliente vuelva: cada dólar suma un punto y cada 100 puntos son $1 de descuento. El cliente se identifica con su cédula en la caja.</p>
-  <div class="kpis"><div class="kpi hero"><span class="l">Clientes en el programa</span><span class="v num">318</span><span class="s">+42 este mes</span></div>
-  <div class="kpi"><span class="l">Vuelven en menos de 30 días</span><span class="v num">57%</span><span class="s">Clientes con puntos</span></div>
-  <div class="kpi"><span class="l">Puntos canjeados en octubre</span><span class="v num">4.200</span><span class="s">${usd(42)} en descuentos</span></div></div>
+  <div class="kpis"><div class="kpi hero"><span class="l">Clientes en el programa</span><span class="v num">${CLIENTS.filter(c=>c.pts>0).length}</span><span class="s">Con puntos acumulados</span></div>
+  <div class="kpi"><span class="l">Volvieron a comprar</span><span class="v num">${(()=>{ const c = CLIENTS.filter(x=>x.pts>0), r = c.filter(x=>x.visits>1); return c.length ? Math.round(r.length/c.length*100)+'%' : '—'; })()}</span><span class="s">Clientes con puntos que volvieron</span></div>
+  <div class="kpi"><span class="l">Puntos acumulados</span><span class="v num">${CLIENTS.reduce((a,c)=>a+c.pts,0).toLocaleString('es-VE')}</span><span class="s">${usd(CLIENTS.reduce((a,c)=>a+c.pts,0)/100)} en descuentos posibles</span></div></div>
   <div class="grid g2"><section class="panel"><div class="hd"><h2>Clientes frecuentes</h2></div><div class="bd flush tbl-wrap"><table><thead><tr><th>Cliente</th><th class="r">Compras</th><th class="r">Puntos</th><th>Nivel</th></tr></thead><tbody>
   ${CLIENTS.filter(c=>c.pts).sort((a,b)=>b.pts-a.pts).map(c=>`<tr><td><b>${c.name}</b><div class="small muted num">${c.ci}</div></td><td class="r">${c.visits}</td><td class="r">${c.pts}</td><td><span class="pill ${c.pts>=200?'info':'ghost'}">${c.pts>=200?'Celeste':'Blanco'}</span></td></tr>`).join('')}</tbody></table></div></section>
   <section class="panel"><div class="hd"><h2>Recordatorio automático</h2></div><div class="bd" style="display:grid;gap:12px">
@@ -2441,7 +2441,8 @@ const CTRL = [
   ['14/10/2026','Alprazolam 0,5 mg','Récipe especial N° 0047988','Dra. M. Briceño · 72.054','V-8.021.774','AL2407',0,20]
 ];
 /* Alertas: la caja solo sabe que hay que consultar a la regente, no el motivo */
-const ALERTAS = {'V-18.456.123':{txt:'Alergia a la penicilina', acts:['Amoxicilina'], por:'Lcda. R. Paredes · 12/08/2026'}};
+const ALERTAS = {};
+const ALERTAS_LISTA = {};  /* por cédula (solo dígitos): las alertas completas, para la regente */
 const rxNum = id => 'RX-'+String(id).padStart(6,'0');
 function rxEstado(r){
   if (r.bloq) return '<span class="pill bad">Bloqueado</span>';
@@ -2486,7 +2487,11 @@ V.recipes = () => {
     ${p0 ? `<div class="bd flush tbl-wrap"><table><thead><tr><th>Fecha</th><th>Récipe de</th><th>Tipo</th><th>Médico</th><th>Entregado</th></tr></thead>
       <tbody>${mios.map(r=>`<tr><td class="num">${r.f}</td><td>${r.prod}${r.num?` <span class="small muted num">N° ${r.num}</span>`:''}</td><td class="small">${r.tipo==='especial'?'Especial':r.tipo==='antibiotico'?'Antibiótico':'Médico'}</td><td class="small">${(MEDICOS[r.med]||{}).n||'—'}</td>
         <td>${r.desp<r.rec?`<span class="pill warn">${r.desp} de ${r.rec} ${r.u}</span>`:`${r.desp} de ${r.rec} ${r.u}`}</td></tr>`).join('')}</tbody></table></div>` : ''}
-    <p class="base-legal">Datos de salud: esta ficha solo la ven la regente y el dueño. Las alertas de alergias y los recordatorios de tratamientos continuos llegan en una próxima versión.</p>`;
+    ${q ? `<div class="bd" style="display:grid;gap:8px;border-top:1px solid var(--renglon)"><b>Alertas (alergias e interacciones)</b>
+      ${(ALERTAS_LISTA[q]||[]).map(a=>`<div class="row"><span class="pill bad">${ic('alert')}${a.texto}</span><span class="small muted">${a.principios.join(', ')}</span><span class="spacer"></span><button class="btn sm" data-act="rxalq" data-id="${a.id}">Quitar</button></div>`).join('') || '<span class="small muted">Sin alertas.</span>'}
+      <div class="row"><input id="rx-alt" class="input" placeholder="Alergia a la penicilina" style="flex:2;min-width:180px"><input id="rx-alp" class="input" placeholder="Principios activos: amoxicilina, penicilina" style="flex:3;min-width:200px"><button class="btn" data-act="rxala">${ic('plus')}Agregar alerta</button></div>
+      <span class="small muted">En la caja, si alguien le vende uno de esos principios activos, sale el aviso de consultar a la regente. El cajero no ve el motivo.</span></div>` : ''}
+    <p class="base-legal">Datos de salud: esta ficha solo la ven la regente y el dueño. Los recordatorios de tratamientos continuos llegan en una próxima versión.</p>`;
   } else {
     let ex = {}; const rows = CTRL.map(r=>{ ex[r[1]] = (ex[r[1]]||0) + r[6] - r[7]; return [...r, ex[r[1]]]; });
     const prods = [...new Set(CTRL.map(r=>r[1]))].map(n=>({n, e:CTRL.filter(r=>r[1]===n).reduce((a,r)=>a+r[6],0), s:CTRL.filter(r=>r[1]===n).reduce((a,r)=>a+r[7],0)}));
@@ -2649,7 +2654,7 @@ document.addEventListener('click', e => {
       if (q >= p.stock) { toast('No hay más existencia de este producto'); break; }
       if (p.ctrl && S.role==='Cajero') { toast('Controlado: lo despacha la regente con el récipe especial'); break; }
       c ? c.q++ : S.cart.push({id, q:1});
-      const alr = S.client && ALERTAS[S.client.ci] && ALERTAS[S.client.ci].acts.includes(p.act);
+      const alr = S.client && ALERTAS[S.client.ci] && ALERTAS[S.client.ci].acts.map(a=>String(a).toLowerCase()).includes(String(p.act).toLowerCase());
       if (alr && !c) toast(`Consulta a la regente antes de vender ${p.name} a este cliente`);
       else if (p.ctrl && !c) toast(`${p.name}: controlado. Registra el récipe especial; la salida va al libro de controlados`);
       else if (p.rx && !c) toast(`${p.name}: pide el récipe al cliente`);
@@ -2943,7 +2948,7 @@ document.addEventListener('submit', e => {
     if (rec<=0) { toast('Escribe la cantidad recetada'); $('#rx-rec').focus(); return; }
     if (desp>rec) { toast('No se puede entregar más de lo recetado'); $('#rx-desp').focus(); return; }
     const cid = ci.replace(/[^0-9]/g,''), alk = Object.keys(ALERTAS).find(k=>k.replace(/[^0-9]/g,'')===cid);
-    const pr = P.find(p=>p.name===prod), alr = alk && pr && ALERTAS[alk].acts.includes(pr.act);
+    const pr = P.find(p=>p.name===prod), alr = alk && pr && ALERTAS[alk].acts.map(a=>String(a).toLowerCase()).includes(String(pr.act).toLowerCase());
     if (alr) { toast(`Alerta del paciente: ${ALERTAS[alk].txt}. Confírmalo con el médico antes de despachar`); return; }
     const now = new Date(), hm = String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
     const known = CLIENTS.find(x=>x.ci.replace(/[^0-9]/g,'')===cid), ciF = known ? known.ci : (/^[VEJG]/.test(ci)?ci[0]:'V')+'-'+cid.replace(/\B(?=(\d{3})+(?!\d))/g,'.');

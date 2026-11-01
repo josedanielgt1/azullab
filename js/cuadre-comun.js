@@ -185,6 +185,7 @@
     b.disabled = false;
     if (error) { avisar(C.msg(error)); return; }
     notaReal = data; otraVuelta();
+    if (C.farmacia && C.farmacia.alCambiarDocs) C.farmacia.alCambiarDocs();
     // Lo devuelto: la existencia que manda es la de la base
     if (reintegrar && C.farmacia) { await C.farmacia.recargar(lineas.filter(l => l.ref).map(l => l.ref.producto_id)); if (C.recargarControlados) await C.recargarControlados(); repintar(); }
   }, true);
