@@ -91,6 +91,7 @@
       CLASES.forEach(c => { c.res = c.res.map(x => x === viejo ? s.id : x); });
       ASIS.forEach(a => { if (a.s === viejo) a.s = s.id; }); RES.forEach(r => { if (r.s === viejo) r.s = s.id; });
       if (S.pay && S.pay.s === viejo) S.pay.s = s.id;
+      const cq = C.leerLocal('cola') || []; if (cq.some(v => v.socio === viejo)) { cq.forEach(v => { if (v.socio === viejo) v.socio = s.id; }); C.guardarLocal('cola', cq); }
     }
     for (const a of ASIS) {
       if (a._id) continue;
@@ -105,8 +106,39 @@
       if (error) throw error; g.piz = j;
     }
   }
-  const tras = () => setTimeout(() => { if (A().tipo === 'crossfit' && S.view !== 'login') sincronizar(); }, 0);
+  const tras = () => setTimeout(() => { if (A().tipo === 'crossfit' && S.view !== 'login' && navigator.onLine) sincronizar(); }, 0);
   ['click', 'submit', 'change'].forEach(ev => document.addEventListener(ev, tras));
+
+  /* ---------------- Cobros sin internet: talonario de contingencia y cola ---------------- */
+  const COLA = () => C.leerLocal('cola') || [];
+  async function siguienteTalonario() {
+    let n = +FX.F.talDesde || 1;
+    try { const {data} = await db.from('documentos').select('numero').eq('empresa_id', EMP()).eq('origen', 'contingencia').order('numero', {ascending: false}).limit(1); if (data && data[0]) n = Math.max(n, +data[0].numero + 1); } catch (_) {}
+    COLA().forEach(v => { n = Math.max(n, v.numero + 1); }); const loc = C.leerLocal('talonario'); if (loc) n = Math.max(n, +loc);
+    FX.n.tal = n;
+  }
+  let subiendo = false;
+  async function subirCola() {
+    if (subiendo || !navigator.onLine || A().tipo !== 'crossfit') return;
+    const cola = COLA(); if (!cola.length) return;
+    subiendo = true; let ok = 0; const malas = [];
+    try {
+      await sincronizar();   // primero los socios nuevos
+      for (const v of cola) {
+        const s = socBy(v.socio), pl = PLANES.find(x => x._id === v.plan);
+        if (!s || !s._id || !pl) { v.error = 'El socio o el plan todavía no están en la base'; malas.push(v); continue; }
+        const {data, error} = await db.rpc('cobrar_membresia', {p_empresa: EMP(), p_socio: s._id, p_plan: v.plan, p_metodo: v.met, p_divisa: v.divisa, p_producto: v.producto,
+          p_origen: 'contingencia', p_numero: v.numero, p_fecha: v.fecha});
+        if (error && !/duplicate/i.test(error.message)) { if (!/Failed to fetch/i.test(error.message)) v.error = C.msg(error); malas.push(v); continue; }
+        ok++; if (data) { s.v = data.socio.vence; const pg = PAGOS.find(x => x._tal === v.numero); if (pg) { pg._id = data.membresia.id; delete pg._tal; } }
+      }
+      C.guardarLocal('cola', malas);
+      if (ok) { if (C.cargarDocumentos) await C.cargarDocumentos(); await cargarPagos(); render();
+        avisar(`${ok} ${ok === 1 ? 'cobro sin conexión subió' : 'cobros sin conexión subieron'} a la base${malas.length ? `; ${malas.length} con problema` : ''}`); }
+    } finally { subiendo = false; }
+  }
+  window.addEventListener('online', () => setTimeout(subirCola, 1500));
+  setInterval(subirCola, 60000);
 
   /* ---------------- Cobro: la base factura y corre el vencimiento ---------------- */
   let pase = false, cobro = null;
@@ -120,7 +152,16 @@
     const b = e.target.closest('[data-act="pagar"]'); if (!b || A().tipo !== 'crossfit') return;
     if (pase) { pase = false; return; }
     e.preventDefault(); e.stopImmediatePropagation();
-    if (!navigator.onLine) { avisar('Sin internet no se puede facturar todavía'); return; }
+    if (!navigator.onLine) {
+      const F = FX.F, n = FX.n.tal, s = socBy(S.pay.s), pl = planBy(S.pay.plan), pr = FX_SYS.PROD.find(x => x.id === S.pay.prod);
+      if (!F.talHasta || n < (+F.talDesde || 1) || n > +F.talHasta) { avisar('Sin internet y sin talonario de contingencia: cárgalo en Configuración'); return; }
+      if (!s || !pl) { avisar('Escoge el socio y el plan'); return; }
+      const cola = COLA(); cola.push({numero: n, fecha: new Date().toISOString(), socio: s.id, plan: pl._id, met: S.pay.met, divisa: ['Efectivo $', 'Zelle'].includes(S.pay.met), producto: pr ? {id: pr._id, cantidad: S.pay.pq || 1} : null});
+      C.guardarLocal('cola', cola); C.guardarLocal('talonario', n + 1);
+      pase = true; b.click();
+      const pg = PAGOS[PAGOS.length - 1]; if (pg && !pg._id) pg._tal = n;
+      return;
+    }
     const txt = b.innerHTML; b.disabled = true; b.textContent = 'Cobrando…';
     try {
       await sincronizar();
@@ -193,10 +234,13 @@
   /* ---------------- Al entrar ---------------- */
   C.alEntrar(async a => {
     if (a.tipo !== 'crossfit') return;
-    await cargarCatalogo();
-    await cargarSocios();
-    await cargarPagos();
-    await cargarDia();
+    const conCopia = async (n, f, guardar, restaurar) => { try { await f(); C.guardarLocal(n, guardar()); } catch (x) { const c = C.leerLocal(n); if (!c) throw x; restaurar(c); } };
+    await conCopia('catalogo', cargarCatalogo, () => ({PLANES, PROD: FX_SYS.PROD, CLASES}), c => { PLANES.length = 0; PLANES.push(...c.PLANES); FX_SYS.PROD.length = 0; FX_SYS.PROD.push(...c.PROD); CLASES.length = 0; CLASES.push(...c.CLASES); });
+    await conCopia('socios', cargarSocios, () => SOCIOS, c => { SOCIOS.length = 0; SOCIOS.push(...c); });
+    await cargarPagos().catch(x => console.error('Cuadre CrossFit: pagos', x));
+    await cargarDia().catch(x => console.error('Cuadre CrossFit: día', x));
+    await siguienteTalonario().catch(() => {});
+    setTimeout(subirCola, 2000);
     if (S.pay) { S.pay.s = SOCIOS[0] ? SOCIOS[0].id : ''; S.pay.plan = PLANES[0] ? PLANES[0].id : ''; S.pay.prod = ''; }
     S.me = SOCIOS[0] ? SOCIOS[0].id : null;
   });

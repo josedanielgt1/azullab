@@ -25,9 +25,10 @@ Las pantallas de `farmacia.html`, `laboratorio.html` y `crossfit.html` son las m
 | Los tres: calendario fiscal y forma 30 | Calendario fiscal del mes en curso; sin excedente de crédito fiscal, libro de compras ni retenciones de muestra | ✅ |
 | Laboratorio y CrossFit: libro de compras | «Registrar factura de compra» en Libros y declaración: proveedor, RIF, número, control, exento, base gravable y retención de ISLR; entra al Libro de Compras y al comprobante de retención | ✅ |
 | Los tres: declaración de IVA | En Datos fiscales, el excedente de crédito fiscal del mes anterior y la última declaración (los da el contador) | ✅ |
+| Laboratorio y CrossFit: sin internet | La orden del laboratorio y el cobro de membresía se hacen con el talonario de contingencia, quedan en el equipo (también el paciente o socio nuevo) y suben solos al volver | ✅ |
 | Los tres: panel del grupo | El dueño ve las ventas reales del mes de los tres negocios | ✅ |
 
-Pruebas: **235 de base de datos** (`supabase/tests/correr.sh`) y **150 de navegador** (`tests/navegador/correr.sh`).
+Pruebas: **239 de base de datos** (`supabase/tests/correr.sh`) y **155 de navegador** (`tests/navegador/correr.sh`).
 
 ## Qué todavía muestra datos de muestra
 
@@ -41,12 +42,11 @@ Pruebas: **235 de base de datos** (`supabase/tests/correr.sh`) y **150 de navega
 | Farmacia | Cuentas y bancos | Conciliación con el estado de cuenta y diferencial cambiario: necesitan los movimientos del banco |
 | Laboratorio | Portal, equipos, convenios, calidad y grupo | Pantallas de muestra de la fase 2, marcadas como tal |
 | Los tres | Páginas «Alcance de la propuesta», «Alcance y regalo», «Fase 2» | Decidir si se quitan para el cliente |
-| Laboratorio y CrossFit | Trabajo sin internet | La farmacia ya vende sin internet; en el laboratorio y el CrossFit todavía hace falta conexión para cobrar |
 | CrossFit | App del socio | Vuelve cuando los socios tengan su usuario |
 
 ## Lo que hace falta de ti
 
-1. **Pegar en el SQL Editor** `supabase/pendiente_sql_editor.sql` (migraciones 0003 a 0014). Una sola vez, completo, y Run.
+1. **Pegar en el SQL Editor** `supabase/pendiente_sql_editor.sql` (migraciones 0003 a 0015). Una sola vez, completo, y Run.
 2. **Subir la función `usuarios`**: Supabase → Edge Functions → Deploy a new function → Via Editor, nombre `usuarios`, pegar `supabase/functions/usuarios/index.ts` y Deploy. Sin esto, los usuarios nuevos se crean en Authentication y se les da acceso con «Dar acceso».
 3. **GitHub Pages** (para «Olvidé mi clave» y para entrar desde cualquier equipo): Settings → Pages → rama `claude/inspiring-pascal-ljb7rr`, carpeta raíz. En Supabase → Authentication → URL Configuration: Site URL `https://josedanielgt1.github.io/azullab/` y en Redirect URLs `https://josedanielgt1.github.io/azullab/**`.
 4. **Talonario de contingencia**: en Configuración → Datos fiscales, el rango del talonario (desde y hasta). Sin eso, la farmacia no puede vender sin internet.

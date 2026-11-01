@@ -31,7 +31,7 @@ const { chromium } = require('playwright'); const mock = require('./mock');
       T.ordenes.push(o); return { body: { orden: o, documento: d } }; }
   };
   const ctx = await b.newContext(); const pg = await ctx.newPage(); const errs = []; pg.on('pageerror', e => errs.push(e.message));
-  mock(pg, { tipo: 'laboratorio', empresa: 'Azullab Laboratorio', tasas: [{ fecha: hoy, tasa: 100 }], rest });
+  mock(pg, { tipo: 'laboratorio', empresa: 'Azullab Laboratorio', tasas: [{ fecha: hoy, tasa: 100 }], rest, empresaExtra: { talonario_desde: 1, talonario_hasta: 50 } });
   const entrar = async () => { await pg.goto('http://localhost:8765/laboratorio.html'); await pg.fill('#lu', 'jose@azullab.com'); await pg.fill('#lp', 'clave-buena'); await pg.click('#loginForm [type=submit]');
     await pg.waitForFunction(() => !document.getElementById('loginForm'), null, { timeout: 8000 }); };
   await entrar();
@@ -90,9 +90,21 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   // Excedente del mes anterior
   await pg.evaluate(() => go('config')); await pg.fill('#fx-f-rif', 'J-50134578-3'); await pg.fill('#fx-f-excedente', '1.500,00'); await pg.click('#fx-dform [type=submit]'); await pg.waitForTimeout(600);
   ok(T.colecciones.some(c => c.nombre === 'privado_fiscal' && c.datos.excedente === 1500) && await pg.evaluate(() => FX_SYS.excedente) === 1500, 'el excedente del mes anterior se guarda y entra al borrador de IVA');
+  // Orden sin internet
+  await ctx.setOffline(true); await pg.waitForTimeout(300);
+  await pg.evaluate(() => { go('recepcion'); S.ord.pat = PATS[0].id; S.ord.items = [{ k: 'ex', c: 'HEM' }]; S.pay = 'Pago móvil'; openModal(payModal()); });
+  await pg.click('[data-act="emit"]'); await pg.waitForTimeout(500);
+  const colaL = await pg.evaluate(() => JSON.parse(localStorage.getItem('cuadre.laboratorio.cola') || '[]'));
+  ok(colaL.length === 1 && colaL[0].numero === 1 && T.rpc.length === 1, 'sin internet la orden queda en la cola del equipo con el talonario');
+  ok(await pg.evaluate(() => ORD.length === 2 && ORD[1]._tal === 1), 'y aparece en la lista de trabajo');
+  await pg.evaluate(() => closeModal());
+  await ctx.setOffline(false); await pg.waitForFunction(() => !JSON.parse(localStorage.getItem('cuadre.laboratorio.cola') || '[]').length, null, { timeout: 8000 }).catch(() => {});
+  const rco = T.rpc[1];
+  ok(rco && rco.p_origen === 'contingencia' && rco.p_numero === 1 && rco.p_fecha, 'al volver internet sube como contingencia con su número y fecha');
+  ok(await pg.evaluate(() => ORD[1]._id && ORD[1].n === 'L-0002'), 'y toma el número de orden de la base');
   // Recargar
-  await pg.reload(); await pg.waitForFunction(() => !document.getElementById('loginForm') && ORD.length === 1 && PATS.length === 1, null, { timeout: 8000 }).catch(() => {});
-  ok(await pg.evaluate(() => ORD[0].st === 'Validado' && ORD[0].pat === PATS[0].id && ORD[0].fac === '00000001' && EX.length >= 20 && MEDICOS.length >= 1 && REAC.length === 1 && EX.find(e => e.c === 'GLI').p === 3), 'al recargar siguen ahí paciente, orden, estado, factura, catálogo y reactivos');
+  await pg.reload(); await pg.waitForFunction(() => !document.getElementById('loginForm') && ORD.length === 2 && PATS.length === 1, null, { timeout: 8000 }).catch(() => {});
+  ok(await pg.evaluate(() => ORD.length === 2 && ORD[0].st === 'Validado' && ORD[0].pat === PATS[0].id && ORD[0].fac === '00000001' && EX.length >= 20 && MEDICOS.length >= 1 && REAC.length === 1 && EX.find(e => e.c === 'GLI').p === 3), 'al recargar siguen ahí paciente, orden, estado, factura, catálogo y reactivos');
   for (const v of vistas) { const n = errs.length; await pg.evaluate(x => go(x), v).catch(e => errs.push(v + ': ' + e.message)); if (errs.length > n) console.log('   rota con datos:', v, errs.slice(n).join(' | ').slice(0, 200)); }
   ok(errs.length === 0, 'sin errores de JavaScript ' + errs.join(' | ').slice(0, 300));
   await b.close(); process.exit(fallas ? 1 : 0);

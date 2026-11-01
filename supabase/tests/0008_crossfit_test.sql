@@ -36,7 +36,8 @@ create temp table ids as select (select id from empresas where tipo = 'crossfit'
 grant select on ids to authenticated;
 insert into miembros (user_id, empresa_id, rol) values ('00000000-0000-0000-0000-0000000000c1', (select x from ids), 'coach');
 update empresas set datos_confirmados = true;
-insert into tasas_bcv (fecha, tasa) values (current_date, 100);
+insert into tasas_bcv (fecha, tasa) values (current_date - 1, 90), (current_date, 100);
+update empresas set talonario_desde = 1, talonario_hasta = 50;
 
 \echo '--- Planes y socios'
 set role authenticated;
@@ -68,6 +69,8 @@ set role authenticated;
 select cobrar_membresia((select x from ids), 1, 1, 'Pago móvil');
 select prueba.igual('vencida, la nueva cuenta desde hoy', (select vence from socios), current_date + 30);
 select prueba.debe_fallar('las membresías no se insertan a mano', $$ insert into membresias (empresa_id, socio_id, plan_id, desde, hasta, precio_usd) values ((select x from ids), 1, 1, current_date, current_date + 999, 0) $$, 'permission denied');
+
+select prueba.igual('cobro sin internet con el talonario', (select (cobrar_membresia((select x from ids), 1, 1, 'Pago móvil', false, null, 'contingencia', 5, now() - interval '2 hours')->'documento'->>'numero')::int), 5);
 
 \echo '--- Clases, entrada y pizarra'
 select prueba.como('00000000-0000-0000-0000-0000000000c1');

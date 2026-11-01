@@ -43,7 +43,8 @@ insert into miembros (user_id, empresa_id, rol) values
   ('00000000-0000-0000-0000-0000000000c1', (select l from ids), 'toma_muestras'),
   ('00000000-0000-0000-0000-0000000000f1', (select f from ids), 'cajero');
 update empresas set datos_confirmados = true;
-insert into tasas_bcv (fecha, tasa) values (current_date, 100);
+insert into tasas_bcv (fecha, tasa) values (current_date - 1, 90), (current_date, 100);
+update empresas set talonario_desde = 1, talonario_hasta = 50;
 
 \echo '--- Catálogo'
 set role authenticated;
@@ -100,6 +101,14 @@ select emitir_nota((select documento_id from ordenes where numero = 'L-0002'), '
 update ordenes set estado = 'Anulada' where numero = 'L-0002';
 select prueba.igual('con su nota de crédito, sí', (select estado from ordenes where numero = 'L-0002'), 'Anulada');
 select prueba.debe_fallar('una anulada no se reabre', $$ update ordenes set estado = 'Por tomar' where numero = 'L-0002' $$, 'no se reabre');
+
+\echo '--- Orden sin internet'
+select prueba.como('00000000-0000-0000-0000-0000000000a1');
+create temp table oc as select crear_orden((select l from ids), (select id from pacientes where nombre = 'María Rondón'), '[{"k":"ex","c":"GLI"}]', null, false, '{}', '[]', 'contingencia', 3, (current_date - 1 + time '08:00')::timestamptz) r;
+grant select on oc to authenticated;
+select prueba.igual('la factura queda con el número del talonario', (select (r->'documento'->>'numero')::int from oc), 3);
+select prueba.igual('y la tasa del día en que se cobró', (select (r->'documento'->>'tasa')::numeric from oc), 90.0000::numeric);
+select prueba.igual('la orden queda con esa fecha', (select (r->'orden'->>'creado_en')::timestamptz::date from oc), current_date - 1);
 
 \echo '--- Privacidad'
 select prueba.como('00000000-0000-0000-0000-0000000000f1');

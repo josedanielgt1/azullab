@@ -136,6 +136,7 @@
       p._id = data.id; p.id = 'P' + data.id; g.pac.set(p._id, j);
       if (S.ord && S.ord.pat === viejo) S.ord.pat = p.id;
       ORD.forEach(o => { if (o.pat === viejo) o.pat = p.id; });
+      const cq = C.leerLocal('cola') || []; if (cq.some(v => v.pat === viejo)) { cq.forEach(v => { if (v.pat === viejo) v.pat = p.id; }); C.guardarLocal('cola', cq); }
     }
     for (const e of EX) { const j = JSON.stringify(exFila(e)); if (g.ex.get(e.c) === j) continue;
       const q = e._id ? db.from('examenes').update(exFila(e)).eq('id', e._id) : db.from('examenes').insert({...exFila(e), empresa_id: EMP()});
@@ -152,8 +153,51 @@
       g.ord.set(o._id, j);
     }
   }
-  const tras = () => setTimeout(() => { if (A().tipo === 'laboratorio' && S.view !== 'login') sincronizar(); }, 0);
+  const tras = () => setTimeout(() => { if (A().tipo === 'laboratorio' && S.view !== 'login' && navigator.onLine) sincronizar(); }, 0);
   ['click', 'submit', 'change'].forEach(ev => document.addEventListener(ev, tras));
+
+  /* ---------------- Órdenes sin internet: talonario de contingencia y cola ---------------- */
+  const COLA = () => C.leerLocal('cola') || [];
+  async function siguienteTalonario() {
+    let n = +FX.F.talDesde || 1;
+    try { const {data} = await db.from('documentos').select('numero').eq('empresa_id', EMP()).eq('origen', 'contingencia').order('numero', {ascending: false}).limit(1); if (data && data[0]) n = Math.max(n, +data[0].numero + 1); } catch (_) {}
+    COLA().forEach(v => { n = Math.max(n, v.numero + 1); }); const loc = C.leerLocal('talonario'); if (loc) n = Math.max(n, +loc);
+    FX.n.tal = n;
+  }
+  function ordenSinInternet() {
+    const F = FX.F, n = FX.n.tal;
+    if (!F.talHasta || n < (+F.talDesde || 1) || n > +F.talHasta) { avisar('Sin internet y sin talonario de contingencia: cárgalo en Configuración'); return false; }
+    if (!S.pay) { avisar('Escoge la forma de pago'); return false; }
+    const usdT = ordTotal(), cola = COLA();
+    cola.push({numero: n, fecha: new Date().toISOString(), pat: S.ord.pat, items: S.ord.items.map(i => ({k: i.k, c: i.c})), medico: +S.ord.med ? MEDICOS[+S.ord.med] : null,
+      urg: !!S.ord.urg, vis: S.ord.vis || {}, pagos: [{metodo: S.pay, monto_bs: r2(usdT * S.rate), divisa: ['Efectivo USD', 'Zelle'].includes(S.pay)}]});
+    C.guardarLocal('cola', cola); C.guardarLocal('talonario', n + 1);
+    return n;
+  }
+  let subiendo = false;
+  async function subirCola() {
+    if (subiendo || !navigator.onLine || A().tipo !== 'laboratorio') return;
+    const cola = COLA(); if (!cola.length) return;
+    subiendo = true; let ok = 0; const malas = [];
+    try {
+      await sincronizar();   // primero los pacientes nuevos
+      for (const v of cola) {
+        const pt = patBy(v.pat) || PATS.find(p => p._id && ('P' + p._id) === v.pat);
+        if (!pt || !pt._id) { v.error = 'El paciente todavía no está en la base'; malas.push(v); continue; }
+        const {data, error} = await db.rpc('crear_orden', {p_empresa: EMP(), p_paciente: pt._id, p_items: v.items, p_medico: v.medico, p_urgente: v.urg, p_visita: v.vis,
+          p_pagos: v.pagos, p_origen: 'contingencia', p_numero: v.numero, p_fecha: v.fecha});
+        if (error && !/duplicate/i.test(error.message)) { if (!/Failed to fetch/i.test(error.message)) v.error = C.msg(error); malas.push(v); continue; }
+        ok++;
+        const o = ORD.find(x => x._tal === v.numero);
+        if (o && data) { o._id = data.orden.id; o.n = data.orden.numero; delete o._tal; g.ord.set(o._id, JSON.stringify({estado: data.orden.estado, datos: {}})); }
+      }
+      C.guardarLocal('cola', malas);
+      if (ok) { await sincronizar(); if (C.cargarDocumentos) await C.cargarDocumentos(); render();
+        avisar(`${ok} ${ok === 1 ? 'orden sin conexión subió' : 'órdenes sin conexión subieron'} a la base${malas.length ? `; ${malas.length} con problema` : ''}`); }
+    } finally { subiendo = false; }
+  }
+  window.addEventListener('online', () => setTimeout(subirCola, 1500));
+  setInterval(subirCola, 60000);
 
   /* ---------------- Orden nueva: la base la crea con su factura ---------------- */
   let pase = false, ordenReal = null;
@@ -169,7 +213,12 @@
     const b = e.target.closest('[data-act="emit"]'); if (!b || A().tipo !== 'laboratorio') return;
     if (pase) { pase = false; return; }
     e.preventDefault(); e.stopImmediatePropagation();
-    if (!navigator.onLine) { avisar('Sin internet no se puede facturar todavía: el modo sin conexión viene en una próxima versión'); return; }
+    if (!navigator.onLine) {
+      const n = ordenSinInternet(); if (!n) return;
+      pase = true; b.click();
+      const o = ORD[ORD.length - 1]; if (o && !o._id) o._tal = n;   // se enlaza con la base al subir
+      return;
+    }
     if (!S.pay) { avisar('Escoge la forma de pago'); return; }
     const txt = b.innerHTML; b.disabled = true; b.textContent = 'Creando la orden…';
     try {
@@ -324,14 +373,17 @@
   /* ---------------- Al entrar ---------------- */
   C.alEntrar(async a => {
     if (a.tipo !== 'laboratorio') return;
-    await cargarCatalogo();
-    await cargarMedicos();
-    await cargarPacientes();
-    await cargarOrdenes();
+    const conCopia = async (n, f, guardar, restaurar) => { try { await f(); C.guardarLocal(n, guardar()); } catch (x) { const c = C.leerLocal(n); if (!c) throw x; restaurar(c); } };
+    await conCopia('catalogo', cargarCatalogo, () => ({EX, PERF}), c => { EX.length = 0; EX.push(...c.EX); PERF.length = 0; PERF.push(...c.PERF); refrescarAreas(); });
+    await conCopia('medicos', cargarMedicos, () => MEDICOS, c => { MEDICOS.length = 0; MEDICOS.push(...c); });
+    await conCopia('pacientes', cargarPacientes, () => PATS, c => { PATS.length = 0; PATS.push(...c); });
+    await cargarOrdenes().catch(x => console.error('Cuadre laboratorio: órdenes', x));
     await cargarReactivos().catch(x => console.error('Cuadre laboratorio: reactivos', x));
     armarHistorial();
     ORD.forEach(o => estadoVisto.set(o.n, o.st));
     if (S.ord && typeof newOrd === 'function') S.ord = newOrd();
     S.queue.length = 0;
+    await siguienteTalonario().catch(() => {});
+    setTimeout(subirCola, 2000);
   });
 })();

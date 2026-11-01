@@ -28,7 +28,7 @@ const { chromium } = require('playwright'); const mock = require('./mock');
       T.membresias.push(mm); so.vence = mm.hasta; so.plan_id = pl.id; return { body: { membresia: mm, documento: d, socio: so } }; }
   };
   const ctx = await b.newContext(); const pg = await ctx.newPage(); const errs = []; pg.on('pageerror', e => errs.push(e.message));
-  mock(pg, { tipo: 'crossfit', empresa: 'Azullab CrossFit', tasas: [{ fecha: hoy, tasa: 100 }], rest });
+  mock(pg, { tipo: 'crossfit', empresa: 'Azullab CrossFit', tasas: [{ fecha: hoy, tasa: 100 }], rest, empresaExtra: { talonario_desde: 1, talonario_hasta: 50 } });
   await pg.goto('http://localhost:8765/crossfit.html'); await pg.fill('#lu', 'jose@azullab.com'); await pg.fill('#lp', 'clave-buena'); await pg.click('#loginForm [type=submit]');
   await pg.waitForFunction(() => !document.getElementById('loginForm'), null, { timeout: 8000 });
   ok(await pg.evaluate(() => PLANES.length + SOCIOS.length + PAGOS.length + CLASES.length + ASIS.length) === 0, 'instalación nueva: sin planes, socios, pagos ni clases de muestra');
@@ -64,10 +64,19 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   await pg.evaluate(() => { S.draft = clone(WOD0); go('pizarra'); }); await pg.click('[data-act="publicar"]'); await pg.waitForTimeout(600);
   ok(T.pizarras.length === 1 && T.pizarras[0].publicada === true && T.pizarras[0].wod.blocks.length > 0, 'publicar la pizarra la guarda en la base');
   ok(T.pizarras[0].reservas['06:00'] && T.pizarras[0].reservas['06:00'][0] === T.socios[0].id, 'con la reserva de la clase');
+  // Cobro sin internet
+  await ctx.setOffline(true); await pg.waitForTimeout(300);
+  await pg.evaluate(() => { S.pay.s = SOCIOS[0].id; S.pay.plan = PLANES[0].id; S.pay.met = 'Pago móvil'; S.pay.prod = ''; openModal(payModal()); });
+  await pg.click('[data-act="pagar"]'); await pg.waitForTimeout(500);
+  const colaC = await pg.evaluate(() => JSON.parse(localStorage.getItem('cuadre.crossfit.cola') || '[]'));
+  ok(colaC.length === 1 && colaC[0].numero === 1 && T.rpc.length === 1, 'sin internet el cobro queda en la cola del equipo con el talonario');
+  await pg.evaluate(() => closeModal());
+  await ctx.setOffline(false); await pg.waitForFunction(() => !JSON.parse(localStorage.getItem('cuadre.crossfit.cola') || '[]').length, null, { timeout: 8000 }).catch(() => {});
+  ok(T.rpc[1] && T.rpc[1].p_origen === 'contingencia' && T.rpc[1].p_numero === 1, 'al volver internet sube como contingencia');
   // Recargar
   await pg.reload(); await pg.waitForFunction(() => !document.getElementById('loginForm') && SOCIOS.length === 1, null, { timeout: 8000 }).catch(() => {});
   const est = await pg.evaluate(() => ({ pagos: PAGOS.length, asis: ASIS.length, pub: S.pub, res: CLASES[0] && CLASES[0].res.length, cont: SOCIOS[0].asis }));
-  ok(est.pagos === 1 && est.asis === 1 && est.pub === true && est.res === 1 && est.cont === 1, 'al recargar siguen ahí socio, pago, entrada, reserva y pizarra publicada ' + JSON.stringify(est));
+  ok(est.pagos === 2 && est.asis === 1 && est.pub === true && est.res === 1 && est.cont === 1, 'al recargar siguen ahí socio, pago, entrada, reserva y pizarra publicada ' + JSON.stringify(est));
   for (const v of vistas) { const n = errs.length; await pg.evaluate(x => go(x), v).catch(e => errs.push(v + ': ' + e.message)); if (errs.length > n) console.log('   rota con datos:', v, errs.slice(n).join(' | ').slice(0, 200)); }
   ok(errs.length === 0, 'sin errores de JavaScript ' + errs.join(' | ').slice(0, 300));
   await b.close(); process.exit(fallas ? 1 : 0);
