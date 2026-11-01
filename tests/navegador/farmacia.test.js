@@ -53,6 +53,7 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   ok(await pg.evaluate(() => CLIENTS.length + S.sales.length + FX.docs.length + DROG.length + S.gastos.length + CUENTAS.length + COMPRAS_LIBRO.length + S.fallas.length + S.cots.length + S.movs.length + RX.length + CTRL.length + MEDICOS.length + Object.keys(ALERTAS).length) === 0, 'sin clientes, ventas, facturas, droguerías, gastos, cuentas, compras, fallas, récipes ni libro de controlados de muestra');
   ok(await pg.evaluate(() => EMP.length === 0 && DIF.length === 0), 'nómina y diferencial cambiario sin datos de muestra');
   ok(await pg.evaluate(() => FIN.mes.ventas === 50 && FIN.meses().length === 3 && finanzas().neta === 15), 'Ganancias y gastos usa las cifras de la base (50 − 30 − 5 = 15)');
+  ok(await pg.evaluate(() => FX_SYS.excedente === 0 && typeof FX_SYS.islr === 'function'), 'sin excedente fiscal de muestra (la forma 30 no se reduce con datos inventados)');
   const gr = await pg.evaluate(() => FX_SYS.grupo(FX));
   ok(gr.length === 2 && gr[1].neg === 'Laboratorio' && gr[1].v === 5000 && gr[0].propio, 'el panel del grupo muestra las ventas reales del laboratorio (solo el dueño)');
   const vistas = await pg.evaluate(() => NAV.flatMap(g => g.items.map(i => i[1])));
@@ -155,9 +156,13 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   await pg.evaluate(() => go('loyalty')); ok(!(await pg.textContent('#app')).includes('318'), 'Azul Puntos sin cifras de muestra');
   ok(await pg.evaluate(() => LIBRO.length === FX.docs.length && LIBRO[0][1].startsWith('Factura')), 'el libro de ventas del módulo fiscal sale de las facturas');
   ok(await pg.evaluate(() => NAV.find(g => g.g === 'Operación').items.some(i => i[1] === 'recipes') && NAV.find(g => g.g === 'Administración').items.some(i => i[1] === 'suppliers')), 'Récipes y Proveedores salen de «Fase 2»');
+  // Quincena de hoy y su pago guardado
+  ok(await pg.evaluate(() => /quincena de/.test(QUIN.nombre) && !/octubre de 2026/.test(QUIN.nombre + 'x') && QUIN.id.length === 9), 'la quincena se calcula con la fecha de hoy');
+  await pg.evaluate(() => { S.nomPagos = S.nomPagos || []; S.nomPagos.push({ periodo: QUIN.id, nombre: QUIN.nombre, fecha: new Date().toISOString(), total: 100, personas: [] }); }); await pg.click('body'); await pg.waitForTimeout(500);
+  ok(T.colecciones.some(c => c.nombre === 'privado_nomina_pagos' && c.datos[0].periodo), 'el pago de la quincena queda guardado');
   // Recargar: todo sigue ahí
   await pg.reload(); await pg.waitForFunction(() => !document.getElementById('loginForm') && P.length === 1 && FX.docs.length === 2, null, { timeout: 8000 }).catch(() => {});
-  ok(await pg.evaluate(() => P.length === 1 && P[0].stock === 12 && CLIENTS.length === 1 && FX.docs.length === 2 && FX.docs[1].afecta === FX.docs[0].id), 'al recargar siguen ahí producto, existencia, cliente, factura y su nota');
+  ok(await pg.evaluate(() => S.nomEstado === 'pagada' && P.length === 1 && P[0].stock === 12 && CLIENTS.length === 1 && FX.docs.length === 2 && FX.docs[1].afecta === FX.docs[0].id), 'al recargar siguen ahí producto, existencia, cliente, factura, su nota y la quincena pagada');
   ok(errs.length === 0, 'sin errores de JavaScript ' + errs.join(' | '));
   await b.close(); process.exit(fallas ? 1 : 0);
 })();

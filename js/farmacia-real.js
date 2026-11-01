@@ -353,7 +353,9 @@
     ['equipo_cashea', () => S.cashea, v => { S.cashea.length = 0; S.cashea.push(...v); }, []],
     // Nómina: datos de los empleados y novedades del período (solo dueño y gerente)
     ['privado_nomina_empleados', () => EMPLEADOS(), v => { EMPLEADOS().length = 0; EMPLEADOS().push(...v); }, []],
-    ['privado_nomina_novedades', () => S.nov, v => { Object.keys(S.nov).forEach(k => delete S.nov[k]); Object.assign(S.nov, v); }, {}]];
+    ['privado_nomina_novedades', () => S.nov, v => { Object.keys(S.nov).forEach(k => delete S.nov[k]); Object.assign(S.nov, v); }, {}],
+    // Cada quincena pagada: quién cobró y cuánto (la quincena de hoy queda «pagada» si ya está aquí)
+    ['privado_nomina_pagos', () => S.nomPagos || [], v => { S.nomPagos = v; S.nomEstado = v.some(x => x.periodo === QUIN.id) ? 'pagada' : ''; }, []]];
   const gCol = new Map();
   const puedeCol = n => n.startsWith('equipo_') || ['dueno', 'gerente'].includes(A().rol);
   async function cargarColecciones() {

@@ -1564,12 +1564,15 @@ const FX = (() => {
   M.digito = () => { const m = String(M.F.rif).match(/(\d)\s*$/); return m ? +m[1] : 0; };
   M.cal = () => {
     const g = M.digito(), IVA = [10, 10, 11, 11, 12, 12, 13, 13, 14, 14][g], RET = [3, 3, 4, 4, 5, 5, 6, 6, 9, 9][g];
-    const dd = n => habil(`2026-11-${String(n).padStart(2, '0')}`);
+    /* El mes de hoy se declara en el mes siguiente */
+    const [yy, mm] = Y.hoy.split('-').map(Number), sy = mm === 12 ? yy + 1 : yy, sm = mm === 12 ? 1 : mm + 1;
+    const mes = new Date(yy, mm - 1, 1).toLocaleDateString('es-VE', {month: 'long'}), fin = `${yy}-${String(mm).padStart(2, '0')}-${new Date(yy, mm, 0).getDate()}`;
+    const dd = n => habil(`${sy}-${String(sm).padStart(2, '0')}-${String(n).padStart(2, '0')}`);
     return [
-      {t:'Cierre de los libros de octubre (impresos en el local)', f:'2026-10-31', k:'libros'},
-      {t:'Enterar las retenciones de ISLR de octubre', f:dd(RET), k:'ret'},
+      {t:`Cierre de los libros de ${mes} (impresos en el local)`, f:fin, k:'libros'},
+      {t:`Enterar las retenciones de ISLR de ${mes}`, f:dd(RET), k:'ret'},
       {t:'Relación mensual de retenciones de ISLR (archivo XML)', f:dd(RET), k:'rel'},
-      {t:'Declaración y pago del IVA de octubre (forma 30)', f:dd(IVA), k:'iva'}
+      {t:`Declaración y pago del IVA de ${mes} (forma 30)`, f:dd(IVA), k:'iva'}
     ];
   };
   const daysFrom = iso => Math.round((new Date(iso + 'T00:00:00') - new Date(Y.hoy + 'T00:00:00')) / 86400000);
@@ -1817,7 +1820,7 @@ const FX = (() => {
       {k:'prov', t:'Providencia de la imprenta digital', d:F.prov ? `${F.impNom} (RIF ${F.impRif}) · providencia ${F.prov}${F.provFecha ? ' del ' + fd(F.provFecha) : ''}.` : 'Falta el número de la providencia de autorización.', st:F.prov && !muestra(F.prov) && !muestra(F.impNom) ? 'ok' : 'warn'},
       {k:'tal', t:'Talonario de contingencia en el local', d:`Talonario ${F.talNum}: controles ${F.talSerie}-${p8(F.talDesde)} al ${F.talSerie}-${p8(F.talHasta)}. Quedan ${tl} formatos.`, st:tl > 10 ? 'ok' : 'warn'},
       {k:'libros', t:'Libros en el establecimiento', d:`Libro de Ventas, Libro de Compras${Y.inventario ? ' y registro de inventario (art. 177 del Reglamento de ISLR)' : ''} de ${MES_T}, impresos y en el local (Reglamento de la Ley del IVA, art. 71).`, st:M.chk.libros ? 'ok' : 'pend', man:true},
-      {k:'decl', t:'Declaraciones del mes al día', d:`IVA de septiembre: ${Y.declPrev || 'declarado (muestra)'}. IVA de octubre: borrador listo (${f.pagar > 0 ? 'a pagar ' + B(f.pagar) : 'sin monto a pagar'}), vence el ${fd(cal.find(c => c.k === 'iva').f)} (fecha de muestra).`, st:M.chk.decl ? 'ok' : 'pend', man:true},
+      {k:'decl', t:'Declaraciones del mes al día', d:`IVA del mes anterior: ${Y.declPrev || 'confirmar con el contador'}. IVA de ${new Date(Y.hoy + 'T12:00:00').toLocaleDateString('es-VE', {month: 'long'})}: borrador listo (${f.pagar > 0 ? 'a pagar ' + B(f.pagar) : 'sin monto a pagar'}), vence el ${fd(cal.find(c => c.k === 'iva').f)} (fecha de muestra).`, st:M.chk.decl ? 'ok' : 'pend', man:true},
       {k:'ret', t:'Retenciones enteradas', d:pr.length ? `${pr.length} ${pr.length === 1 ? 'retención' : 'retenciones'} de ISLR de octubre por enterar: ${B(r2(pr.reduce((a, x) => a + x.ret, 0)))}. Vence el ${fd(cal.find(c => c.k === 'ret').f)} (fecha de muestra). Septiembre: enteradas.` : 'Todas las retenciones del mes están enteradas.', st:pr.length ? 'warn' : 'ok'},
       {k:'cont', t:'Contador asignado', d:muestra(F.contador) ? `${F.contador}. Hace falta su nombre, su número de colegio y cómo quiere recibir los libros.` : `${F.contador}.`, st:F.contador && !/por asignar|por definir/i.test(F.contador) ? (muestra(F.contador) ? 'warn' : 'ok') : 'pend'}];
     if (pend.length) L.splice(3, 0, {k:'rep', t:'Facturas de contingencia reportadas', d:`${pend.length} ${pend.length === 1 ? 'factura del talonario espera' : 'facturas del talonario esperan'} ser enviadas en PDF a la imprenta (00093, art. 7).`, st:'warn'});
@@ -1863,7 +1866,7 @@ const FX = (() => {
       <p class="small muted" style="margin:10px 0 0">Hasta el 18-04-2027 rige la Providencia 0071; desde el 19-04-2027, la SNAT/2026/00093, que deja elegir el medio de emisión. <i>El paso a imprenta digital lo tramita el contador ante el SENIAT.</i></p></div></section></div>`;
 
   /* ---------- Tablero del dueño: calendario y Grupo Azullab ---------- */
-  M.calPanel = () => `<section class="panel"><div class="hd"><h2>Calendario fiscal · noviembre 2026</h2><span class="pill warn">Muestra: confirmar</span></div>
+  M.calPanel = () => `<section class="panel"><div class="hd"><h2>Calendario fiscal · ${(() => { const [a, b] = Y.hoy.split('-').map(Number); return new Date(b === 12 ? a + 1 : a, b === 12 ? 0 : b, 1).toLocaleDateString('es-VE', {month: 'long', year: 'numeric'}); })()}</h2><span class="pill warn">Muestra: confirmar</span></div>
     <div class="bd flush tbl-wrap keep">${M.calTabla()}</div><p class="base-legal">Fechas de muestra para ${E(M.F.razon)} según el último dígito del RIF (${M.digito()}). Confirmar con el calendario vigente del SENIAT y con el contador.</p></section>`;
   M.grupoPanel = () => { const G = Y.grupo(M), t = r2(G.reduce((a, g) => a + g.v, 0));
     return `<section class="panel"><div class="hd"><h2>Grupo Azullab · solo gerencia</h2><span class="pill info">No es un documento fiscal</span></div>

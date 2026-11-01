@@ -188,6 +188,17 @@
   }
   C.alEntrar(async () => { try { await cargarGrupo(); } catch (x) { console.error('Cuadre: grupo', x); } });
 
+  /* Datos fiscales de muestra del motor que afectan cálculos: fuera.
+     El excedente del mes anterior y la última declaración los pone el contador (colección privado_fiscal). */
+  if (typeof FX_SYS === 'object') {
+    FX_SYS.excedente = 0; FX_SYS.declPrev = '';
+  }
+  C.alEntrar(async a => {
+    if (typeof FX_SYS === 'object' && a.tipo !== 'farmacia') { FX_SYS.compras = () => []; FX_SYS.islr = () => []; }   // laboratorio y CrossFit: sin módulo de compras todavía
+    const {data} = await db.from('colecciones').select('datos').eq('empresa_id', A().empresa_id).eq('nombre', 'privado_fiscal').maybeSingle();
+    if (data && data.datos && typeof FX_SYS === 'object') { FX_SYS.excedente = +data.datos.excedente || 0; FX_SYS.declPrev = data.datos.declPrev || ''; }
+  });
+
   /* Notas de crédito y débito: las emite la base; la pantalla arma el documento con ese número */
   let notaPase = false, notaReal = null;
   if (typeof FX === 'object' && FX.emitir) {

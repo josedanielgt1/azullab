@@ -21,16 +21,17 @@ Las pantallas de `farmacia.html`, `laboratorio.html` y `crossfit.html` son las m
 | Farmacia: bancos, puntos y alertas | Cuentas y bancos con lo cobrado hoy, deuda con droguerías y Cashea guardado; Azul Puntos con los clientes reales; libro de ventas del módulo fiscal con las facturas; alertas de alergias que registra la regente y la caja frena sin ver el motivo | ✅ |
 | Laboratorio: catálogo, reactivos e historial | Editor de exámenes (precio, tubo, parámetros, referencias por sexo, reactivo que gasta) y de perfiles; entrada y corrección de reactivos; al validar se descuenta el reactivo; historial del paciente con sus órdenes | ✅ |
 | Farmacia: sin internet | Detecta sola el corte; vende con el talonario de contingencia (número y control), guarda la venta en el equipo y la sube sola al volver con su fecha y la tasa de ese día; abre con la copia local del catálogo; publicado en https queda instalado en el equipo | ✅ |
+| Farmacia: nómina | Empleados, novedades y pagos de cada quincena guardados; la quincena, el calendario de pagos y las liquidaciones usan la fecha de hoy | ✅ |
+| Los tres: calendario fiscal y forma 30 | Calendario fiscal del mes en curso; sin excedente de crédito fiscal, libro de compras ni retenciones de muestra | ✅ |
 | Los tres: panel del grupo | El dueño ve las ventas reales del mes de los tres negocios | ✅ |
 
-Pruebas: **229 de base de datos** (`supabase/tests/correr.sh`) y **140 de navegador** (`tests/navegador/correr.sh`).
+Pruebas: **229 de base de datos** (`supabase/tests/correr.sh`) y **145 de navegador** (`tests/navegador/correr.sh`).
 
 ## Qué todavía muestra datos de muestra
 
 | Negocio | Módulo | Qué falta |
 | --- | --- | --- |
 | Farmacia | Diferencial cambiario | Necesita los saldos diarios del banco (hoy queda vacío) |
-| Farmacia | Nómina | Empleados y novedades ya se guardan; falta guardar los pagos de cada quincena y los recibos emitidos |
 | Farmacia | Recordatorios de tratamientos continuos por WhatsApp | Fase 2 |
 | Farmacia | Cotizaciones, fallas, Cashea, Azul Puntos, tienda web, sucursales | Guardar o apagar hasta la fase 2 |
 | Farmacia | Tienda web y sucursales | Pantallas de muestra de la fase 2, marcadas como tal |
@@ -38,6 +39,8 @@ Pruebas: **229 de base de datos** (`supabase/tests/correr.sh`) y **140 de navega
 | Farmacia | Cuentas y bancos | Conciliación con el estado de cuenta y diferencial cambiario: necesitan los movimientos del banco |
 | Laboratorio | Portal, equipos, convenios, calidad y grupo | Pantallas de muestra de la fase 2, marcadas como tal |
 | Los tres | Páginas «Alcance de la propuesta», «Alcance y regalo», «Fase 2» | Decidir si se quitan para el cliente |
+| Los tres | Excedente de crédito fiscal del mes anterior | Lo carga el contador (hoy queda en 0 hasta tener la pantalla) |
+| Laboratorio y CrossFit | Libro de compras y retenciones de ISLR | Hace falta registrar sus compras y gastos (hoy vacíos) |
 | Laboratorio y CrossFit | Trabajo sin internet | La farmacia ya vende sin internet; en el laboratorio y el CrossFit todavía hace falta conexión para cobrar |
 | CrossFit | App del socio | Vuelve cuando los socios tengan su usuario |
 

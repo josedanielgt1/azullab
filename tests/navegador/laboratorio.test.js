@@ -34,6 +34,7 @@ const { chromium } = require('playwright'); const mock = require('./mock');
     await pg.waitForFunction(() => !document.getElementById('loginForm'), null, { timeout: 8000 }); };
   await entrar();
   ok(await pg.evaluate(() => EX.length + PERF.length + PATS.length + ORD.length + REAC.length + Object.keys(HIST).length) === 0, 'instalación nueva: sin exámenes, pacientes, órdenes, reactivos ni historial de muestra');
+  ok(await pg.evaluate(() => FX_SYS.compras().length === 0 && FX_SYS.islr().length === 0 && FX_SYS.excedente === 0), 'sin libro de compras, retenciones ni excedente de muestra');
   const vistas = await pg.evaluate(() => NAV.flatMap(g => g.items.map(i => i[1])));
   for (const v of vistas) { const n = errs.length; await pg.evaluate(x => go(x), v).catch(e => errs.push(v + ': ' + e.message)); if (errs.length > n) console.log('   rota vacía:', v, errs.slice(n).join(' | ').slice(0, 200)); }
   ok(errs.length === 0, `las ${vistas.length} pantallas abren con todo vacío`);
