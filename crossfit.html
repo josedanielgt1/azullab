@@ -809,7 +809,7 @@ function fig(id, cls='fig'){
 /* ======================= Datos de muestra ======================= */
 const TODAY = new Date(2026, 9, 27);
 const HOY = '27-10-2026';
-const RATE = 881.88;
+let RATE = 881.88;  /* la reemplaza la tasa BCV de la base al entrar */
 const PLANES = [
   {id:'ilim', n:'Mensual ilimitado', p:35, d:30},
   {id:'3x', n:'Mensual 3 veces por semana', p:28, d:30},
@@ -1935,4 +1935,6 @@ const FX = (() => {
 FX.boot();
 </script>
 <!-- FX:FIN -->
+<script src="js/cuadre-comun.js"></script>
+<script src="js/cuadre-comun.js"></script>
 </body></html>

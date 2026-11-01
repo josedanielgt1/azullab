@@ -39,8 +39,11 @@ window.Cuadre = (() => {
     return r;
   }
 
+  const ganchos = [];
   const api = {
-    listo, db, destino: '', acceso: null,
+    listo, db, destino: '', acceso: null, ROLES, msg, esc,
+    /* Lo que se carga de la base al entrar, antes de abrir la primera pantalla */
+    alEntrar(fn) { ganchos.push(fn); },
 
     /* El formulario de entrada (lo mismo en los tres sistemas) */
     formulario(subtitulo) {
@@ -89,14 +92,18 @@ window.Cuadre = (() => {
        op.abrir(acceso): pone el rol y el nombre en el estado y abre la primera pantalla */
     montar(op) {
       const err = t => { const p = document.getElementById('login-err'); if (p) { p.textContent = t; p.hidden = !t; } };
-      const abrir = a => { api.acceso = a; op.abrir(a); };
+      const abrir = async a => {
+        api.acceso = {...a, tipo: op.tipo};
+        for (const g of ganchos) { try { await g(api.acceso); } catch (x) { console.error('Cuadre: al entrar', x); } }
+        op.abrir(a);
+      };
 
       document.addEventListener('submit', async e => {
         if (e.target.id !== 'loginForm') return;
         e.preventDefault(); e.stopImmediatePropagation();
         const b = e.target.querySelector('[type=submit]');
         err(''); b.disabled = true; b.textContent = 'Entrando…';
-        try { abrir(await api.entrar(op.tipo, document.getElementById('lu').value, document.getElementById('lp').value)); }
+        try { await abrir(await api.entrar(op.tipo, document.getElementById('lu').value, document.getElementById('lp').value)); }
         catch (x) { err(msg(x)); b.disabled = false; b.textContent = 'Entrar'; }
       }, true);
 
