@@ -19,7 +19,7 @@ window.Cuadre = (() => {
   const ROLES = {
     farmacia:    {dueno: 'Dueño', gerente: 'Dueño', regente: 'Farmacéutico', cajero: 'Cajero', almacen: 'Almacén'},
     laboratorio: {dueno: 'Dueño', gerente: 'Dueño', bioanalista: 'Bioanalista', atencion: 'Atención', toma_muestras: 'Toma de muestras'},
-    crossfit:    {dueno: 'Dueño', gerente: 'Dueño', coach: 'Coach'}
+    crossfit:    {dueno: 'Dueño', gerente: 'Dueño', coach: 'Coach', socio: 'Socio'}
   };
   const ERR = {
     'Invalid login credentials': 'Correo o clave incorrectos',

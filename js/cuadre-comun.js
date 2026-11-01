@@ -13,7 +13,7 @@
   C.comunListo = true;
   const db = C.db, esc = C.esc;
   const RTXT = {dueno: 'Dueño', gerente: 'Gerente', regente: 'Farmacéutico regente', cajero: 'Cajero', almacen: 'Almacén',
-                atencion: 'Atención', bioanalista: 'Bioanalista', toma_muestras: 'Toma de muestras', coach: 'Coach'};
+                atencion: 'Atención', bioanalista: 'Bioanalista', toma_muestras: 'Toma de muestras', coach: 'Coach', socio: 'Socio'};
   const DEL_SISTEMA = {farmacia: ['gerente', 'regente', 'cajero', 'almacen'], laboratorio: ['gerente', 'atencion', 'bioanalista', 'toma_muestras'], crossfit: ['gerente', 'coach']};
   const CAJAS = {farmacia: ['Caja 1', 'Caja 2', 'Almacén', 'Todas las cajas']};
   const hoyVE = () => new Intl.DateTimeFormat('en-CA', {timeZone: 'America/Caracas'}).format(new Date());
@@ -300,7 +300,7 @@
   async function cargarEquipo() {
     EQ.cargando = true; EQ.error = '';
     const {data, error} = await db.rpc('equipo', {p_empresa: A().empresa_id});
-    EQ.cargando = false; EQ.lista = error ? [] : data; EQ.error = error ? C.msg(error) : '';
+    EQ.cargando = false; EQ.lista = error ? [] : data.filter(u => u.rol !== 'socio');   // los socios se manejan desde su ficha EQ.error = error ? C.msg(error) : '';
     if (S.view === 'users') repintar();
   }
   const rolesOfrecidos = () => (soyDueno() ? ['dueno'] : []).concat(DEL_SISTEMA[A().tipo] || []);
@@ -344,6 +344,7 @@
       <div class="field"><label for="cq-clave">Clave nueva (déjala vacía para no cambiarla)</label><input id="cq-clave" class="input" type="text" minlength="8" autocomplete="off"></div>
       <p class="small muted" style="margin:0">${esc(u.correo)}</p>${pie('Guardar')}</form>`); };
 
+  C.llamarUsuarios = cuerpo => llamarUsuarios(cuerpo);
   async function llamarUsuarios(cuerpo) {
     const {data, error} = await db.functions.invoke('usuarios', {body: cuerpo});
     if (error) {

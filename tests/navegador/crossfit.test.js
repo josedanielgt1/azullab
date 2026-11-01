@@ -79,5 +79,24 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   ok(est.pagos === 2 && est.asis === 1 && est.pub === true && est.res === 1 && est.cont === 1, 'al recargar siguen ahí socio, pago, entrada, reserva y pizarra publicada ' + JSON.stringify(est));
   for (const v of vistas) { const n = errs.length; await pg.evaluate(x => go(x), v).catch(e => errs.push(v + ': ' + e.message)); if (errs.length > n) console.log('   rota con datos:', v, errs.slice(n).join(' | ').slice(0, 200)); }
   ok(errs.length === 0, 'sin errores de JavaScript ' + errs.join(' | ').slice(0, 300));
+  // App del socio: entra con su correo, ve su app y reserva por la función segura
+  { const c2 = await b.newContext(); const p2 = await c2.newPage(); const e2 = []; p2.on('pageerror', e => e2.push(e.message)); const R = [];
+    mock(p2, { tipo: 'crossfit', empresa: 'Azullab CrossFit', rol: 'socio', tasas: [{ fecha: hoy, tasa: 100 }], rest: async (st, { m, p, b: body, q }) => {
+      const uno = (q.headers()['accept'] || '').includes('vnd.pgrst.object');
+      if (p === '/rest/v1/socios') return { body: [{ id: 7, empresa_id: 'E', cedula: 'V-24511802', nombre: 'Andrea Peña', vence: mas(hoy, 20), plan_id: 1, datos: {}, user_id: 'u-d' }] };
+      if (p === '/rest/v1/clases') return { body: [{ id: 1, hora: '06:00', coach: 'Luis', cupo: 14 }] };
+      if (p === '/rest/v1/planes') return { body: [{ id: 1, nombre: 'Mensual', precio: 35, dias: 30 }] };
+      if (p === '/rest/v1/pizarras') return { body: uno ? { fecha: hoy, wod: null, publicada: true, reservas: {}, resultados: [] } : [] };
+      if (p.startsWith('/rest/v1/rpc/reservar_clase') || p.startsWith('/rest/v1/rpc/anotar_resultado')) { R.push({ p, body }); return { body: { reservado: true } }; }
+      if (m === 'GET' && p.startsWith('/rest/v1/') && !p.includes('rpc')) return { body: uno ? null : [] };
+    } });
+    await p2.goto('http://localhost:8765/crossfit.html#socio'); await p2.fill('#lu', 'andrea@correo.com'); await p2.fill('#lp', 'clave-buena'); await p2.click('#loginForm [type=submit]');
+    await p2.waitForFunction(() => !document.getElementById('loginForm'), null, { timeout: 8000 }).catch(() => {});
+    ok(await p2.evaluate(() => S.role === 'Socio' && S.view === 'app' && S.me === 'S7'), 'el socio entra con su correo directo a su app');
+    await p2.evaluate(() => { const c = CLASES.find(x => x.h === '06:00'); c.res.push(S.me); render(); }); await p2.click('body'); await p2.waitForTimeout(500);
+    ok(R.some(r => r.p.endsWith('reservar_clase') && r.body.p_hora === '06:00'), 'reservar va por la función segura (no toca la pizarra)');
+    await p2.evaluate(() => { RES.push({ s: S.me, t: '8:42', rx: true }); render(); }); await p2.click('body'); await p2.waitForTimeout(500);
+    ok(R.some(r => r.p.endsWith('anotar_resultado') && r.body.p_tiempo === '8:42'), 'anotar su resultado también');
+    ok(e2.length === 0, 'app del socio sin errores de JavaScript ' + e2.join(' | ').slice(0, 200)); await c2.close(); }
   await b.close(); process.exit(fallas ? 1 : 0);
 })();

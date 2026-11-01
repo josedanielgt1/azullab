@@ -33,7 +33,7 @@
     const res = (CLASES.reduce((m, c) => (m[c.h] = c.res, m), {}));
     CLASES.length = 0; cl.forEach(r => CLASES.push({h: r.hora, coach: r.coach || '', cupo: r.cupo, res: res[r.hora] || [], _id: r.id}));
   }
-  const SUYOS = ['id', 'n', 'ci', 'tel', 'plan', 'v', 'nac', 'niv', 'asis', '_id'];
+  const SUYOS = ['id', 'n', 'ci', 'tel', 'plan', 'v', 'nac', 'niv', 'asis', '_id', '_uid'];
   const socFila = s => { const datos = {}; Object.keys(s).forEach(k => { if (!SUYOS.includes(k)) datos[k] = s[k]; });
     return {cedula: s.ci, nombre: s.n, telefono: s.tel && s.tel !== '—' ? s.tel : null, plan_id: s.plan ? +s.plan || null : null, nacimiento: s.nac || null, nivel: s.niv || null, datos}; };
   async function cargarSocios() {
@@ -43,7 +43,7 @@
     const cuenta = {}; as.forEach(a => { cuenta[a.socio_id] = (cuenta[a.socio_id] || 0) + 1; });
     SOCIOS.length = 0; g.soc.clear();
     rs.forEach(r => { const s = {emer: '—', les: 'Ninguna', ...(r.datos || {}), id: sid(r.id), n: r.nombre, ci: r.cedula, tel: r.telefono || '—', plan: r.plan_id ? String(r.plan_id) : '',
-      v: r.vence || ayer(), nac: r.nacimiento || '', niv: r.nivel || '', asis: cuenta[r.id] || 0, _id: r.id};
+      v: r.vence || ayer(), nac: r.nacimiento || '', niv: r.nivel || '', asis: cuenta[r.id] || 0, _id: r.id, ...(r.user_id ? {_uid: true} : {})};
       SOCIOS.push(s); g.soc.set(s._id, JSON.stringify(socFila(s))); });
   }
   async function cargarPagos() {
@@ -81,6 +81,7 @@
     return enCurso;
   }
   async function subir() {
+    if (soySocio()) return subirSocio();
     for (const s of SOCIOS.slice()) {
       const f = socFila(s), j = JSON.stringify(f);
       if (s._id && g.soc.get(s._id) === j) continue;
@@ -182,6 +183,43 @@
     finally { if (b.isConnected && b.textContent === 'Cobrando…') { b.disabled = false; b.innerHTML = txt; } }
   }, true);
 
+  /* ---------------- App del socio ---------------- */
+  const soySocio = () => A().rol === 'socio';
+  const gSocio = {res: '', resul: ''};
+  const firmaSocio = () => ({res: CLASES.filter(c => c.res.includes(S.me)).map(c => c.h).sort().join(','), resul: JSON.stringify(RES.find(r => r.s === S.me) || null)});
+  async function subirSocio() {
+    const f = firmaSocio(), antes = new Set(gSocio.res ? gSocio.res.split(',') : []), ahora = new Set(f.res ? f.res.split(',') : []);
+    for (const h of new Set([...antes, ...ahora])) {
+      if (antes.has(h) === ahora.has(h)) continue;
+      const {error} = await db.rpc('reservar_clase', {p_empresa: EMP(), p_hora: h});
+      if (error) { await cargarDia(); render(); throw error; }
+    }
+    gSocio.res = f.res;
+    if (f.resul !== gSocio.resul) { const r = RES.find(x => x.s === S.me);
+      if (r) { const {error} = await db.rpc('anotar_resultado', {p_empresa: EMP(), p_tiempo: r.t, p_rx: !!r.rx}); if (error) throw error; }
+      gSocio.resul = f.resul; }
+  }
+  // Ficha del socio: dar acceso a la app (dueño o gerente)
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-act="ficha"]'); if (!b || !['dueno', 'gerente'].includes(A().rol)) return;
+    setTimeout(() => {
+      const s = socBy(b.dataset.s), bd = document.querySelector('#modal .bd'); if (!s || !bd || bd.querySelector('#cfx-app')) return;
+      bd.insertAdjacentHTML('beforeend', `<div id="cfx-app" style="border-top:1px solid var(--renglon);padding-top:10px;display:grid;gap:8px">${s._uid
+        ? '<span class="pill ok" style="justify-self:start">Tiene acceso a la app del socio</span>'
+        : `<b>App del socio</b><div class="grid g2" style="gap:8px"><input id="cfx-ac" class="input" type="email" placeholder="Correo del socio"><input id="cfx-ak" class="input" placeholder="Clave inicial (mínimo 8)"></div>
+           <button class="btn" data-act="cfx-dar" data-s="${s.id}" style="justify-self:start">${ic('plus')}Dar acceso a la app</button>`}</div>`);
+    }, 0);
+  });
+  document.addEventListener('click', async e => {
+    const b = e.target.closest('[data-act="cfx-dar"]'); if (!b) return;
+    e.stopImmediatePropagation();
+    const s = socBy(b.dataset.s), correo = (document.getElementById('cfx-ac').value || '').trim(), clave = document.getElementById('cfx-ak').value || '';
+    if (!correo || clave.length < 8) { avisar('Escribe el correo y una clave de al menos 8 caracteres'); return; }
+    try { await C.llamarUsuarios({accion: 'crear', empresa_id: EMP(), nombre: s.n, correo, clave, rol: 'socio', socio_id: s._id});
+      s._uid = true; closeModal(); avisar(`${s.n} ya puede entrar a la app con su correo`); }
+    catch (x) { avisar(C.msg(x)); }
+  }, true);
+
   /* ---------------- Planes, productos y horario (dueño) ---------------- */
   const TIPOS = {
     plan: {tabla: 'planes', titulo: 'Plan', lista: () => PLANES, campos: [['n', 'nombre', 'Nombre', 'text'], ['p', 'precio', 'Precio en $ (sin IVA)', 'num'], ['d', 'dias', 'Días que dura', 'int']]},
@@ -242,6 +280,7 @@
     await siguienteTalonario().catch(() => {});
     setTimeout(subirCola, 2000);
     if (S.pay) { S.pay.s = SOCIOS[0] ? SOCIOS[0].id : ''; S.pay.plan = PLANES[0] ? PLANES[0].id : ''; S.pay.prod = ''; }
-    S.me = SOCIOS[0] ? SOCIOS[0].id : null;
+    S.me = SOCIOS[0] ? SOCIOS[0].id : null;   // el socio solo ve su ficha: es él
+    if (soySocio()) { S.user = SOCIOS[0] ? SOCIOS[0].n : a.nombre; S.tab = 'hoy'; const f = firmaSocio(); gSocio.res = f.res; gSocio.resul = f.resul; }
   });
 })();

@@ -81,4 +81,32 @@ insert into pizarras (empresa_id, fecha, wod, publicada) values ((select x from 
 select prueba.igual('el coach publica la pizarra', (select wod->>'titulo' from pizarras), 'Fran');
 select prueba.debe_fallar('el coach no ve los cobros', $$ do $x$ begin if (select count(*) from membresias) = 0 then raise exception 'oculto'; end if; end $x$ $$, 'oculto');
 select prueba.debe_fallar('ni borra socios', $$ delete from socios $$, 'permission denied');
+\echo '--- App del socio'
+reset role;
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000e1', 'andrea@correo.com'), ('00000000-0000-0000-0000-0000000000e2', 'otro@correo.com');
+insert into miembros (user_id, empresa_id, rol) values ('00000000-0000-0000-0000-0000000000e1', (select x from ids), 'socio'), ('00000000-0000-0000-0000-0000000000e2', (select x from ids), 'socio');
+insert into socios (empresa_id, cedula, nombre, vence) values ((select x from ids), 'V-2', 'Otro socio', current_date + 10);
+update socios set user_id = '00000000-0000-0000-0000-0000000000e1' where nombre = 'Andrea Peña';
+update socios set user_id = '00000000-0000-0000-0000-0000000000e2' where nombre = 'Otro socio';
+set role authenticated;
+select prueba.como('00000000-0000-0000-0000-0000000000e1');
+select prueba.igual('el socio entra con su rol', (select rol::text from mi_acceso('crossfit')), 'socio');
+select prueba.igual('ve solo su ficha', (select string_agg(nombre, ',') from socios), 'Andrea Peña');
+select prueba.igual('ve la pizarra', (select wod->>'titulo' from pizarras), 'Fran');
+select prueba.igual('no ve facturas', (select count(*) from documentos), 0::bigint);
+select prueba.igual('ni los cobros', (select count(*) from membresias), 0::bigint);
+select prueba.igual('ni al equipo', (select count(*) from miembros), 1::bigint);
+select prueba.igual('ni la entrada de otros', (select count(*) from asistencias), 1::bigint);
+select prueba.debe_fallar('no factura', $$ select emitir_documento((select x from ids), 'FAC', '{"rif":"V-1","nombre":"X"}', '[{"descripcion":"x","cantidad":1,"precio_usd":1,"alicuota":"G"}]') $$, 'No tienes permiso');
+select prueba.debe_fallar('no cambia la pizarra', $$ do $x$ begin update pizarras set wod = '{}'; if not found then raise exception 'sin filas'; end if; end $x$ $$, 'sin filas');
+select prueba.igual('reserva su clase', (select reservar_clase((select x from ids), '06:00')->>'reservado'), 'true');
+select prueba.igual('queda en la lista de la clase', (select reservas->'06:00' @> to_jsonb((select id from socios where nombre = 'Andrea Peña')) from pizarras), true);
+select prueba.igual('vuelve a tocar y suelta el cupo', (select reservar_clase((select x from ids), '06:00')->>'reservado'), 'false');
+select anotar_resultado((select x from ids), '8:42', true);
+select prueba.igual('anota su resultado', (select r->>'t' from pizarras, jsonb_array_elements(resultados) r), '8:42');
+select anotar_resultado((select x from ids), '8:30', true);
+select prueba.igual('corregirlo no lo duplica', (select jsonb_array_length(resultados) from pizarras), 1);
+select prueba.debe_fallar('tiempo con formato', $$ select anotar_resultado((select x from ids), 'rápido', true) $$, 'Escribe el tiempo');
+select prueba.como('00000000-0000-0000-0000-0000000000e2');
+select prueba.igual('el otro socio no ve la ficha de Andrea', (select count(*) from socios where nombre = 'Andrea Peña'), 0::bigint);
 \echo '--- Todas las pruebas pasaron'

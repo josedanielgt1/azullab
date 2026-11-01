@@ -1359,7 +1359,8 @@ document.addEventListener('keydown', e => {
 Cuadre.montar({tipo:'crossfit', abrir:a => { S.role = a.rolTxt; S.user = a.nombre; go(Cuadre.ir(can, HOME[S.role])); }});
 (function init(){
   const h = (location.hash||'').slice(1);
-  if (h && V[h] && h!=='login') Cuadre.destino = h;  /* la app del socio vuelve cuando los socios tengan usuario */
+  if (h==='socio') Cuadre.destino = 'app';  /* el socio entra con su correo y abre su app */
+  else if (h && V[h] && h!=='login') Cuadre.destino = h;
   if (!document.getElementById('fx-css')) render();  /* con el motor fiscal (abajo), es él quien dibuja la primera pantalla */
 })();
 

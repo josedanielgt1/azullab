@@ -5,7 +5,7 @@
 // Subirla: Supabase → Edge Functions → Deploy a new function → Via Editor,
 // nombre "usuarios", pegar este archivo y Deploy.
 //
-// POST {accion:"crear", empresa_id, correo, clave, nombre, rol, caja?}
+// POST {accion:"crear", empresa_id, correo, clave, nombre, rol, caja?, socio_id?}
 // POST {accion:"clave", empresa_id, user_id, clave}
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -16,7 +16,7 @@ const CORS = {
 };
 const responder = (cuerpo: unknown, status = 200) =>
   new Response(JSON.stringify(cuerpo), { status, headers: { ...CORS, "Content-Type": "application/json" } });
-const ROLES = ["dueno", "gerente", "regente", "cajero", "almacen", "atencion", "bioanalista", "coach", "toma_muestras"];
+const ROLES = ["dueno", "gerente", "regente", "cajero", "almacen", "atencion", "bioanalista", "coach", "toma_muestras", "socio"];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -48,6 +48,8 @@ Deno.serve(async (req) => {
     // El perfil lo crea el trigger nuevo_usuario; aquí se da el rol en este negocio
     const { error: e2 } = await admin.from("miembros").insert({ user_id: data.user.id, empresa_id: b.empresa_id, rol, caja: b.caja || null });
     if (e2) { await admin.auth.admin.deleteUser(data.user.id); return responder({ error: e2.message }, 500); }
+    // Socio del CrossFit: su usuario queda ligado a su ficha
+    if (rol === "socio" && b.socio_id) await admin.from("socios").update({ user_id: data.user.id }).eq("id", b.socio_id).eq("empresa_id", b.empresa_id);
     return responder({ ok: true, user_id: data.user.id });
   }
 
