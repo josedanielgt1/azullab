@@ -37,12 +37,14 @@ Pruebas: **255 de base de datos** (`supabase/tests/correr.sh`) y **159 de navega
 | --- | --- | --- |
 | Farmacia | Diferencial cambiario | Necesita los saldos diarios del banco (hoy queda vacío) |
 | Farmacia | Recordatorios de tratamientos continuos por WhatsApp | Fase 2 |
-| Farmacia | Cotizaciones, fallas, Cashea, Azul Puntos, tienda web, sucursales | Guardar o apagar hasta la fase 2 |
 | Farmacia | Tienda web y sucursales | Pantallas de muestra de la fase 2, marcadas como tal |
 | Farmacia | Azul Puntos | Los puntos ya se suman; falta el canje en la caja (fase 2) |
-| Farmacia | Cuentas y bancos | Conciliación con el estado de cuenta y diferencial cambiario: necesitan los movimientos del banco |
+| Farmacia | Cuentas y bancos | Conciliación con el estado de cuenta: necesita los movimientos del banco |
 | Laboratorio | Portal, equipos, convenios, calidad y grupo | Pantallas de muestra de la fase 2, marcadas como tal |
 | Los tres | Páginas «Alcance de la propuesta», «Alcance y regalo», «Fase 2» | Decidir si se quitan para el cliente |
+| Los tres | Imprenta digital | Conectar al proveedor cuando lo escojan (hoy las facturas quedan «pendiente de imprenta») |
+
+Guía para instalar y revisar: `INSTALACION.md`.
 
 ## Lo que hace falta de ti
 
