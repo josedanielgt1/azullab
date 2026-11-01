@@ -1065,7 +1065,9 @@ function pickModal(bi){
 
 /* ---------- Clases y entrada ---------- */
 V.clases = () => {
-  const c = CLASES.find(x=>x.h===S.clase), k = S.kio;
+  const c = CLASES.find(x=>x.h===S.clase) || CLASES[0], k = S.kio;
+  if (!c) return '<p class="lead">Todavía no hay horario de clases. El dueño lo arma en Membresías y pagos.</p>';
+  S.clase = c.h;
   const en = ASIS.filter(a=>a.c===c.h).map(a=>a.s);
   return `<div class="grid g2">
     <section class="panel"><div class="hd"><h2>Marcar entrada</h2><span class="small muted">Tablet de la recepción</span></div>
@@ -1288,6 +1290,7 @@ document.addEventListener('click', e => {
       if (!s) { S.kio = {ok:false}; render(); break; }
       if (estado(s)==='Vencida') { S.kio = {ok:false, s:s.id}; render(); break; }
       const t = nowT(), c = CLASES.find(x=>x.h>=t.slice(0,3)+'00') || CLASES[CLASES.length-1];
+      if (!c) { toast('Primero arma el horario de clases en Membresías y pagos'); break; }
       if (!c.res.includes(s.id)) c.res.push(s.id);
       if (!ASIS.some(x=>x.s===s.id && x.c===c.h)) { ASIS.push({s:s.id, t, c:c.h}); s.asis++; }
       S.kio = {ok:true, s:s.id, t, c:c.h}; S.clase = c.h; render(); break; }
@@ -1296,7 +1299,7 @@ document.addEventListener('click', e => {
     case 'cobrar': if (b.dataset.s) S.pay.s = b.dataset.s; openModal(payModal()); break;
     case 'met': S.pay.met = b.dataset.m; openModal(payModal()); break;
     case 'pagar': { const s = socBy(S.pay.s), pl = planBy(S.pay.plan);
-      const base = estado(s)==='Vencida' ? '2026-10-27' : s.v, v0 = s.v;
+      const base = estado(s)==='Vencida' ? new Intl.DateTimeFormat('en-CA', {timeZone:'America/Caracas'}).format(new Date()) : s.v, v0 = s.v;
       /* La factura la emite el motor fiscal común, con IVA de 16 % (imprenta digital, o talonario sin internet) */
       const pr = FX_SYS.PROD.find(x=>x.id===S.pay.prod), lines = [FX_SYS.planLine(pl, base, RATE)];
       if (pr) lines.push({d:pr.n, q:S.pay.pq||1, pu:Math.round(pr.p*RATE*100)/100, a:'G'});
@@ -1304,7 +1307,7 @@ document.addEventListener('click', e => {
       const doc = FX.emitir({cli:{n:s.n, id:s.ci, tel:s.tel}, lines, tasa:RATE, div, ctrl:ce?ce.value:'', origen:{pago:true}});
       doc.pagos = div ? [{k:S.pay.met, usd:div}] : [{k:S.pay.met, bs:doc.t.total}];
       s.v = addDays(base, pl.d); s.plan = pl.id;
-      PAGOS.push({f:'2026-10-27', r:doc.num, s:s.id, plan:pl.id, usd:pl.p, tot:totUSD, met:S.pay.met, doc:doc.id, v0}); S.rec = FX.n.FAC; S.pay.prod = '';
+      PAGOS.push({f:new Intl.DateTimeFormat('en-CA', {timeZone:'America/Caracas'}).format(new Date()), r:doc.num, s:s.id, plan:pl.id, usd:pl.p, tot:totUSD, met:S.pay.met, doc:doc.id, v0}); S.rec = FX.n.FAC; S.pay.prod = '';
       render(); openModal(payModal({doc:doc.id})); break; }
     case 'aviso': openModal(avisoModal(b.dataset.s)); break;
     case 'avisar': closeModal(); toast(`Aviso enviado a ${socBy(b.dataset.s).tel}`); break;
@@ -1342,10 +1345,11 @@ document.addEventListener('submit', e => {
     if (!n || !ciRaw) { toast('Falta el nombre o la cédula'); return; }
     if (SOCIOS.some(s=>s.ci.replace(/\D/g,'')===ciRaw)) { toast('Esa cédula ya está registrada'); return; }
     const app = $('#n-app').checked;
-    const pl = planBy($('#n-p').value), id = 'S' + String(SOCIOS.length+1).padStart(2,'0');
-    SOCIOS.push({id, n, ci:'V-'+ciRaw.replace(/\B(?=(\d{3})+(?!\d))/g,'.'), tel:$('#n-t').value.trim()||'—', plan:pl.id, v:addDays($('#n-d').value||'2026-10-27', pl.d), nac:$('#n-b').value||'1995-01-01', niv:$('#n-niv').value, asis:0, emer:$('#n-e').value.trim()||'—', les:$('#n-l').value.trim()||'Ninguna'});
+    const pl = planBy($('#n-p').value), id = 'N' + Date.now();
+    if (!pl) { toast('Primero crea los planes en Membresías y pagos'); return; }
+    SOCIOS.push({id, n, ci:'V-'+ciRaw.replace(/\B(?=(\d{3})+(?!\d))/g,'.'), tel:$('#n-t').value.trim()||'—', plan:pl.id, v:addDays(new Intl.DateTimeFormat('en-CA', {timeZone:'America/Caracas'}).format(new Date()), -1), nac:$('#n-b').value||'1995-01-01', niv:$('#n-niv').value, asis:0, emer:$('#n-e').value.trim()||'—', les:$('#n-l').value.trim()||'Ninguna'});
     closeModal(); render();
-    toast(app ? `${n} quedó registrado. Su usuario para la app es su cédula` : `${n} quedó registrado`);
+    toast(`${n} quedó registrado. Cóbrale la membresía para activarla`);
   }
 });
 document.addEventListener('keydown', e => {
@@ -1936,4 +1940,5 @@ FX.boot();
 </script>
 <!-- FX:FIN -->
 <script src="js/cuadre-comun.js"></script>
+<script src="js/crossfit-real.js"></script>
 </body></html>
