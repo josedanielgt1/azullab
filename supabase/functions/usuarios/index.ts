@@ -25,7 +25,9 @@ Deno.serve(async (req) => {
   const url = Deno.env.get("SUPABASE_URL")!;
   const auth = req.headers.get("Authorization") ?? "";
   // Cliente con el token de quien llama: la base decide si puede
-  const comoUsuario = createClient(url, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: auth } } });
+  // Clave pública: la de Supabase o, en proyectos con claves nuevas, la que manda el navegador
+  const publica = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? req.headers.get("apikey") ?? "";
+  const comoUsuario = createClient(url, publica, { global: { headers: { Authorization: auth } } });
   const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
 
   let b: Record<string, string>;
