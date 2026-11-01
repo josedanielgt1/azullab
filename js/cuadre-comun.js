@@ -143,6 +143,49 @@
     ['FAC', 'NC', 'ND'].forEach(t => { const u = (ult || []).find(x => x.tipo === t); FX.n[t] = u ? +u.numero + 1 : 1; });
   }
   C.cargarDocumentos = cargarDocumentos;
+
+  /* Notas de crédito y débito: las emite la base; la pantalla arma el documento con ese número */
+  let notaPase = false, notaReal = null;
+  if (typeof FX === 'object' && FX.emitir) {
+    const fxEmitir = FX.emitir;
+    FX.emitir = o => {
+      const d = fxEmitir(o);
+      if (notaReal && (o.tipo === 'NC' || o.tipo === 'ND')) {
+        d.num = p8(notaReal.numero); d.ctrl = notaReal.numero_control || 'Pendiente de imprenta'; d.dbId = notaReal.id; d.cont = false;
+        FX.n[o.tipo] = notaReal.numero + 1; notaReal = null;
+      }
+      return d;
+    };
+  }
+  const bs = v => parseFloat(String(v || '').replace(/\./g, '').replace(',', '.')) || 0;
+  document.addEventListener('click', async e => {
+    const b = e.target.closest('[data-act="fx-ncgo"],[data-act="fx-ndgo"]'); if (!b) return;
+    if (notaPase) { notaPase = false; return; }
+    e.preventDefault(); e.stopImmediatePropagation();
+    const otraVuelta = () => { notaPase = true; b.click(); };   // la pantalla muestra su propio aviso
+    const fac = b.dataset.id ? FX.byId(b.dataset.id) : b.dataset.num ? FX.byNum(b.dataset.num) : null;
+    if (!fac) return otraVuelta();
+    if (!fac.dbId) { avisar('Esa factura no está en la base de datos'); return; }
+    let tipo, lineas, motivo;
+    if (b.dataset.act === 'fx-ncgo') {
+      const ls = FX.ncLines();
+      if (!ls.length || ls.some(l => !(l.q > 0) || l.q > l.max + 1e-9)) return otraVuelta();
+      tipo = 'NC'; motivo = (document.getElementById('fx-mot') || {}).value || 'Nota de crédito';
+      lineas = ls.map(l => ({descripcion: l.d, cantidad: l.q, precio_bs: l.pu, alicuota: l.a, ref: l.pid ? {producto_id: l.pid} : null}));
+    } else {
+      const m = bs((document.getElementById('fx-ndm') || {}).value); if (!(m > 0)) return otraVuelta();
+      tipo = 'ND'; motivo = ((document.getElementById('fx-ndc') || {}).value || '').trim() || 'Ajuste';
+      lineas = [{descripcion: motivo, cantidad: 1, precio_bs: m, alicuota: (document.getElementById('fx-nda') || {}).value || 'G'}];
+    }
+    const reintegrar = tipo === 'NC' && /devoluci|anulaci/i.test(motivo);
+    b.disabled = true;
+    const {data, error} = await db.rpc('emitir_nota', {p_factura: fac.dbId, p_tipo: tipo, p_lineas: lineas, p_motivo: motivo, p_reintegrar: reintegrar});
+    b.disabled = false;
+    if (error) { avisar(C.msg(error)); return; }
+    notaReal = data; otraVuelta();
+    // Lo devuelto: la existencia que manda es la de la base
+    if (reintegrar && C.farmacia) { await C.farmacia.recargar(lineas.filter(l => l.ref).map(l => l.ref.producto_id)); repintar(); }
+  }, true);
   C.alEntrar(async () => { if (typeof FX === 'object' && FX.docs) await cargarDocumentos(); });
 
   /* ---------------- Usuarios ---------------- */

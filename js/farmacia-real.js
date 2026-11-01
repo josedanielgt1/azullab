@@ -233,6 +233,8 @@
     await recargar([p.id]); render();
   }, true);
 
+  C.farmacia = {recargar, sincronizar};
+
   /* ---------------- Al entrar ---------------- */
   C.alEntrar(async a => {
     if (a.tipo !== 'farmacia') return;

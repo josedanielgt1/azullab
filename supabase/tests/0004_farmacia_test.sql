@@ -112,6 +112,24 @@ reset role;
 select prueba.debe_fallar('ni el superusuario edita un movimiento', $$ update movimientos set cantidad = 0 $$, 'no se editan');
 set role authenticated;
 
+\echo '--- Notas de crédito y devoluciones'
+select prueba.como('00000000-0000-0000-0000-00000000000d');
+create temp table f1 as select * from documentos where numero = 1 and tipo = 'FAC';
+grant select on f1 to authenticated;
+-- La factura 1 vendió 7 Losartán: 5 de GV24 y 2 de GV25
+select prueba.igual('NC de devolución', (select tipo::text from emitir_nota((select id from f1), 'NC',
+  '[{"descripcion":"Losartán","cantidad":3,"precio_bs":300,"alicuota":"E","ref":{"producto_id":1}}]', 'Devolución de mercancía', true)), 'NC');
+select prueba.igual('vuelve al último lote que se tomó (GV25: 8 + 2 = 10)', (select cantidad from lotes where lote = 'GV25'), 10.000::numeric);
+select prueba.igual('y el resto al anterior (GV24: 0 + 1 = 1)', (select cantidad from lotes where lote = 'GV24'), 1.000::numeric);
+select prueba.debe_fallar('no se devuelve más de lo vendido', $$ select emitir_nota((select id from f1), 'NC',
+  '[{"descripcion":"Losartán","cantidad":5,"precio_bs":300,"alicuota":"E","ref":{"producto_id":1}}]', 'Devolución', true) $$, 'quedan 4 por devolver');
+select emitir_nota((select id from f1), 'NC', '[{"descripcion":"Descuento","cantidad":1,"precio_bs":100,"alicuota":"E","ref":{"producto_id":1}}]', 'Descuento posterior', false);
+select prueba.igual('un descuento no mueve inventario', (select cantidad from lotes where lote = 'GV25'), 10.000::numeric);
+select prueba.igual('ND con el cliente de la factura', (select cliente_nombre from emitir_nota((select id from f1), 'ND',
+  '[{"descripcion":"Delivery","cantidad":1,"precio_bs":200,"alicuota":"G"}]', 'Cargo por entrega')), 'María');
+select prueba.como('00000000-0000-0000-0000-0000000000c1');
+select prueba.debe_fallar('el cajero no emite notas', $$ select emitir_nota((select id from f1), 'ND', '[{"descripcion":"x","cantidad":1,"precio_bs":1,"alicuota":"E"}]', 'x') $$, 'Solo');
+
 \echo '--- Clientes'
 select prueba.como('00000000-0000-0000-0000-0000000000c1');
 insert into clientes (empresa_id, cedula_rif, nombre) values ((select f from ids), 'v12.990.441', 'José Peña');

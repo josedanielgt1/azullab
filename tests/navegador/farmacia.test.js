@@ -31,6 +31,11 @@ const { chromium } = require('playwright'); const mock = require('./mock');
       const d = { id: 'doc-' + n, empresa_id: 'E', tipo: 'FAC', origen: 'sistema', numero: n, numero_control: null, fecha: new Date().toISOString(), cliente_rif: body.p_cliente.rif, cliente_nombre: body.p_cliente.nombre, tasa: 100, total: tot, total_usd: tot / 100, igtf: 0, ref_tipo: 'venta', creado_por: 'u-d',
         documento_lineas: body.p_items.map((i, k) => ({ renglon: k + 1, descripcion: 'x', cantidad: i.cantidad, precio_unit: i.precio_usd * 100, alicuota: 'E', ref: { producto_id: i.producto_id } })), documento_pagos: body.p_pagos.map(x => ({ metodo: x.metodo, monto_bs: x.monto_bs })) };
       T.docs.push(d); return { body: d }; }
+    if (p === '/rest/v1/rpc/emitir_nota') {
+      if (body.p_reintegrar) body.p_lineas.forEach(l => { const lt = T.lotes.find(x => x.producto_id === l.ref.producto_id && x.lote === 'GV24'); lt.cantidad += l.cantidad; });
+      const n = T.docs.filter(d => d.tipo === body.p_tipo).length + 1, f = T.docs.find(d => d.id === body.p_factura);
+      const d = { ...f, id: 'nota-' + n, tipo: body.p_tipo, numero: n, afecta_id: f.id, motivo: body.p_motivo, ref_tipo: null, documento_lineas: body.p_lineas.map((l, k) => ({ renglon: k + 1, descripcion: l.descripcion, cantidad: l.cantidad, precio_unit: l.precio_bs, alicuota: l.alicuota, ref: l.ref })), documento_pagos: [] };
+      T.docs.push(d); return { body: d }; }
     if (p === '/rest/v1/rpc/salida_inventario') { const l = T.lotes.find(x => x.id === body.p_lote); if (body.p_cantidad > l.cantidad) return { status: 400, body: { message: 'La salida debe ser entre 1 y ' + l.cantidad } }; l.cantidad -= body.p_cantidad; return { body: l }; }
   };
   const ctx = await b.newContext(); const pg = await ctx.newPage(); const errs = []; pg.on('pageerror', e => errs.push(e.message));
@@ -58,7 +63,7 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   ok(T.productos[0].precio === 3.2 && T.productos[0].margen === 60, 'editar la ganancia actualiza el precio en la base (3,20)');
   // Compra
   await pg.evaluate(() => { RECV.push({ id: 1, l: 'gv25', e: '2028-03-31', q: 10, c: 2 }, { id: 1, l: 'GV24', e: '2027-01-31', q: 5, c: 2 }); go('purchases'); });
-  await pg.click('[data-act="receive"]'); await pg.waitForFunction(() => P[0].stock === 15, null, { timeout: 5000 }).catch(() => {});
+  await pg.click('[data-act="receive"]'); await pg.waitForFunction(() => P[0].stock === 15 && P[0].lots.every(l => l.id), null, { timeout: 10000 }).catch(() => {});
   ok(T.lotes.length === 2 && T.lotes.reduce((t, l) => t + l.cantidad, 0) === 15, 'la compra crea los lotes en la base');
   ok(await pg.evaluate(() => P[0].stock === 15 && P[0].lots.every(l => l.id)), 'la pantalla muestra 15 con los lotes de la base');
   // Venta
@@ -74,24 +79,34 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   ok(await pg.evaluate(() => P[0].stock) === 13, 'la pantalla queda en 13');
   ok(await pg.evaluate(() => S.sales.length === 1 && FX.docs.length === 1), 'la venta aparece en Mi turno y en Facturas');
   await pg.evaluate(() => closeModal());
+  // Nota de crédito por devolución: 1 unidad vuelve al lote
+  await pg.evaluate(() => { const d = FX.docs.find(x => x.tipo === 'FAC'); openModal(FX.ncModal(d)); });
+  await pg.fill('[data-fxq="0"]', '1'); await pg.click('[data-act="fx-ncgo"]');
+  await pg.waitForFunction(() => P[0].stock === 14 && FX.docs.some(d => d.tipo === 'NC'), null, { timeout: 6000 }).catch(() => {});
+  const nc = T.rpc.find(r => r.f === 'emitir_nota');
+  ok(nc && nc.body.p_tipo === 'NC' && nc.body.p_factura === 'doc-1' && nc.body.p_lineas[0].cantidad === 1 && nc.body.p_lineas[0].ref.producto_id === 1, 'la nota de crédito va a la base citando su factura');
+  ok(nc && nc.body.p_reintegrar === /devoluci/i.test(nc.body.p_motivo), 'si es devolución, pide reintegrar al inventario');
+  ok(await pg.evaluate(() => FX.docs.find(d => d.tipo === 'NC').num) === '00000001', 'la nota sale con el número que dio la base');
+  ok(await pg.evaluate(() => P[0].stock) === 14, 'la pantalla toma la existencia de la base (14)');
+  await pg.evaluate(() => closeModal());
   // Venta sin existencia: la base la rechaza
   await pg.evaluate(() => { S.cart = [{ id: 1, q: 50 }]; S.pays = [{ k: 'Pago móvil', div: false, a: 160 }]; openModal(payModal()); });
   await pg.click('[data-act="emit"]'); await pg.waitForTimeout(500);
   ok((await pg.textContent('#toast')).includes('No hay existencia'), 'sin existencia, la base no deja facturar');
-  ok(T.docs.length === 1, 'y no se emite factura');
+  ok(T.docs.filter(d => d.tipo === 'FAC').length === 1, 'y no se emite factura');
   await pg.evaluate(() => { closeModal(); S.cart = []; S.pays = []; });
   // Salida
   await pg.evaluate(() => { go('inventory'); openModal(salidaModal({ id: 1 })); });
   await pg.selectOption('#sa-l', 'GV25'); await pg.fill('#sa-q', '2'); await pg.click('#salidaForm [type=submit]'); await pg.waitForTimeout(600);
   ok(T.rpc.some(r => r.f === 'salida_inventario' && r.body.p_cantidad === 2), 'la salida pasa por la base');
-  ok(T.lotes.find(l => l.lote === 'GV25').cantidad === 8 && await pg.evaluate(() => P[0].stock) === 11, 'y descuenta el lote: queda 11');
+  ok(T.lotes.find(l => l.lote === 'GV25').cantidad === 8 && await pg.evaluate(() => P[0].stock) === 12, 'y descuenta el lote: queda 12');
   // Cliente nuevo
   await pg.evaluate(() => { CLIENTS.unshift({ ci: 'V-12.990.441', name: 'José Peña', tel: '—', visits: 0, total: 0, last: '—', pts: 0 }); render(); });
   await pg.click('body'); await pg.waitForTimeout(500);
   ok(T.clientes.length === 1 && T.clientes[0].cedula_rif === 'V-12990441', 'el cliente nuevo se guarda con la cédula normalizada');
   // Recargar: todo sigue ahí
-  await pg.reload(); await pg.waitForFunction(() => !document.getElementById('loginForm') && P.length === 1 && FX.docs.length === 1, null, { timeout: 8000 }).catch(() => {});
-  ok(await pg.evaluate(() => P.length === 1 && P[0].stock === 11 && CLIENTS.length === 1 && FX.docs.length === 1), 'al recargar, producto, existencia, cliente y factura siguen ahí');
+  await pg.reload(); await pg.waitForFunction(() => !document.getElementById('loginForm') && P.length === 1 && FX.docs.length === 2, null, { timeout: 8000 }).catch(() => {});
+  ok(await pg.evaluate(() => P.length === 1 && P[0].stock === 12 && CLIENTS.length === 1 && FX.docs.length === 2 && FX.docs[1].afecta === FX.docs[0].id), 'al recargar siguen ahí producto, existencia, cliente, factura y su nota');
   ok(errs.length === 0, 'sin errores de JavaScript ' + errs.join(' | '));
   await b.close(); process.exit(fallas ? 1 : 0);
 })();
