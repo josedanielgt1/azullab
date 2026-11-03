@@ -874,8 +874,9 @@ const USERS_TODAY = [
   {u:'Lcda. Rosángela Paredes', caja:'Caja 1', usd:182.50, n:9}
 ];
 function byUser(){
-  const rows = USERS_TODAY.map(r=>({...r}));
-  S.sales.slice(0, S.sales.length - 6).forEach(s => { let r = rows.find(x=>x.u===s.u); if (!r){ r = {u:s.u, caja:s.caja, usd:0, n:0}; rows.push(r); } r.usd += s.usd; r.n++; });
+  /* Ventas de hoy por cajero: una sola vez cada factura (antes se sumaban dos veces) */
+  const rows = [];
+  S.sales.forEach(s => { let r = rows.find(x=>x.u===s.u); if (!r){ r = {u:s.u, caja:s.caja, usd:0, n:0}; rows.push(r); } r.usd += s.usd; r.n++; });
   return rows.sort((a,b)=>b.usd-a.usd);
 }
 function userTable(mult=1){
@@ -2478,7 +2479,7 @@ function rxRows(){
 V.recipes = () => {
   const tab = S.rxTab || 'lista';
   const tabs = [['lista','Récipes'],['paciente','Ficha del paciente'],['libro','Libro de controlados']];
-  const pend = RX.filter(r=>!r.bloq && r.desp<r.rec).length + 6;
+  const pend = RX.filter(r=>!r.bloq && r.desp<r.rec).length;
   let body = '';
   if (tab==='lista'){
     body = `<div class="bd" style="padding-bottom:0"><div class="search">${ic('search')}<input id="rxq" class="input" placeholder="Buscar por cédula, paciente, médico, MPPS o medicamento" value="${S.rxq||''}" aria-label="Buscar récipe"></div></div>

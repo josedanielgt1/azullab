@@ -151,6 +151,14 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   await pg.evaluate(() => { CLIENTS.unshift({ ci: 'V-12.990.441', name: 'José Peña', tel: '—', visits: 0, total: 0, last: '—', pts: 0 }); render(); });
   await pg.click('body'); await pg.waitForTimeout(500);
   ok(T.clientes.length === 1 && T.clientes[0].cedula_rif === 'V-12990441', 'el cliente nuevo se guarda con la cédula normalizada');
+  // Reportes y cierre con datos reales; ventas por cajero sin duplicar
+  await pg.evaluate(() => go('reports')); const tr = await pg.textContent('#app');
+  ok(!tr.includes('Dolor y fiebre') && !tr.includes('Punto de venta') && tr.includes('Efectivo Bs'), 'Reportes muestra solo las formas de pago y secciones reales (sin porcentajes de muestra)');
+  ok(await pg.evaluate(() => byUser().reduce((t, r) => t + r.n, 0) === S.sales.length), 'ventas de hoy por cajero: cada factura una sola vez');
+  await pg.fill('[data-cierre="Efectivo Bs"]', '600'); await pg.press('[data-cierre="Efectivo Bs"]', 'Tab'); await pg.waitForTimeout(200);
+  ok((await pg.textContent('#app')).includes('Bs -40,00'), 'el cierre de caja calcula la diferencia con lo contado (640 − 600)');
+  await pg.click('[data-act="fr-cierre"]'); await pg.waitForTimeout(500);
+  ok(T.colecciones.some(c => c.nombre === 'equipo_cierres' && c.datos.length === 1), 'el cierre de caja queda guardado');
   // Cuentas y bancos, Azul Puntos y libro de ventas: sin cifras de muestra
   await pg.evaluate(() => go('banks')); const tb = await pg.textContent('#app');
   ok(tb.includes('Cobrado hoy') && !tb.includes('Unidad Educativa') && !tb.includes('Yorbelis'), 'Cuentas y bancos muestra lo cobrado hoy, sin deudores de muestra');

@@ -13,6 +13,7 @@ module.exports = function mock(page, o = {}) {
     if (m === 'OPTIONS') return r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' } });
     if (p === '/auth/v1/token') return json(r, { access_token: 'x.eyJzdWIiOiJ1LWQifQ.x', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, refresh_token: 'r', user: { id: 'u-d', email: 'jose@azullab.com', aud: 'authenticated' } });
     if (p === '/auth/v1/user') return json(r, { id: 'u-d', email: 'jose@azullab.com', aud: 'authenticated' });
+    if (p === '/rest/v1/rpc/mi_acceso' && o.miAcceso) { const x = await o.miAcceso(st); return json(r, x); }
     if (p === '/rest/v1/rpc/mi_acceso') return json(r, [{ empresa_id: 'E', empresa: st.empresa.nombre, rol: st.rol, nombre: 'José Guerrero', caja: null, datos_confirmados: st.empresa.datos_confirmados }]);
     if (p === '/rest/v1/rpc/equipo') return json(r, st.equipo);
     if (p === '/rest/v1/rpc/dar_acceso') { if (b.p_correo.startsWith('nadie')) return json(r, { code: 'P0001', message: 'No hay ningún usuario con el correo ' + b.p_correo + '. Créalo con «Nuevo usuario»' }, 400); st.equipo.push({ user_id: 'u-' + st.equipo.length, nombre: b.p_correo.split('@')[0], correo: b.p_correo, rol: b.p_rol, caja: b.p_caja, activo: true }); return r.fulfill({ status: 204 }); }

@@ -95,13 +95,14 @@ window.Cuadre = (() => {
        op.abrir(acceso): pone el rol y el nombre en el estado y abre la primera pantalla */
     montar(op) {
       const err = t => { const p = document.getElementById('login-err'); if (p) { p.textContent = t; p.hidden = !t; } };
-      let abriendo = false;   // una sola apertura aunque la sesión guardada y el formulario lleguen a la vez
-      const abrir = async a => {
-        if (abriendo || (api.acceso && api.acceso.empresa_id === a.empresa_id && api.acceso.user === a.user)) return;
-        abriendo = true;
+      /* Cada apertura lleva su turno. El formulario (correo y clave) siempre gana: si a la vez se
+         estaba abriendo la sesión guardada de otro usuario, esa apertura vieja se descarta. */
+      let turno = 0;
+      const abrir = async (a, t) => {
+        if (t !== turno) return;
         api.acceso = {...a, tipo: op.tipo};
-        for (const g of ganchos) { try { await g(api.acceso); } catch (x) { console.error('Cuadre: al entrar', x); } }
-        abriendo = false;
+        for (const g of ganchos) { if (t !== turno) return; try { await g(api.acceso); } catch (x) { console.error('Cuadre: al entrar', x); } }
+        if (t !== turno) return;
         op.abrir(a);
       };
 
@@ -110,7 +111,8 @@ window.Cuadre = (() => {
         e.preventDefault(); e.stopImmediatePropagation();
         const b = e.target.querySelector('[type=submit]');
         err(''); b.disabled = true; b.textContent = 'Entrando…';
-        try { await abrir(await api.entrar(op.tipo, document.getElementById('lu').value, document.getElementById('lp').value)); }
+        const t = ++turno;   // lo escrito manda sobre cualquier sesión guardada que se esté abriendo
+        try { const a = await api.entrar(op.tipo, document.getElementById('lu').value, document.getElementById('lp').value); if (t === turno) await abrir(a, t); }
         catch (x) { err(msg(x)); b.disabled = false; b.textContent = 'Entrar'; }
       }, true);
 
@@ -131,7 +133,7 @@ window.Cuadre = (() => {
         alert(error ? msg(error) : 'Listo, tu clave quedó cambiada.');
       });
 
-      const iniciar = async () => { const a = await api.sesion(op.tipo); if (a) abrir(a); };
+      const iniciar = async () => { const t = ++turno; const a = await api.sesion(op.tipo); if (a && t === turno) abrir(a, t); };
       if (document.readyState === 'complete') iniciar(); else window.addEventListener('load', iniciar);
     },
 

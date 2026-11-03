@@ -351,6 +351,7 @@
     ['equipo_cotizaciones', () => S.cots, v => { S.cots.length = 0; S.cots.push(...v); }, []],
     ['equipo_notas', () => S.notas, v => { S.notas.length = 0; S.notas.push(...v); }, []],
     ['equipo_cashea', () => S.cashea, v => { S.cashea.length = 0; S.cashea.push(...v); }, []],
+    ['equipo_cierres', () => S.cierres || [], v => { S.cierres = v; }, []],
     // Nómina: datos de los empleados y novedades del período (solo dueño y gerente)
     ['privado_nomina_empleados', () => EMPLEADOS(), v => { EMPLEADOS().length = 0; EMPLEADOS().push(...v); }, []],
     ['privado_nomina_novedades', () => S.nov, v => { Object.keys(S.nov).forEach(k => delete S.nov[k]); Object.assign(S.nov, v); }, {}],
@@ -554,6 +555,53 @@
       LIBRO_DIG.push(`${d.tipo === 'FAC' ? 'Factura' : d.tipo === 'NC' ? 'Nota de crédito' : 'Nota de débito'} ${d.num} · control ${d.ctrl}`);
     });
   }
+
+  /* ---------------- Reportes y cierre: todo sale de las facturas reales ---------------- */
+  const PERIODOS = ['Hoy', 'Esta semana', 'Este mes'];
+  const docsDe = per => { const hoy = hoyVE(), desde = per === 'Hoy' ? hoy : per === 'Esta semana' ? diasA(hoy, -6) : hoy.slice(0, 7) + '-01';
+    return FX.docs.filter(d => d.tipo !== 'ND' && d.fecha >= desde && d.fecha <= hoy); };
+  const usdDe = d => (d.tipo === 'NC' ? -1 : 1) * d.t.total / d.tasa;
+  const barras = filas => { const mx = Math.max(0, ...filas.map(f => f[1]));
+    return filas.length ? filas.map(([k, v]) => `<div class="hbar"><span>${C.esc(k)}</span><div class="trk"><div class="fill" style="width:${mx > 0 ? Math.max(0, v) / mx * 100 : 0}%"></div></div><span class="val">${usd(v)}</span></div>`).join('')
+      : '<p class="small muted" style="margin:0">Todavía no hay ventas hoy.</p>'; };
+  const agrupar = (pares) => { const m = {}; pares.forEach(([k, v]) => { m[k] = r2((m[k] || 0) + v); }); return Object.entries(m).sort((a, b) => b[1] - a[1]); };
+  S.cierre = S.cierre || {};
+  V.reports = () => {
+    const per = PERIODOS.includes(S.repPeriod) ? S.repPeriod : 'Hoy', hoyD = docsDe('Hoy').filter(d => d.tipo === 'FAC');
+    const porUsuario = agrupar(docsDe(per).map(d => [d.u || '—', usdDe(d)])), totU = porUsuario.reduce((t, x) => t + x[1], 0);
+    const nU = u => docsDe(per).filter(d => d.tipo === 'FAC' && (d.u || '—') === u).length;
+    const pagos = agrupar(hoyD.flatMap(d => d.pagos.map(p => [p.k || '—', p.usd != null ? +p.usd : (+p.bs || 0) / d.tasa])));
+    const cats = agrupar(hoyD.flatMap(d => d.lines.map(l => { const p = P.find(x => x.id === l.pid); return [p ? p.cat : 'Otros', l.q * l.pu / d.tasa]; })));
+    const sem = docsDe('Esta semana').filter(d => d.tipo === 'FAC'), vend = {};
+    sem.forEach(d => d.lines.forEach(l => { if (!l.pid) return; const v = vend[l.pid] = vend[l.pid] || {q: 0, usd: 0}; v.q += l.q; v.usd += l.q * l.pu / d.tasa; }));
+    const top = Object.entries(vend).sort((a, b) => b[1].q - a[1].q).slice(0, 8);
+    // Cierre de caja: lo que dice el sistema por forma de pago y lo que contó el cajero
+    const enBs = k => !/USD|Zelle|\$/i.test(k);
+    const arq = pagos.map(([k]) => { const sis = hoyD.reduce((t, d) => t + d.pagos.filter(p => (p.k || '—') === k).reduce((a, p) => a + (enBs(k) ? (p.bs != null ? +p.bs : (+p.usd || 0) * d.tasa) : (p.usd != null ? +p.usd : (+p.bs || 0) / d.tasa)), 0), 0);
+      return [k, r2(sis), enBs(k) ? 'Bs' : '$']; });
+    const dueno = ['dueno', 'gerente'].includes(A().rol);
+    return `<div class="grid g2">${facturaBuscar()}${notasPanel()}</div>
+    ${dueno ? `<section class="panel"><div class="hd"><h2>Ventas por usuario</h2><div class="cats">${PERIODOS.map(p => `<button data-act="rper" data-p="${p}" class="${per === p ? 'on' : ''}">${p}</button>`).join('')}</div></div>
+      <div class="bd flush tbl-wrap"><table><thead><tr><th>Usuario</th><th class="r">Facturas</th><th class="r">Ventas $</th><th class="r">Ticket prom.</th><th>Participación</th></tr></thead><tbody>
+      ${porUsuario.map(([u, v]) => { const n = nU(u), pc = totU > 0 ? v / totU * 100 : 0; return `<tr><td><b>${C.esc(u)}</b></td><td class="r">${n}</td><td class="r">${nf(v)}</td><td class="r">${nf(n ? v / n : 0)}</td><td><div class="trk"><div class="fill" style="width:${Math.max(0, pc)}%"></div></div></td></tr>`; }).join('') || '<tr><td colspan="5" class="muted">Sin ventas en este período.</td></tr>'}</tbody></table></div>
+      <div class="bd small muted" style="border-top:1px solid var(--line)">Cada factura queda con el usuario que la emitió (las notas de crédito se restan).</div></section>` : ''}
+    <div class="grid g2">
+      <section class="panel"><div class="hd"><h2>Ventas de hoy por forma de pago</h2></div><div class="bd hbars">${barras(pagos)}</div></section>
+      <section class="panel"><div class="hd"><h2>Ventas de hoy por sección</h2></div><div class="bd hbars">${barras(cats)}</div></section></div>
+    <div class="grid g2">
+      <section class="panel"><div class="hd"><h2>Cierre de caja</h2><span class="muted small">Hoy · escribe lo que contaste</span></div><div class="bd flush tbl-wrap"><table><thead><tr><th>Forma de pago</th><th class="r">Según sistema</th><th class="r">Contado</th><th class="r">Diferencia</th></tr></thead>
+      <tbody>${arq.map(([k, sis, mon]) => { const c = S.cierre[k], d = c == null ? null : r2(c - sis);
+        return `<tr><td>${C.esc(k)}</td><td class="r">${mon} ${nf(sis)}</td><td class="r"><input class="input num" data-cierre="${C.esc(k)}" value="${c == null ? '' : nf(c)}" placeholder="0,00" style="max-width:130px;text-align:right"></td>
+          <td class="r">${d == null ? '<span class="muted">—</span>' : `<span class="pill ${Math.abs(d) < 0.01 ? 'ok' : 'warn'}">${Math.abs(d) < 0.01 ? 'Cuadra' : mon + ' ' + nf(d)}</span>`}</td></tr>`; }).join('') || '<tr><td colspan="4" class="muted">Sin cobros hoy.</td></tr>'}</tbody></table></div>
+      ${arq.length ? `<div class="bd" style="border-top:1px solid var(--line)"><div class="row"><span class="small muted">El cierre queda guardado con el usuario que lo hizo.</span><span class="spacer"></span><button class="btn primary" data-act="fr-cierre">Guardar cierre</button></div></div>` : ''}</section>
+      <section class="panel"><div class="hd"><h2>Más vendidos esta semana</h2></div><div class="bd flush tbl-wrap"><table><thead><tr><th>Producto</th><th class="r">Unidades</th><th class="r">Ventas $</th></tr></thead><tbody>
+        ${top.map(([id, v]) => { const p = P.find(x => x.id === +id); return `<tr><td>${C.esc(p ? p.name : 'Producto ' + id)}</td><td class="r">${nf0(v.q)}</td><td class="r">${nf(v.usd)}</td></tr>`; }).join('') || '<tr><td colspan="3" class="muted">Sin ventas esta semana.</td></tr>'}</tbody></table></div></section></div>`;
+  };
+  document.addEventListener('change', e => { const k = e.target.dataset && e.target.dataset.cierre; if (k === undefined) return;
+    const v = parseVE(e.target.value); if (e.target.value.trim() === '') delete S.cierre[k]; else S.cierre[k] = v; render(); });
+  document.addEventListener('click', e => { if (!e.target.closest('[data-act="fr-cierre"]')) return; e.stopImmediatePropagation();
+    S.cierres = S.cierres || []; S.cierres.push({fecha: new Date().toISOString(), usuario: A().nombre, contado: {...S.cierre}});
+    avisar('Cierre de caja guardado'); setTimeout(sincronizar, 0); }, true);
 
   /* ---------------- Pantallas de la fase 2 que siguen siendo muestra ---------------- */
   const aviso = t => `<p class="fx-aviso" style="margin:0 0 12px">${ic('alert')}<span><b>Fase 2 · muestra.</b> ${t}</span></p>`;
