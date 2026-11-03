@@ -33,7 +33,7 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   const ctx = await b.newContext(); const pg = await ctx.newPage(); const errs = []; pg.on('pageerror', e => errs.push(e.message));
   mock(pg, { tipo: 'laboratorio', empresa: 'Azullab Laboratorio', tasas: [{ fecha: hoy, tasa: 100 }], rest, empresaExtra: { talonario_desde: 1, talonario_hasta: 50 } });
   const entrar = async () => { await pg.goto('http://localhost:8765/laboratorio.html'); await pg.fill('#lu', 'jose@azullab.com'); await pg.fill('#lp', 'clave-buena'); await pg.click('#loginForm [type=submit]');
-    await pg.waitForFunction(() => !document.getElementById('loginForm'), null, { timeout: 8000 }); };
+    await pg.waitForFunction(() => (typeof S === 'object' && S.view !== 'login'), null, { timeout: 8000 }); };
   await entrar();
   ok(await pg.evaluate(() => EX.length + PERF.length + PATS.length + ORD.length + REAC.length + Object.keys(HIST).length) === 0, 'instalación nueva: sin exámenes, pacientes, órdenes, reactivos ni historial de muestra');
   ok(await pg.evaluate(() => FX_SYS.compras().length === 0 && FX_SYS.islr().length === 0 && FX_SYS.excedente === 0), 'sin libro de compras, retenciones ni excedente de muestra');
@@ -104,7 +104,7 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   ok(rco && rco.p_origen === 'contingencia' && rco.p_numero === 1 && rco.p_fecha, 'al volver internet sube como contingencia con su número y fecha');
   ok(await pg.evaluate(() => ORD[1]._id && ORD[1].n === 'L-0002'), 'y toma el número de orden de la base');
   // Recargar
-  await pg.reload(); await pg.waitForFunction(() => !document.getElementById('loginForm') && ORD.length === 2 && PATS.length === 1, null, { timeout: 8000 }).catch(() => {});
+  await pg.reload(); await pg.waitForFunction(() => (typeof S === 'object' && S.view !== 'login') && ORD.length === 2 && PATS.length === 1, null, { timeout: 8000 }).catch(() => {});
   ok(await pg.evaluate(() => ORD.length === 2 && ORD[0].st === 'Validado' && ORD[0].pat === PATS[0].id && ORD[0].fac === '00000001' && EX.length >= 20 && MEDICOS.length >= 1 && REAC.length === 1 && EX.find(e => e.c === 'GLI').p === 3), 'al recargar siguen ahí paciente, orden, estado, factura, catálogo y reactivos');
   for (const v of vistas) { const n = errs.length; await pg.evaluate(x => go(x), v).catch(e => errs.push(v + ': ' + e.message)); if (errs.length > n) console.log('   rota con datos:', v, errs.slice(n).join(' | ').slice(0, 200)); }
   ok(errs.length === 0, 'sin errores de JavaScript ' + errs.join(' | ').slice(0, 300));

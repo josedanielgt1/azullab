@@ -38,6 +38,13 @@
     if (typeof F2 === 'object') F2.length = 0;
     if (Cuadre.destino && vistas.includes(Cuadre.destino)) Cuadre.destino = '';
   });
+  /* Las páginas de la propuesta de venta («Alcance de la propuesta», «Alcance y regalo») no van al cliente */
+  C.alEntrar(async () => {
+    if (typeof NAV !== 'object' || typeof V !== 'object') return;
+    for (let i = NAV.length - 1; i >= 0; i--) { NAV[i].items = NAV[i].items.filter(it => it[1] !== 'scope'); if (!NAV[i].items.length) NAV.splice(i, 1); }
+    V.scope = () => '<p class="lead">Esta página no está disponible.</p>';
+    if (Cuadre.destino === 'scope') Cuadre.destino = '';
+  });
   if (!FASE2) document.head.insertAdjacentHTML('beforeend', '<style>.phase.f1,.phase.f2{display:none}</style>');
 
   /* La fecha de hoy de verdad (las maquetas traían una fija) */

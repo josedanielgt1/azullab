@@ -1,7 +1,7 @@
 const { chromium } = require('playwright'); const mock = require('./mock');
 (async () => {
   const b = await chromium.launch(); let fallas = 0; const ok = (c, m) => { console.log((c ? 'ok   ' : 'FALLA ') + m); if (!c) fallas++; };
-  const entrar = async (pg, sys) => { await pg.goto(`http://localhost:8765/${sys}.html`); await pg.waitForSelector('#loginForm'); await pg.fill('#lu', 'jose@azullab.com'); await pg.fill('#lp', 'clave-buena'); await pg.click('#loginForm [type=submit]'); await pg.waitForFunction(() => !document.getElementById('loginForm'), null, { timeout: 8000 }); };
+  const entrar = async (pg, sys) => { await pg.goto(`http://localhost:8765/${sys}.html`); await pg.waitForSelector('#loginForm'); await pg.fill('#lu', 'jose@azullab.com'); await pg.fill('#lp', 'clave-buena'); await pg.click('#loginForm [type=submit]'); await pg.waitForFunction(() => (typeof S === 'object' && S.view !== 'login'), null, { timeout: 8000 }); };
   const txt = pg => pg.textContent('body');
   // ---------- Farmacia ----------
   { const ctx = await b.newContext(); const pg = await ctx.newPage(); const errs = []; pg.on('pageerror', e => errs.push(e.message));

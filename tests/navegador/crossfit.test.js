@@ -27,10 +27,10 @@ const { chromium } = require('playwright'); const mock = require('./mock');
       T.docs.push(d); const mm = { id: T.seq++, empresa_id: 'E', socio_id: so.id, plan_id: pl.id, desde, hasta: mas(desde, pl.dias), vence_antes: so.vence, precio_usd: pl.precio, metodo: body.p_metodo, documento_id: d.id, creado_en: new Date().toISOString() };
       T.membresias.push(mm); so.vence = mm.hasta; so.plan_id = pl.id; return { body: { membresia: mm, documento: d, socio: so } }; }
   };
-  const ctx = await b.newContext(); const pg = await ctx.newPage(); const errs = []; pg.on('pageerror', e => errs.push(e.message));
+  const ctx = await b.newContext(); const pg = await ctx.newPage(); const errs = []; pg.on('pageerror', e => errs.push(e.message)); 
   mock(pg, { tipo: 'crossfit', empresa: 'Azullab CrossFit', tasas: [{ fecha: hoy, tasa: 100 }], rest, empresaExtra: { talonario_desde: 1, talonario_hasta: 50 } });
   await pg.goto('http://localhost:8765/crossfit.html'); await pg.fill('#lu', 'jose@azullab.com'); await pg.fill('#lp', 'clave-buena'); await pg.click('#loginForm [type=submit]');
-  await pg.waitForFunction(() => !document.getElementById('loginForm'), null, { timeout: 8000 });
+  await pg.waitForFunction(() => (typeof S === 'object' && S.view !== 'login'), null, { timeout: 8000 });
   ok(await pg.evaluate(() => PLANES.length + SOCIOS.length + PAGOS.length + CLASES.length + ASIS.length) === 0, 'instalación nueva: sin planes, socios, pagos ni clases de muestra');
   ok(await pg.evaluate(() => S.pub) === false, 'la pizarra del día empieza sin publicar');
   const vistas = await pg.evaluate(() => NAV.flatMap(g => g.items.map(i => i[1])));
@@ -74,7 +74,7 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   await ctx.setOffline(false); await pg.waitForFunction(() => !JSON.parse(localStorage.getItem('cuadre.crossfit.cola') || '[]').length, null, { timeout: 8000 }).catch(() => {});
   ok(T.rpc[1] && T.rpc[1].p_origen === 'contingencia' && T.rpc[1].p_numero === 1, 'al volver internet sube como contingencia');
   // Recargar
-  await pg.reload(); await pg.waitForFunction(() => !document.getElementById('loginForm') && SOCIOS.length === 1, null, { timeout: 8000 }).catch(() => {});
+  await pg.reload(); await pg.waitForFunction(() => (typeof S === 'object' && S.view !== 'login') && SOCIOS.length === 1, null, { timeout: 8000 }).catch(() => {});
   const est = await pg.evaluate(() => ({ pagos: PAGOS.length, asis: ASIS.length, pub: S.pub, res: CLASES[0] && CLASES[0].res.length, cont: SOCIOS[0].asis }));
   ok(est.pagos === 2 && est.asis === 1 && est.pub === true && est.res === 1 && est.cont === 1, 'al recargar siguen ahí socio, pago, entrada, reserva y pizarra publicada ' + JSON.stringify(est));
   for (const v of vistas) { const n = errs.length; await pg.evaluate(x => go(x), v).catch(e => errs.push(v + ': ' + e.message)); if (errs.length > n) console.log('   rota con datos:', v, errs.slice(n).join(' | ').slice(0, 200)); }
@@ -91,7 +91,7 @@ const { chromium } = require('playwright'); const mock = require('./mock');
       if (m === 'GET' && p.startsWith('/rest/v1/') && !p.includes('rpc')) return { body: uno ? null : [] };
     } });
     await p2.goto('http://localhost:8765/crossfit.html#socio'); await p2.fill('#lu', 'andrea@correo.com'); await p2.fill('#lp', 'clave-buena'); await p2.click('#loginForm [type=submit]');
-    await p2.waitForFunction(() => !document.getElementById('loginForm'), null, { timeout: 8000 }).catch(() => {});
+    await p2.waitForFunction(() => (typeof S === 'object' && S.view !== 'login'), null, { timeout: 8000 }).catch(() => {});
     ok(await p2.evaluate(() => S.role === 'Socio' && S.view === 'app' && S.me === 'S7'), 'el socio entra con su correo directo a su app');
     await p2.evaluate(() => { const c = CLASES.find(x => x.h === '06:00'); c.res.push(S.me); render(); }); await p2.click('body'); await p2.waitForTimeout(500);
     ok(R.some(r => r.p.endsWith('reservar_clase') && r.body.p_hora === '06:00'), 'reservar va por la función segura (no toca la pizarra)');

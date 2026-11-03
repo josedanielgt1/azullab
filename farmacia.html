@@ -2522,8 +2522,9 @@ V.recipes = () => {
       return `<div class="kpi"><span class="l">Récipes del mes</span><span class="v num">${RX.filter(r=>r.f.slice(3)===mesF).length}</span><span class="s">${RX.filter(r=>r.f===hoyF).length} hoy</span></div>`; })()}
     <div class="kpi"><span class="l">Pendientes de retirar</span><span class="v num" style="color:var(--warn)">${pend}</span><span class="s">Despachos parciales</span></div>
     <div class="kpi"><span class="l">Pacientes crónicos</span><span class="v num">${new Set(RX.filter(r=>r.cron).map(r=>r.ci.replace(/\D/g,''))).size}</span><span class="s">Con tratamiento continuo</span></div>
-    <div class="kpi hero"><span class="l">Resumen al Ministerio</span>${(()=>{ const d = new Date(), sig = new Date(d.getFullYear(), d.getMonth()+1, 10), mes = d.toLocaleDateString('es-VE', {month:'long'});
-      return `<span class="v num">${String(sig.getDate()).padStart(2,'0')}/${String(sig.getMonth()+1).padStart(2,'0')}</span><span class="s">Controlados de ${mes}</span>`; })()}</div>
+    <div class="kpi hero"><span class="l">Entregar resumen al Ministerio</span>${(()=>{ const d = new Date(), sig = new Date(d.getFullYear(), d.getMonth()+1, 10), mes = d.toLocaleDateString('es-VE', {month:'long'});
+      const faltan = Math.ceil((sig - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 864e5);
+      return `<span class="v">Antes del ${sig.getDate()} de ${sig.toLocaleDateString('es-VE', {month:'long'})}</span><span class="s">Controlados de ${mes} · faltan ${faltan} días</span>`; })()}</div>
   </div>
   <section class="panel"><div class="hd"><h2>${tabs.find(t=>t[0]===tab)[1]}</h2>${hdBtns}</div>
     <div class="tabs" role="tablist">${tabs.map(([k,t])=>`<button role="tab" data-act="rxtab" data-k="${k}" class="${tab===k?'on':''}" aria-selected="${tab===k}">${t}</button>`).join('')}</div>

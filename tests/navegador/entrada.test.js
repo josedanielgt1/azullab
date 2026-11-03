@@ -29,11 +29,11 @@ const ROL = { farmacia: 'cajero', laboratorio: 'bioanalista', crossfit: 'coach' 
     await pg.waitForFunction(() => /rol en este negocio/.test(document.getElementById('login-err').textContent));
     ok(await pg.$('#loginForm'), `${sys}: usuario sin rol no entra`);
     sinRol = false; await pg.click('#loginForm [type=submit]');
-    await pg.waitForFunction(() => !document.getElementById('loginForm'), null, { timeout: 5000 });
+    await pg.waitForFunction(() => (typeof S === 'object' && S.view !== 'login'), null, { timeout: 5000 });
     const t = await pg.textContent('body');
     ok(t.includes('José Guerrero'), `${sys}: entra con su nombre`);
     // Recargar: la sesión guardada entra sola
-    await pg.reload(); await pg.waitForFunction(() => !document.getElementById('loginForm'), null, { timeout: 5000 }).catch(() => {});
+    await pg.reload(); await pg.waitForFunction(() => (typeof S === 'object' && S.view !== 'login'), null, { timeout: 5000 }).catch(() => {});
     ok(!(await pg.$('#loginForm')), `${sys}: al recargar entra solo con la sesión guardada`);
     // Enlace directo sin sesión no entra
     const ctx2 = await b.newContext(); const p2 = await ctx2.newPage();
@@ -52,11 +52,28 @@ const ROL = { farmacia: 'cajero', laboratorio: 'bioanalista', crossfit: 'coach' 
     mock(p3, { rest: async () => null, miAcceso: async () => { if (!entro) { await new Promise(r => setTimeout(r, 700)); return [{ empresa_id: 'E', empresa: 'Azullab Farmacia', rol: 'regente', nombre: 'Farmacéutico de prueba', caja: null }]; }
       await new Promise(r => setTimeout(r, 1500)); return [{ empresa_id: 'E', empresa: 'Azullab Farmacia', rol: 'dueno', nombre: 'José Guerrero', caja: null }]; } });
     p3.on('request', q => { if (q.url().includes('/auth/v1/token')) entro = true; });
-    await p3.goto('http://localhost:8765/farmacia.html', { waitUntil: 'domcontentloaded' }); await p3.waitForSelector('#loginForm');
+    await p3.goto('http://localhost:8765/farmacia.html', { waitUntil: 'domcontentloaded' });
+    await p3.waitForSelector('#cuadre-abriendo'); await p3.click('[data-act="cuadre-otra"]'); await p3.waitForSelector('#loginForm');
     await p3.fill('#lu', 'jose@azullab.com'); await p3.fill('#lp', 'clave-buena'); await p3.click('#loginForm [type=submit]');
     await p3.waitForTimeout(3500);
-    ok(await p3.evaluate(() => S.role === 'Dueño' && S.user === 'José Guerrero'), 'entrar con correo y clave gana sobre la sesión guardada de otro usuario');
+    ok(await p3.evaluate(() => S.role === 'Dueño' && S.user === 'José Guerrero'), '«Entrar con otra cuenta» y la clave del dueño ganan sobre la sesión guardada de otro usuario');
     await c3.close(); }
+  // Recargar: mientras abre la sesión guardada no aparece el formulario; 30 minutos sin uso la cierran
+  { const c4 = await b.newContext(); const p4 = await c4.newPage(); const mock = require('./mock'); let lento = false;
+    mock(p4, { rest: async () => null, miAcceso: async () => { if (lento) await new Promise(r => setTimeout(r, 1500)); return [{ empresa_id: 'E', empresa: 'Azullab Farmacia', rol: 'dueno', nombre: 'José Guerrero', caja: null }]; } });
+    await p4.goto('http://localhost:8765/farmacia.html'); await p4.fill('#lu', 'jose@azullab.com'); await p4.fill('#lp', 'clave-buena'); await p4.click('#loginForm [type=submit]');
+    await p4.waitForFunction(() => (typeof S === 'object' && S.view !== 'login'), null, { timeout: 8000 });
+    ok(await p4.evaluate(() => !NAV.some(g => g.items.some(i => i[1] === 'scope'))), 'farmacia: «Alcance de la propuesta» ya no está en el menú');
+    lento = true; await p4.reload({ waitUntil: 'domcontentloaded' }); await p4.waitForTimeout(500);
+    ok(await p4.$('#cuadre-abriendo') && !(await p4.$('#loginForm')), 'al recargar dice «Abriendo tu sesión…» y no muestra el formulario');
+    await p4.waitForFunction(() => !document.getElementById('cuadre-abriendo') && S.view !== 'login', null, { timeout: 8000 }).catch(() => {});
+    ok(await p4.evaluate(() => S.view !== 'login' && S.role === 'Dueño'), 'y abre solo, sin pedir la clave otra vez');
+    lento = false;
+    await p4.evaluate(() => localStorage.setItem('cuadre.actividad', String(Date.now() - 31 * 60 * 1000)));
+    await p4.reload(); await p4.waitForSelector('#loginForm', { timeout: 8000 }).catch(() => {});
+    ok(await p4.$('#loginForm') && (await p4.textContent('body')).includes('30 minutos sin uso'), 'tras 30 minutos sin uso, al volver pide la clave y explica por qué');
+    ok(await p4.evaluate(() => !localStorage.getItem('cuadre.sesion')), 'y la sesión guardada se borró');
+    await c4.close(); }
   // Sin configurar
   const p = await (await b.newContext()).newPage();
   await p.route('**/js/config.js', r => r.fulfill({ contentType: 'text/javascript', body: "window.CUADRE_CONFIG={url:'',key:''}" }));

@@ -15,7 +15,7 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   const ctx = await b.newContext(); const pg = await ctx.newPage(); const errs = []; pg.on('pageerror', e => errs.push(e.message));
   mock(pg, { tasas: [{ fecha: hoy, tasa: 100 }], rest, empresaExtra: { talonario_desde: 1, talonario_hasta: 50, datos_confirmados: true } });
   await pg.goto('http://localhost:8765/farmacia.html'); await pg.fill('#lu', 'jose@azullab.com'); await pg.fill('#lp', 'clave-buena'); await pg.click('#loginForm [type=submit]');
-  await pg.waitForFunction(() => !document.getElementById('loginForm') && P.length === 1, null, { timeout: 8000 });
+  await pg.waitForFunction(() => (typeof S === 'object' && S.view !== 'login') && P.length === 1, null, { timeout: 8000 });
   ok(await pg.evaluate(() => !!localStorage.getItem('cuadre.farmacia.catalogo')), 'el catálogo queda copiado en el equipo');
   ok(await pg.evaluate(() => FX.n.tal) === 1, 'el talonario empieza en el primer número libre');
   // Se va el internet

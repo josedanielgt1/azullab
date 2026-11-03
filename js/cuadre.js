@@ -55,7 +55,12 @@ window.Cuadre = (() => {
         : !navigator.onLine
           ? '<div class="aviso-off" role="status"><span><b>Sin internet.</b> Si ya entraste antes en este equipo, el sistema abre con la sesión guardada. La primera vez hace falta conexión.</span></div>'
           : '';
-      return `${aviso}<form id="loginForm">
+      if (api.restaurando) return `<div id="cuadre-abriendo" style="display:grid;gap:12px;justify-items:start" role="status">
+        <h2 style="font-size:1.4rem;margin:0">Abriendo tu sesión…</h2>
+        <p class="muted" style="margin:0">${esc(subtitulo)}. Un momento: estamos cargando tus datos.</p>
+        <button type="button" class="btn sm" data-act="cuadre-otra">Entrar con otra cuenta</button></div>`;
+      const nota = api.notaEntrada ? `<div class="aviso-off" role="status"><span>${esc(api.notaEntrada)}</span></div>` : '';
+      return `${aviso}${nota}<form id="loginForm">
       <div><h2 style="font-size:1.4rem">Iniciar sesión</h2><p class="muted" style="margin-top:4px">${esc(subtitulo)}</p></div>
       <div class="field"><label for="lu">Correo</label><input id="lu" class="input" type="email" autocomplete="username" required></div>
       <div class="field"><label for="lp">Clave</label><input id="lp" class="input" type="password" autocomplete="current-password" required></div>
@@ -98,20 +103,43 @@ window.Cuadre = (() => {
       /* Cada apertura lleva su turno. El formulario (correo y clave) siempre gana: si a la vez se
          estaba abriendo la sesión guardada de otro usuario, esa apertura vieja se descarta. */
       let turno = 0;
+      const repintar = () => { if (typeof render === 'function') try { render(); } catch (_) {} };
       const abrir = async (a, t) => {
         if (t !== turno) return;
         api.acceso = {...a, tipo: op.tipo};
         for (const g of ganchos) { if (t !== turno) return; try { await g(api.acceso); } catch (x) { console.error('Cuadre: al entrar', x); } }
         if (t !== turno) return;
+        api.restaurando = false; api.notaEntrada = ''; marcarActividad(true);
         op.abrir(a);
       };
+
+      /* Cierre por inactividad: 30 minutos sin tocar el sistema (en cualquier pestaña).
+         Recargar la página no cuenta como inactividad. Sin internet no se cierra, para no dejar
+         la caja fuera cuando hace falta conexión para volver a entrar. */
+      const LIMITE = 30 * 60 * 1000, CLAVE = 'cuadre.actividad';
+      const ultima = () => { try { return +localStorage.getItem(CLAVE) || 0; } catch (_) { return 0; } };
+      let marcada = 0;
+      function marcarActividad(ya) { const ahora = Date.now(); if (!ya && ahora - marcada < 15000) return; marcada = ahora; try { localStorage.setItem(CLAVE, String(ahora)); } catch (_) {} }
+      ['click', 'keydown', 'pointermove', 'touchstart', 'scroll', 'wheel'].forEach(ev => window.addEventListener(ev, () => { if (api.acceso) marcarActividad(); }, {passive: true, capture: true}));
+      const cerrarPorInactividad = async () => {
+        ++turno; api.restaurando = false;
+        api.notaEntrada = 'Tu sesión se cerró por 30 minutos sin uso. Vuelve a entrar con tu correo y tu clave.';
+        await api.salir(op.tipo);
+        if (typeof go === 'function') go('login'); else repintar();
+      };
+      setInterval(() => { if (api.acceso && navigator.onLine && ultima() && Date.now() - ultima() > LIMITE) cerrarPorInactividad(); }, 30000);
+
+      document.addEventListener('click', e => {
+        if (!e.target.closest('[data-act="cuadre-otra"]')) return;
+        ++turno; api.restaurando = false; repintar();   // deja de abrir la sesión guardada y muestra el formulario
+      }, true);
 
       document.addEventListener('submit', async e => {
         if (e.target.id !== 'loginForm') return;
         e.preventDefault(); e.stopImmediatePropagation();
         const b = e.target.querySelector('[type=submit]');
         err(''); b.disabled = true; b.textContent = 'Entrando…';
-        const t = ++turno;   // lo escrito manda sobre cualquier sesión guardada que se esté abriendo
+        const t = ++turno; api.restaurando = false;   // lo escrito manda sobre cualquier sesión guardada que se esté abriendo
         try { const a = await api.entrar(op.tipo, document.getElementById('lu').value, document.getElementById('lp').value); if (t === turno) await abrir(a, t); }
         catch (x) { err(msg(x)); b.disabled = false; b.textContent = 'Entrar'; }
       }, true);
@@ -133,8 +161,24 @@ window.Cuadre = (() => {
         alert(error ? msg(error) : 'Listo, tu clave quedó cambiada.');
       });
 
-      const iniciar = async () => { const t = ++turno; const a = await api.sesion(op.tipo); if (a && t === turno) abrir(a, t); };
-      if (document.readyState === 'complete') iniciar(); else window.addEventListener('load', iniciar);
+      const iniciar = async () => {
+        const t = ++turno;
+        if (!listo) return;
+        const {data} = await db.auth.getSession();
+        if (!data.session) return;
+        // Sesión guardada, pero vencida por inactividad: se cierra en vez de abrirla
+        if (navigator.onLine && ultima() && Date.now() - ultima() > LIMITE) {
+          api.notaEntrada = 'Tu sesión se cerró por 30 minutos sin uso. Vuelve a entrar con tu correo y tu clave.';
+          await api.salir(op.tipo); repintar(); return;
+        }
+        if (t !== turno) return;
+        api.restaurando = true; repintar();   // «Abriendo tu sesión…» en vez del formulario
+        const a = await api.sesion(op.tipo);
+        if (a && t === turno) await abrir(a, t);
+        else if (t === turno) { api.restaurando = false; repintar(); }
+      };
+      // Apenas están todos los archivos (sin esperar fuentes ni imágenes)
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar); else setTimeout(iniciar, 0);
     },
 
     /* A qué pantalla ir después de entrar: la del enlace (#vista) si el rol la puede ver */

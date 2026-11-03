@@ -48,7 +48,7 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   T.otros = [{ id: 'lab-1', empresa_id: 'L', tipo: 'FAC', numero: 1, total: 5000, igtf: 0, iva_general: 0, iva_reducida: 0, estado: 'emitido', fecha: new Date().toISOString(), tasa: 100, cliente_rif: 'V-1', cliente_nombre: 'X', documento_lineas: [], documento_pagos: [] }];
   mock(pg, { tasas: [{ fecha: hoy, tasa: 100 }], rest, empresas: [{ id: 'E', tipo: 'farmacia', razon_social: 'Azullab Farmacia, C.A.', rif: 'J-00000001-0' }, { id: 'L', tipo: 'laboratorio', razon_social: 'Grupo Empresarial Azullab, C.A.', rif: 'J-50134578-3' }] });
   await pg.goto('http://localhost:8765/farmacia.html'); await pg.fill('#lu', 'jose@azullab.com'); await pg.fill('#lp', 'clave-buena'); await pg.click('#loginForm [type=submit]');
-  await pg.waitForFunction(() => !document.getElementById('loginForm'), null, { timeout: 8000 });
+  await pg.waitForFunction(() => (typeof S === 'object' && S.view !== 'login'), null, { timeout: 8000 });
   ok(await pg.evaluate(() => P.length) === 0, 'instalación nueva: el catálogo arranca vacío');
   ok(await pg.evaluate(() => CLIENTS.length + S.sales.length + FX.docs.length + DROG.length + S.gastos.length + CUENTAS.length + COMPRAS_LIBRO.length + S.fallas.length + S.cots.length + S.movs.length + RX.length + CTRL.length + MEDICOS.length + Object.keys(ALERTAS).length) === 0, 'sin clientes, ventas, facturas, droguerías, gastos, cuentas, compras, fallas, récipes ni libro de controlados de muestra');
   ok(await pg.evaluate(() => EMP.length === 0 && DIF.length === 0), 'nómina y diferencial cambiario sin datos de muestra');
@@ -170,7 +170,7 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   await pg.evaluate(() => { S.nomPagos = S.nomPagos || []; S.nomPagos.push({ periodo: QUIN.id, nombre: QUIN.nombre, fecha: new Date().toISOString(), total: 100, personas: [] }); }); await pg.click('body'); await pg.waitForTimeout(500);
   ok(T.colecciones.some(c => c.nombre === 'privado_nomina_pagos' && c.datos[0].periodo), 'el pago de la quincena queda guardado');
   // Recargar: todo sigue ahí
-  await pg.reload(); await pg.waitForFunction(() => !document.getElementById('loginForm') && P.length === 1 && FX.docs.length === 2, null, { timeout: 8000 }).catch(() => {});
+  await pg.reload(); await pg.waitForFunction(() => (typeof S === 'object' && S.view !== 'login') && P.length === 1 && FX.docs.length === 2, null, { timeout: 8000 }).catch(() => {});
   ok(await pg.evaluate(() => S.nomEstado === 'pagada' && P.length === 1 && P[0].stock === 12 && CLIENTS.length === 1 && FX.docs.length === 2 && FX.docs[1].afecta === FX.docs[0].id), 'al recargar siguen ahí producto, existencia, cliente, factura, su nota y la quincena pagada');
   ok(errs.length === 0, 'sin errores de JavaScript ' + errs.join(' | '));
   await b.close(); process.exit(fallas ? 1 : 0);
