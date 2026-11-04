@@ -29,6 +29,14 @@ begin
   raise notice 'ok   %', caso;
 end $$;
 
+-- Ayudantes de prueba: llaman a las funciones internas como lo hacen vender(), crear_orden()...
+create function prueba.emitir(p_empresa uuid, p_tipo tipo_doc, p_cliente jsonb, p_lineas jsonb, p_pagos jsonb default '[]', p_afecta uuid default null,
+  p_motivo text default null, p_origen origen_doc default 'sistema', p_numero_manual bigint default null) returns documentos
+language plpgsql security definer set search_path = public as $$ begin return emitir_documento(p_empresa, p_tipo, p_cliente, p_lineas, p_pagos, p_afecta, p_motivo, p_origen, p_numero_manual); end $$;
+create function prueba.imprenta(p_doc uuid, p_control text, p_estado estado_doc, p_resp jsonb) returns documentos
+language plpgsql security definer set search_path = public as $$ begin return registrar_imprenta(p_doc, p_control, p_estado, p_resp); end $$;
+grant execute on all functions in schema prueba to authenticated, anon, service_role;
+
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-00000000000d', 'jose@azullab.com'),
   ('00000000-0000-0000-0000-0000000000a1', 'atencion@azullab.com'),
@@ -79,6 +87,7 @@ select prueba.debe_fallar('atención no carga resultados', $$ update ordenes set
 
 \echo '--- Toma, resultados y validación'
 select prueba.como('00000000-0000-0000-0000-0000000000c1');
+select prueba.debe_fallar('toma de muestras no entrega un resultado sin validar', $$ update ordenes set estado = 'Entregado' where numero = 'L-0001' $$, 'validado por el bioanalista');
 update ordenes set estado = 'En proceso', datos = datos || '{"toma":"07:05"}' where numero = 'L-0001';
 select prueba.igual('toma de muestras marca la toma', (select estado from ordenes where numero = 'L-0001'), 'En proceso');
 select prueba.debe_fallar('toma de muestras no crea órdenes', $$ select crear_orden((select l from ids), 1, '[{"k":"ex","c":"HEM"}]') $$, 'no crea órdenes');

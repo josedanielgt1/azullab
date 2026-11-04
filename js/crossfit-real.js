@@ -22,6 +22,11 @@
   const sid = id => 'S' + id, dbid = s => s && s._id;
   const g = {soc: new Map(), piz: null};
 
+  /* Lo de la maqueta fuera desde el arranque: si la base tarda o falla, la pantalla queda vacía,
+     nunca con pacientes, socios o clientes inventados. Lo real llega al entrar. */
+  const vaciar = (...fs) => fs.forEach(f => { try { const x = f(); if (Array.isArray(x)) x.length = 0; else if (x && typeof x === 'object') Object.keys(x).forEach(k => delete x[k]); } catch (_) {} });
+  vaciar(() => SOCIOS, () => PLANES, () => PAGOS, () => CLASES, () => ASIS, () => RES, () => MARCAS, () => FX_SYS.PROD);
+
   /* ---------------- Carga ---------------- */
   async function cargarCatalogo() {
     const [pl, pr, cl] = await Promise.all([

@@ -7,13 +7,43 @@
      <script src="js/vendor/supabase-2.118.0.js"></script>   (copia local: abre sin internet)
      <script src="js/config.js"></script>
    ===================================================================== */
+/* Seguridad: publicado en internet, el navegador solo deja que la página hable con la base de datos,
+   la fuente de la tasa BCV y las letras de Google. Aunque alguien colara código, no podría mandar
+   los datos ni la sesión a ningún otro sitio. (Abierto como archivo del equipo no se aplica: allí
+   algunos navegadores bloquearían el propio sistema.) */
+if (location.protocol !== 'file:' && window.CUADRE_CONFIG && window.CUADRE_CONFIG.url) {
+  const base = window.CUADRE_CONFIG.url.replace(/\/+$/, ''), ws = base.replace(/^http/, 'ws');
+  const m = document.createElement('meta'); m.httpEquiv = 'Content-Security-Policy';
+  m.content = ["default-src 'self'", "script-src 'self' 'unsafe-inline'", "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' data: https://fonts.gstatic.com", "img-src 'self' data: blob:", `connect-src 'self' ${base} ${ws} https://ve.dolarapi.com`,
+    "frame-src 'none'", "object-src 'none'", "base-uri 'self'", "form-action 'self'"].join('; ');
+  document.head.appendChild(m);
+}
+
 /* Publicado en internet (https), el sistema queda guardado en el equipo y abre sin conexión */
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 
 window.Cuadre = (() => {
   const C = window.CUADRE_CONFIG || {};
   const listo = !!(C.url && C.key && window.supabase);
-  const db = listo ? window.supabase.createClient(C.url, C.key, {auth: {persistSession: true, storageKey: 'cuadre.sesion'}}) : null;
+
+  /* Seguridad: las pantallas arman HTML con los datos (nombres de clientes, productos, pacientes…).
+     Para que nadie pueda esconder código en un nombre y robar la sesión de otro usuario, todo texto
+     que llega de la base pasa por aquí: los caracteres que abren código (< > " `) se cambian por
+     otros casi iguales a la vista que el navegador no interpreta. */
+  const NEUTRO = {'<': '‹', '>': '›', '"': '”', '`': 'ʼ'};
+  const neutro = v => typeof v === 'string' ? v.replace(/[<>"`]/g, c => NEUTRO[c])
+    : Array.isArray(v) ? v.map(neutro)
+    : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, neutro(x)])) : v;
+  const fetchSeguro = async (entrada, opciones) => {
+    const r = await fetch(entrada, opciones);
+    const url = typeof entrada === 'string' ? entrada : (entrada && entrada.url) || '';
+    if (!/\/(rest|functions)\/v1\//.test(url) || !/json/.test(r.headers.get('content-type') || '') || r.status === 204) return r;
+    const texto = await r.clone().text(); if (!texto) return r;
+    let datos; try { datos = JSON.parse(texto); } catch (_) { return r; }
+    return new Response(JSON.stringify(neutro(datos)), {status: r.status, statusText: r.statusText, headers: r.headers});
+  };
+  const db = listo ? window.supabase.createClient(C.url, C.key, {auth: {persistSession: true, storageKey: 'cuadre.sesion'}, global: {fetch: fetchSeguro}}) : null;
 
   /* Rol de la base → nombre del rol en cada sistema (las llaves de ROLES en cada HTML) */
   const ROLES = {
@@ -44,7 +74,7 @@ window.Cuadre = (() => {
 
   const ganchos = [];
   const api = {
-    listo, db, destino: '', acceso: null, ROLES, msg, esc,
+    listo, db, destino: '', acceso: null, ROLES, msg, esc, neutro,
     /* Lo que se carga de la base al entrar, antes de abrir la primera pantalla */
     alEntrar(fn) { ganchos.push(fn); },
 

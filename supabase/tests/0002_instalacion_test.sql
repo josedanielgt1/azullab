@@ -35,6 +35,14 @@ select prueba.igual('ninguna factura sin confirmar sus datos', (select count(*) 
 insert into tasas_bcv (fecha, tasa) values (current_date, 862.15);
 
 -- Se crea el primer usuario (como en Authentication → Add user)
+-- Ayudantes de prueba: llaman a las funciones internas como lo hacen vender(), crear_orden()...
+create function prueba.emitir(p_empresa uuid, p_tipo tipo_doc, p_cliente jsonb, p_lineas jsonb, p_pagos jsonb default '[]', p_afecta uuid default null,
+  p_motivo text default null, p_origen origen_doc default 'sistema', p_numero_manual bigint default null) returns documentos
+language plpgsql security definer set search_path = public as $$ begin return emitir_documento(p_empresa, p_tipo, p_cliente, p_lineas, p_pagos, p_afecta, p_motivo, p_origen, p_numero_manual); end $$;
+create function prueba.imprenta(p_doc uuid, p_control text, p_estado estado_doc, p_resp jsonb) returns documentos
+language plpgsql security definer set search_path = public as $$ begin return registrar_imprenta(p_doc, p_control, p_estado, p_resp); end $$;
+grant execute on all functions in schema prueba to authenticated, anon, service_role;
+
 insert into auth.users (id, email, raw_user_meta_data) values ('00000000-0000-0000-0000-00000000000d', 'jose@azullab.com', '{"nombre":"José Guerrero"}');
 select prueba.igual('el primero es dueño de los tres negocios', (select count(*) from miembros where rol = 'dueno'), 3::bigint);
 select prueba.igual('se le crea su perfil', (select nombre from perfiles where user_id = '00000000-0000-0000-0000-00000000000d'), 'José Guerrero');
@@ -48,10 +56,10 @@ select prueba.como('00000000-0000-0000-0000-00000000000d');
 select prueba.igual('mi_acceso: el dueño en la farmacia', (select rol::text from mi_acceso('farmacia')), 'dueno');
 select prueba.igual('mi_acceso: con su nombre', (select nombre from mi_acceso('laboratorio')), 'José Guerrero');
 select prueba.debe_fallar('no factura sin datos fiscales confirmados',
-  $$ select emitir_documento((select id from empresas where tipo = 'farmacia'), 'FAC', '{"rif":"V-1","nombre":"X"}', '[{"descripcion":"x","cantidad":1,"precio_usd":1,"alicuota":"E"}]') $$, 'Faltan los datos fiscales');
+  $$ select prueba.emitir((select id from empresas where tipo = 'farmacia'), 'FAC', '{"rif":"V-1","nombre":"X"}', '[{"descripcion":"x","cantidad":1,"precio_usd":1,"alicuota":"E"}]') $$, 'Faltan los datos fiscales');
 update empresas set rif = 'J-41234567-8', datos_confirmados = true where tipo = 'farmacia';
 select prueba.igual('el dueño edita el RIF', (select rif from empresas where tipo = 'farmacia'), 'J-41234567-8');
-select prueba.igual('ya factura', (select numero from emitir_documento((select id from empresas where tipo = 'farmacia'), 'FAC', '{"rif":"V-1","nombre":"X"}', '[{"descripcion":"x","cantidad":1,"precio_usd":1,"alicuota":"E"}]')), 1::bigint);
+select prueba.igual('ya factura', (select numero from prueba.emitir((select id from empresas where tipo = 'farmacia'), 'FAC', '{"rif":"V-1","nombre":"X"}', '[{"descripcion":"x","cantidad":1,"precio_usd":1,"alicuota":"E"}]')), 1::bigint);
 select prueba.debe_fallar('RIF con formato malo', $$ update empresas set rif = 'J-123' where tipo = 'crossfit' $$, 'check constraint');
 
 select prueba.como('00000000-0000-0000-0000-0000000000c1');

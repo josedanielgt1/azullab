@@ -16,12 +16,17 @@
   const db = C.db;
   const A = () => C.acceso || {};
   const EMP = () => A().empresa_id;
-  const EMPLEADOS = () => (0, eval)('EMP');   // la lista de empleados de la página (aquí EMP es el negocio)
+  const EMPLEADOS = () => window.EMP_LISTA || [];   // la lista de empleados de la página (aquí EMP es el negocio)
   const avisar = t => toast(t);
   const r2 = n => Math.round(n * 100) / 100;
   const p8 = n => String(n).padStart(8, '0');
   const hoyVE = () => new Intl.DateTimeFormat('en-CA', {timeZone: 'America/Caracas'}).format(new Date());
   const dmy = iso => iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(0, 4);
+
+  /* Lo de la maqueta fuera desde el arranque: si la base tarda o falla, la pantalla queda vacía,
+     nunca con pacientes, socios o clientes inventados. Lo real llega al entrar. */
+  const vaciar = (...fs) => fs.forEach(f => { try { const x = f(); if (Array.isArray(x)) x.length = 0; else if (x && typeof x === 'object') Object.keys(x).forEach(k => delete x[k]); } catch (_) {} });
+  vaciar(() => P, () => CLIENTS, () => DROG, () => CUENTAS, () => VENDS, () => USERS, () => USERS_TODAY, () => COMPRAS_LIBRO, () => LIBRO, () => LIBRO_DIG, () => DIF, () => RX, () => CTRL, () => ALERTAS, () => ALERTAS_LISTA, () => EMPLEADOS(), () => S.sales, () => S.fallas, () => S.notas, () => S.cots, () => S.movs, () => S.gastos, () => S.cashea, () => S.queue);
 
   /* Lee todas las filas, de 1000 en 1000 (límite de Supabase por consulta) */
   async function todo(armar) {
@@ -669,6 +674,10 @@
   // Copia local para abrir sin internet
   function guardarCopia() { C.guardarLocal('catalogo', P); C.guardarLocal('clientes', CLIENTS); C.guardarLocal('proveedores', DROG); }
 
+  // El botón de la maqueta que activaba el módulo de contribuyente especial: ahora lo decide la base
+  document.addEventListener('click', e => { if (!e.target.closest('[data-act="spe"]') || !C.acceso) return;
+    e.stopImmediatePropagation(); avisar(S.spe ? 'Este negocio cobra IGTF por ser contribuyente especial' : 'Contribuyente ordinario: no cobra IGTF. Si el SENIAT lo designa especial, avísale a Cuadre'); }, true);
+
   C.farmacia = {recargar, sincronizar, alCambiarDocs: () => { tablero(); libroVentas(); }};
 
   /* ---------------- Al entrar ---------------- */
@@ -689,6 +698,8 @@
     await paso('récipes', cargarRecipes);
     await paso('alertas', cargarAlertas);
     DIF.length = 0;   // el diferencial cambiario necesita los saldos del banco: sin datos de muestra
+    // Contribuyente especial (IGTF en divisas): lo dice la base, igual que lo cobra la factura
+    S.spe = !!(C.empresa && +C.empresa.igtf > 0);
     if (!EMPLEADOS().some(e => e.id === S.empSel)) S.empSel = EMPLEADOS()[0] ? EMPLEADOS()[0].id : null;
     tablero(); libroVentas();
     if (navigator.onLine) guardarCopia();

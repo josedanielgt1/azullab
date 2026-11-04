@@ -56,10 +56,18 @@ Deno.serve(async (req) => {
   }
 
   if (b.accion === "clave") {
+    if (!b.user_id || typeof b.user_id !== "string") return responder({ error: "Falta a quién cambiarle la clave" }, 400);
     const { data: m } = await admin.from("miembros").select("rol").eq("empresa_id", b.empresa_id).eq("user_id", b.user_id).maybeSingle();
     if (!m) return responder({ error: "Esa persona no está en este negocio" }, 404);
     const { data: pd } = await comoUsuario.rpc("puedo_crear_usuarios", { p_empresa: b.empresa_id, p_rol: m.rol });
     if (!pd) return responder({ error: "Solo el dueño cambia la clave de otro dueño" }, 403);
+    // Si esa persona tiene más poder en otro negocio (por ejemplo, es dueña del laboratorio),
+    // quien cambia la clave tiene que poder hacerlo allá también: si no, se quedaría con ese negocio.
+    const { data: otros } = await admin.from("miembros").select("empresa_id, rol").eq("user_id", b.user_id).neq("empresa_id", b.empresa_id).eq("activo", true);
+    for (const o of otros ?? []) {
+      const { data: ok } = await comoUsuario.rpc("puedo_crear_usuarios", { p_empresa: o.empresa_id, p_rol: o.rol });
+      if (!ok) return responder({ error: "Esa persona también trabaja en otro negocio del grupo: su clave la cambia el dueño" }, 403);
+    }
     const { error } = await admin.auth.admin.updateUserById(b.user_id, { password: b.clave });
     if (error) return responder({ error: error.message }, 400);
     return responder({ ok: true });

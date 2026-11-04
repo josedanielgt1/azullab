@@ -29,7 +29,7 @@ Las pantallas de `farmacia.html`, `laboratorio.html` y `crossfit.html` son las m
 | CrossFit: app del socio | El dueño le da acceso desde la ficha del socio (correo y clave); el socio ve la pizarra, reserva su clase y anota su resultado; no ve facturas, cobros, otros socios ni al equipo, y no factura | ✅ (necesita la función `usuarios`) |
 | Los tres: panel del grupo | El dueño ve las ventas reales del mes de los tres negocios | ✅ |
 
-Pruebas: **255 de base de datos** (`supabase/tests/correr.sh`) y **159 de navegador** (`tests/navegador/correr.sh`).
+Pruebas: **265 de base de datos** (`supabase/tests/correr.sh`) y **194 de navegador** (`tests/navegador/correr.sh`), incluidas las de ataque (`tests/navegador/seguridad.test.js`) y la que recorre todas las pantallas con cada rol buscando textos o nombres de la maqueta (`tests/navegador/textos.test.js`).
 
 ## Qué todavía muestra datos de muestra
 
@@ -42,15 +42,18 @@ Pruebas: **255 de base de datos** (`supabase/tests/correr.sh`) y **159 de navega
 | Los tres | Páginas «Alcance de la propuesta», «Alcance y regalo», «Fase 2» | Decidir si se quitan para el cliente |
 | Los tres | Imprenta digital | Conectar al proveedor cuando lo escojan (hoy las facturas quedan «pendiente de imprenta») |
 
+> **Nota · The Factory HKA.** Todo indica que la imprenta digital será The Factory HKA, y que ellos también llevarían la parte contable (libros, declaración de IVA, retenciones). Si se confirma, más adelante se pueden quitar o simplificar en Cuadre: Libro de Compras y de Ventas, forma 30 y calendario fiscal, comprobantes de retención de ISLR, checklist del SENIAT y Ganancias y gastos. Por ahora **no se quita nada**: queda anotado para decidirlo con el contador.
+
 Guía para instalar y revisar: `INSTALACION.md`.
 
 ## Lo que hace falta de ti
 
-1. **Pegar en el SQL Editor** `supabase/pendiente_sql_editor.sql` (migraciones 0003 a 0016). Una sola vez, completo, y Run.
-2. **Subir la función `usuarios`**: Supabase → Edge Functions → Deploy a new function → Via Editor, nombre `usuarios`, pegar `supabase/functions/usuarios/index.ts` y Deploy. Sin esto, los usuarios nuevos se crean en Authentication y se les da acceso con «Dar acceso».
-3. **GitHub Pages** (para «Olvidé mi clave» y para entrar desde cualquier equipo): Settings → Pages → rama `claude/inspiring-pascal-ljb7rr`, carpeta raíz. En Supabase → Authentication → URL Configuration: Site URL `https://josedanielgt1.github.io/azullab/` y en Redirect URLs `https://josedanielgt1.github.io/azullab/**`.
-4. **Talonario de contingencia**: en Configuración → Datos fiscales, el rango del talonario (desde y hasta). Sin eso, la farmacia no puede vender sin internet.
-5. **Imprenta digital**: cuando la escojan, se conecta para el número de control.
+1. **Pegar en el SQL Editor** `supabase/pendiente_sql_editor.sql` (migraciones 0018 y 0019: seguridad e IGTF). Una sola vez, completo, y Run.
+2. **Volver a subir la función `usuarios`** (cambió por seguridad): Supabase → Edge Functions → `usuarios` → Code, pegar `supabase/functions/usuarios/index.ts` y Deploy.
+3. **Activar la protección de claves filtradas**: Supabase → Authentication → Sign In / Providers → Email → «Prevent use of leaked passwords».
+4. **GitHub Pages** (para «Olvidé mi clave» y para entrar desde cualquier equipo): Settings → Pages → rama `claude/inspiring-pascal-ljb7rr`, carpeta raíz. En Supabase → Authentication → URL Configuration: Site URL `https://josedanielgt1.github.io/azullab/` y en Redirect URLs `https://josedanielgt1.github.io/azullab/**`.
+5. **Talonario de contingencia**: en Configuración → Datos fiscales, el rango del talonario (desde y hasta). Sin eso, la farmacia no puede vender sin internet.
+6. **Imprenta digital**: cuando la escojan, se conecta para el número de control.
 
 ## Decisiones tomadas
 
@@ -59,7 +62,8 @@ Guía para instalar y revisar: `INSTALACION.md`.
 - **Datos fiscales**: editables; sin confirmarlos no se factura.
 - **Catálogos**: vacíos al instalar (en el laboratorio, con la opción de cargar el catálogo base para ajustarlo).
 - **Socio nuevo del CrossFit**: queda vencido hasta que se le cobre.
-- **Imprenta digital**: en espera; las facturas quedan «pendiente de imprenta».
+- **Imprenta digital**: en espera (probablemente The Factory HKA); las facturas quedan «pendiente de imprenta».
+- **IGTF**: los tres negocios son contribuyentes ordinarios y no lo cobran. Si el SENIAT designa especial a alguno, se pone `igtf = 3` en su fila de `empresas`.
 
 ## Cómo probar en local
 

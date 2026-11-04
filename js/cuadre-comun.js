@@ -59,7 +59,7 @@
     e.stopImmediatePropagation(); avisar(navigator.onLine ? 'Hay internet: todo se guarda en la base al momento' : 'Sin internet: las ventas se guardan en este equipo y suben solas al volver'); }, true);
   // Copia local de lo necesario para abrir sin internet
   C.guardarLocal = (k, v) => { try { localStorage.setItem('cuadre.' + A().tipo + '.' + k, JSON.stringify(v)); } catch (_) {} };
-  C.leerLocal = k => { try { return JSON.parse(localStorage.getItem('cuadre.' + A().tipo + '.' + k) || 'null'); } catch (_) { return null; } };
+  C.leerLocal = k => { try { return C.neutro(JSON.parse(localStorage.getItem('cuadre.' + A().tipo + '.' + k) || 'null')); } catch (_) { return null; } };   // también lo guardado en el equipo pasa por el filtro
 
   /* ---------------- Tasa BCV ---------------- */
   function ponerTasa(v, fecha) {
@@ -219,6 +219,9 @@
   if (typeof FX_SYS === 'object') {
     FX_SYS.excedente = 0; FX_SYS.declPrev = '';
   }
+  // Las facturas y el historial que el motor arma al arrancar son de la maqueta: fuera desde el inicio,
+  // así no se ven aunque la base tarde o falle (las reales llegan con cargarDocumentos)
+  if (typeof FX === 'object' && FX.docs) { FX.docs.length = 0; if (FX.hist) FX.hist.length = 0; if (FX.n) ['FAC', 'NC', 'ND'].forEach(t => { FX.n[t] = 1; }); }
   C.alEntrar(async a => {
     if (typeof FX_SYS === 'object' && a.tipo !== 'farmacia') { try { await cargarComprasServ(); } catch (x) { console.error(x); } conectarComprasServ(); }
     const {data} = await db.from('colecciones').select('datos').eq('empresa_id', A().empresa_id).eq('nombre', 'privado_fiscal').maybeSingle();

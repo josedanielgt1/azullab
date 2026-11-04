@@ -8,7 +8,7 @@
 /* =====================================================================
    PAPEL FISCAL · sistema de diseño de Cuadre
    Capa 1: tokens (papel / carbón). Capa 2: color del cliente (Azullab).
-   Capa 3: componentes aplicados a esta maqueta.
+   Capa 3: componentes de esta pantalla.
    Diseño: mesa → separadores de archivador → carpeta abierta → hojas con folio.
    ===================================================================== */
 :root{
@@ -26,7 +26,7 @@
   --font-forma:"Archivo","Arial Narrow",system-ui,-apple-system,"Segoe UI",sans-serif;
   --font-maquina:"IBM Plex Mono",ui-monospace,Consolas,monospace;
   --alto-renglon:40px;
-  /* alias que usa el contenido de la maqueta */
+  /* alias que usa el contenido de la página */
   --ink:var(--tinta); --ink-2:var(--tinta-2); --ink-3:var(--tinta-3); --line:var(--renglon); --azul:var(--acento-tinta);
   --celeste-50:var(--acento-suave); --ok:var(--sello-verde); --warn:var(--sello-ambar); --bad:var(--sello-rojo);
 }
@@ -824,7 +824,7 @@ function flagOf(p, v, sex){
 const flagH = f => ({H:'<span class="flag h">↑ Alto</span>', L:'<span class="flag l">↓ Bajo</span>', X:'<span class="flag x">Fuera de lo normal</span>', CH:'<span class="flag c">↑ Crítico</span>', CL:'<span class="flag c">↓ Crítico</span>'}[f]||'');
 const vtxt = (p, v) => p.t==='txt' ? v : fv(v, p.d||0);
 
-/* ======================= Pacientes y órdenes de muestra ======================= */
+/* ======================= Datos iniciales (los reemplaza la base al entrar) ======================= */
 const PATS = [
  {id:'P1', ci:'V-9.876.543', n:'María Rondón', s:'F', b:'1968-04-12', tel:'0414-7321908'},
  {id:'P2', ci:'V-4.321.987', n:'José Gregorio Peña', s:'M', b:'1955-08-03', tel:'0416-6754412'},
@@ -917,8 +917,7 @@ const NAV = [
   {g:'Archivo', items:[['users','pacientes','Pacientes'],['list','catalogo','Exámenes y precios'],['box','reactivos','Reactivos e insumos']]},
   {g:'Fiscal', items:[['receipt','caja','Caja y fiscal']]},
   {g:'Sistema', items:[['cloud','offline','Modo sin conexión'],['key','users','Usuarios y permisos']]},
-  {g:'Fase 2', f2:true, items:[['phone','portal','Portal y WhatsApp'],['chip','equipos','Conexión con equipos'],['building','convenios','Seguros y convenios'],['chart','calidad','Control de calidad'],['branches','grupo','Grupo Azullab']]},
-  {g:'Proyecto', items:[['doc','scope','Alcance de la propuesta']]}
+  {g:'Fase 2', f2:true, items:[['phone','portal','Portal y WhatsApp'],['chip','equipos','Conexión con equipos'],['building','convenios','Seguros y convenios'],['chart','calidad','Control de calidad'],['branches','grupo','Grupo Azullab']]}
 ];
 const TITLES = {dashboard:'Resumen del día',recepcion:'Atender paciente',muestras:'Toma de muestras',resultados:'Carga de resultados',validacion:'Validación',entrega:'Entrega de resultados',pacientes:'Pacientes',catalogo:'Exámenes y precios',reactivos:'Reactivos e insumos',caja:'Caja y fiscal',offline:'Modo sin conexión',users:'Usuarios y permisos',portal:'Portal del paciente y WhatsApp',equipos:'Conexión con equipos',convenios:'Seguros y convenios',calidad:'Control de calidad',grupo:'Grupo Azullab',scope:'Alcance de la propuesta'};
 const F2 = ['portal','equipos','convenios','calidad','grupo'];
@@ -983,7 +982,7 @@ function qrSvg(seed){
   const rnd = () => (x = (x * 9301 + 49297) % 233280) / 233280;
   const finder = (cx, cy) => `<rect x="${cx}" y="${cy}" width="7" height="7" fill="#1a2440"/><rect x="${cx+1}" y="${cy+1}" width="5" height="5" fill="#fff"/><rect x="${cx+2}" y="${cy+2}" width="3" height="3" fill="#1a2440"/>`;
   for (let i=0;i<25;i++) for (let j=0;j<25;j++){ const inF = (i<8&&j<8)||(i<8&&j>16)||(i>16&&j<8); if (!inF && rnd()>.52) cells += `<rect x="${j}" y="${i}" width="1" height="1" fill="#1a2440"/>`; }
-  return `<svg viewBox="0 0 25 25" shape-rendering="crispEdges" role="img" aria-label="Código QR de verificación (muestra)" style="background:#fff">${finder(0,0)}${finder(18,0)}${finder(0,18)}${cells}</svg>`;
+  return `<svg viewBox="0 0 25 25" shape-rendering="crispEdges" role="img" aria-label="Código QR de verificación" style="background:#fff">${finder(0,0)}${finder(18,0)}${finder(0,18)}${cells}</svg>`;
 }
 const etiquetas = o => { const pt = patBy(o.pat);
   return `<div class="etqs">${tubesSorted(o).map(t => `<div class="etq" style="--t:${TUBOS[t].c}"><div class="tp"><b>${pt.n.split(' ').slice(0,2).join(' ')}</b><i></i></div>
@@ -1797,7 +1796,6 @@ document.addEventListener('click', e => {
     case 'etq': openModal(`<div class="sheet" style="max-width:520px"><div class="hd"><h2>Etiquetas de ${o.n}</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div><div class="bd">${etiquetas(o)}<button class="btn primary" data-act="toast" data-m="Etiquetas enviadas a la impresora">${ic('printer')}Imprimir</button></div></div>`); break;
     case 'tomada': o.st = 'En proceso'; o.toma = nowT(); toast(`Muestras de ${patBy(o.pat).n} tomadas: pasan al área técnica`); render(); break;
     case 'pick': S.sel[b.dataset.v] = b.dataset.o; render(); break;
-    case 'demofill': exOf(o).forEach(c=>exBy(c).ps.forEach(p=>{ if (o.res[p.k]===undefined||o.res[p.k]==='') o.res[p.k] = DEMO[p.k]; })); render(); toast('Valores de muestra cargados: revisa las marcas'); break;
     case 'tovalid': { const miss = paramsOf(o).length - filledOf(o); if (miss) { toast(`Faltan ${miss} ${miss===1?'valor':'valores'} por cargar`); break; }
       o.st = 'Por validar'; S.sel.validacion = o.n; toast(`${o.n} enviada a validación${critOf(o).length?' · tiene valor crítico':''}`); render(); break; }
     case 'aviso': o.aviso = {to: o.med ? medTxt(o.med) : 'El paciente', t: nowT(), by: S.role==='Bioanalista' ? S.user : BIO}; toast('Aviso registrado en la orden'); render(); break;
@@ -1844,7 +1842,7 @@ Cuadre.montar({tipo:'laboratorio', abrir:a => { S.role = a.rolTxt; S.user = a.no
 </script>
 <!-- FX:INICIO · Cuadre Fiscal, un RIF por negocio -->
 <script>
-/* ===== Lo fiscal propio de Azullab Laboratorio (su RIF, sus datos de muestra). El motor común va abajo. ===== */
+/* ===== Lo fiscal propio de Azullab Laboratorio (su RIF y sus reglas). El motor común va abajo. ===== */
 const FX_SYS = (() => {
   const rateOn = iso => { const d = +iso.slice(8, 10); return Math.round((862.15 + (d - 1) * 0.79) * 100) / 100; };
   const DIV = ['Efectivo USD', 'Zelle'];
@@ -1855,7 +1853,7 @@ const FX_SYS = (() => {
   return {
     negocio:'Azullab Laboratorio', hoy:new Intl.DateTimeFormat('en-CA', {timeZone: 'America/Caracas'}).format(new Date()),
     fiscal:{razon:'Grupo Empresarial Azullab, C.A.', rif:'J-50134578-3', dom:'La Azulita, municipio Andrés Bello, estado Mérida', tel:'0424-7535017 / 0424-7723883',
-      impNom:'Imprenta digital por elegir (muestra)', impRif:'J-00000000-0', serie:'00', prov:'SNAT/XXXX/2026 (muestra)', provFecha:'',
+      impNom:'', impRif:'', serie:'00', prov:'', provFecha:'',
       talNum:'T-0001', talSerie:'01', talDesde:1, talHasta:50, contador:'Por asignar'},
     num:{FAC:1, NC:1, ND:1, ctrl:1},
     online:() => S.online,
@@ -1872,7 +1870,7 @@ const FX_SYS = (() => {
     ivaNota:'Servicios médico-asistenciales exentos (E), Ley del IVA, art. 19. Como todas las ventas son exentas, el IVA de las compras no se descuenta en la declaración: pasa al costo. Confirmar con el contador que la exención aplica a este laboratorio y cómo tratar el IVA de las compras.',
     comprasNota:'Reactivos, insumos y servicios del laboratorio. Confirmar con el contador si los reactivos e insumos van exentos o gravados.',
     docsNota:'Para anular una orden ya cobrada, se emite una nota de crédito por el total de su factura.',
-    declPrev:'declarado el 13-10-2026 (muestra)',
+    declPrev:'',
     excedente:0,
     compras:() => [
       ['2026-10-05','FAC','0004521','00-00031877','J-00000001-1 (muestra)','Distribuidora de reactivos (muestra)',0,420],
@@ -1918,7 +1916,7 @@ const FX_SYS = (() => {
    Reglas: Providencia 0071 (hasta el 18-04-2027) y SNAT/2026/00093 (desde el
    19-04-2027). Medio: imprenta digital con talonario de contingencia; sin máquina fiscal.
    Todo lo fiscal (factura, notas, libros, cierres, reportes) sale de FX.F (datos
-   del emisor) y de FX.docs (documentos emitidos). Datos de muestra: nada se conecta.
+   del emisor) y de FX.docs (documentos emitidos).
    ===================================================================== */
 const FX = (() => {
   const Y = FX_SYS;
@@ -2041,7 +2039,7 @@ const FX = (() => {
       cEx:r2(C.reduce((a, c) => a + c.ex, 0)), cBg:r2(C.reduce((a, c) => a + c.bg, 0)), cBr:r2(C.reduce((a, c) => a + c.br, 0))};
   };
 
-  /* ---------- Calendario fiscal (dato de muestra según el último dígito del RIF) ---------- */
+  /* ---------- Calendario fiscal (según el último dígito del RIF) ---------- */
   const habil = iso => { const d = new Date(iso + 'T00:00:00'); while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10); };
   M.digito = () => { const m = String(M.F.rif).match(/(\d)\s*$/); return m ? +m[1] : 0; };
   M.cal = () => {
@@ -2093,11 +2091,11 @@ const FX = (() => {
     return L.join('\n');
   };
 
-  /* ---------- Código QR de muestra ---------- */
+  /* ---------- Código QR ---------- */
   const qr = seed => { let x = seed * 9301 + 49297, cells = ''; const rnd = () => (x = (x * 9301 + 49297) % 233280) / 233280;
     const fi = (cx, cy) => `<rect x="${cx}" y="${cy}" width="7" height="7" fill="#1a2440"/><rect x="${cx + 1}" y="${cy + 1}" width="5" height="5" fill="#fff"/><rect x="${cx + 2}" y="${cy + 2}" width="3" height="3" fill="#1a2440"/>`;
     for (let i = 0; i < 25; i++) for (let j = 0; j < 25; j++) { const inF = (i < 8 && j < 8) || (i < 8 && j > 16) || (i > 16 && j < 8); if (!inF && rnd() > .52) cells += `<rect x="${j}" y="${i}" width="1" height="1" fill="#1a2440"/>`; }
-    return `<svg class="fx-qr" viewBox="0 0 25 25" shape-rendering="crispEdges" role="img" aria-label="Código QR de verificación (muestra)">${fi(0, 0)}${fi(18, 0)}${fi(0, 18)}${cells}</svg>`; };
+    return `<svg class="fx-qr" viewBox="0 0 25 25" shape-rendering="crispEdges" role="img" aria-label="Código QR de verificación">${fi(0, 0)}${fi(18, 0)}${fi(0, 18)}${cells}</svg>`; };
 
   /* ---------- La factura completa (lo que exige la 0071 y la 00093, art. 8) ---------- */
   M.docHtml = d => {
@@ -2247,7 +2245,7 @@ const FX = (() => {
     else if (k === 'islr') { body = M.islrTabla(); base = `Decreto 1.808: como empresa, ${E(M.F.razon)} retiene ISLR al pagar alquiler, honorarios, servicios, fletes y publicidad, y entrega el comprobante. A las personas naturales se les resta el sustraendo (UT de Bs ${M.UT}) y solo se les retiene si el pago pasa de ${B(utMin())}. <i>Plazo para enterar, formato del comprobante y de la relación mensual: confirmar con el contador.</i>`; }
     else if (k === 'f30') { body = M.f30Tabla(f); base = 'Borrador para que lo revise el contador. <b>No se presenta desde el sistema:</b> la declaración la hace el contador en el portal del SENIAT. Los números de casilla de la forma 30 los pone el contador. Si hay compras que sirven a la vez a ventas exentas y gravadas, el crédito se prorratea (Ley del IVA, art. 34): <i>confirmar con el contador.</i>'; }
     else if (k === 'inv') { body = Y.inventario.html(); base = Y.inventario.base; }
-    else { body = M.calTabla(); base = 'Fechas de muestra según el último dígito del RIF. <i>Confirmar con el calendario vigente del SENIAT y con el contador antes de usarlas.</i>'; csv = ''; }
+    else { body = M.calTabla(); base = 'Fechas según el último dígito del RIF. <i>Confírmalas con el calendario vigente del SENIAT y con el contador.</i>'; csv = ''; }
     const ok = Math.abs(r2(f.R.ivg + f.R.ivr) - f.deb) < .005;
     return `<p class="lead">Libros de <b>${E(M.F.razon)}</b>, RIF <b class="num">${E(M.F.rif)}</b>, ${MES_T}. Este negocio lleva sus propios libros: nada de otro RIF entra aquí.</p>
     <div class="kpis"><div class="kpi hero"><span class="l">Ventas del mes con IVA</span><span class="v num">${B(f.R.total)}</span><span class="s">${M.libroVentas().length} renglones en el Libro de Ventas</span></div>
@@ -2260,7 +2258,7 @@ const FX = (() => {
     ${k === 'ventas' || k === 'f30' ? `<div class="grid g2" style="align-items:start"><section class="panel"><div class="hd"><h2>Resumen del Libro de Ventas</h2>${ok ? `<span class="pill ok">${ic('check')}Coincide con la forma 30</span>` : '<span class="pill bad">No coincide</span>'}</div><div class="bd flush tbl-wrap keep">${M.resumenTabla(f)}</div></section>
       <section class="panel"><div class="hd"><h2>IVA de este negocio</h2><span class="pill warn">Confirmar con el contador</span></div><div class="bd"><p style="margin:0">${Y.ivaNota}</p></div></section></div>` : ''}`;
   };
-  M.calTabla = () => `<table><thead><tr><th>Obligación de ${MES_T}</th><th>Fecha (muestra)</th><th>Faltan</th></tr></thead><tbody>${M.cal().map(c => { const n = daysFrom(c.f);
+  M.calTabla = () => `<table><thead><tr><th>Obligación de ${MES_T}</th><th>Fecha</th><th>Faltan</th></tr></thead><tbody>${M.cal().map(c => { const n = daysFrom(c.f);
     return `<tr><td>${c.t}</td><td class="num">${fd(c.f)}</td><td>${n < 0 ? '<span class="pill bad">Vencida</span>' : n <= 5 ? `<span class="pill warn">${n} ${n === 1 ? 'día' : 'días'}</span>` : `<span class="pill">${n} días</span>`}</td></tr>`; }).join('')}</tbody></table>`;
 
   /* ---------- Exportar a Excel (CSV con las mismas columnas de seniat/*.xlsx) ---------- */
@@ -2298,13 +2296,13 @@ const FX = (() => {
   M.checks = () => { const F = M.F, I = M.islr(), pr = I.filter(x => x.ent !== 'Enterada'), cal = M.cal(), f = M.f30(), tl = M.talLeft(), pend = M.contPend();
     const muestra = s => /muestra|por asignar|por definir/i.test(String(s));
     const L = [
-      {k:'rif', t:'RIF exhibido en el local', d:`RIF ${F.rif} de ${F.razon}, vigente y a la vista del público.${F.rifMuestra ? ' RIF de muestra: se confirma con el cliente.' : ''}`, st:M.chk.rif ? (F.rifMuestra ? 'warn' : 'ok') : 'pend', man:true},
-      {k:'prov', t:'Providencia de la imprenta digital', d:F.prov ? `${F.impNom} (RIF ${F.impRif}) · providencia ${F.prov}${F.provFecha ? ' del ' + fd(F.provFecha) : ''}.` : 'Falta el número de la providencia de autorización.', st:F.prov && !muestra(F.prov) && !muestra(F.impNom) ? 'ok' : 'warn'},
+      {k:'rif', t:'RIF exhibido en el local', d:`RIF ${F.rif} de ${F.razon}, vigente y a la vista del público.${F.rifMuestra ? ' Falta confirmarlo en Configuración: sin eso el negocio no factura.' : ''}`, st:M.chk.rif ? (F.rifMuestra ? 'warn' : 'ok') : 'pend', man:true},
+      {k:'prov', t:'Providencia de la imprenta digital', d:F.prov ? `${F.impNom || 'Imprenta digital'}${F.impRif ? ' (RIF ' + F.impRif + ')' : ''} · providencia ${F.prov}${F.provFecha ? ' del ' + fd(F.provFecha) : ''}.` : 'Falta la imprenta digital y el número de su providencia de autorización (Configuración).', st:F.prov && !muestra(F.prov) && !muestra(F.impNom) ? 'ok' : 'warn'},
       {k:'tal', t:'Talonario de contingencia en el local', d:`Talonario ${F.talNum}: controles ${F.talSerie}-${p8(F.talDesde)} al ${F.talSerie}-${p8(F.talHasta)}. Quedan ${tl} formatos.`, st:tl > 10 ? 'ok' : 'warn'},
       {k:'libros', t:'Libros en el establecimiento', d:`Libro de Ventas, Libro de Compras${Y.inventario ? ' y registro de inventario (art. 177 del Reglamento de ISLR)' : ''} de ${MES_T}, impresos y en el local (Reglamento de la Ley del IVA, art. 71).`, st:M.chk.libros ? 'ok' : 'pend', man:true},
-      {k:'decl', t:'Declaraciones del mes al día', d:`IVA del mes anterior: ${Y.declPrev || 'confirmar con el contador'}. IVA de ${new Date(Y.hoy + 'T12:00:00').toLocaleDateString('es-VE', {month: 'long'})}: borrador listo (${f.pagar > 0 ? 'a pagar ' + B(f.pagar) : 'sin monto a pagar'}), vence el ${fd(cal.find(c => c.k === 'iva').f)} (fecha de muestra).`, st:M.chk.decl ? 'ok' : 'pend', man:true},
-      {k:'ret', t:'Retenciones enteradas', d:pr.length ? `${pr.length} ${pr.length === 1 ? 'retención' : 'retenciones'} de ISLR de octubre por enterar: ${B(r2(pr.reduce((a, x) => a + x.ret, 0)))}. Vence el ${fd(cal.find(c => c.k === 'ret').f)} (fecha de muestra). Septiembre: enteradas.` : 'Todas las retenciones del mes están enteradas.', st:pr.length ? 'warn' : 'ok'},
-      {k:'cont', t:'Contador asignado', d:muestra(F.contador) ? `${F.contador}. Hace falta su nombre, su número de colegio y cómo quiere recibir los libros.` : `${F.contador}.`, st:F.contador && !/por asignar|por definir/i.test(F.contador) ? (muestra(F.contador) ? 'warn' : 'ok') : 'pend'}];
+      {k:'decl', t:'Declaraciones del mes al día', d:`IVA del mes anterior: ${Y.declPrev || 'confirmar con el contador'}. IVA de ${new Date(Y.hoy + 'T12:00:00').toLocaleDateString('es-VE', {month: 'long'})}: borrador listo (${f.pagar > 0 ? 'a pagar ' + B(f.pagar) : 'sin monto a pagar'}), vence el ${fd(cal.find(c => c.k === 'iva').f)}.`, st:M.chk.decl ? 'ok' : 'pend', man:true},
+      {k:'ret', t:'Retenciones enteradas', d:pr.length ? `${pr.length} ${pr.length === 1 ? 'retención' : 'retenciones'} de ISLR de ${MES_T} por enterar: ${B(r2(pr.reduce((a, x) => a + x.ret, 0)))}. Vence el ${fd(cal.find(c => c.k === 'ret').f)}.` : 'Todas las retenciones del mes están enteradas.', st:pr.length ? 'warn' : 'ok'},
+      {k:'cont', t:'Contador asignado', d:!F.contador || muestra(F.contador) ? 'Falta el contador: su nombre, su número de colegio y cómo quiere recibir los libros (Configuración).' : `${F.contador}.`, st:F.contador && !/por asignar|por definir/i.test(F.contador) ? (muestra(F.contador) ? 'warn' : 'ok') : 'pend'}];
     if (pend.length) L.splice(3, 0, {k:'rep', t:'Facturas de contingencia reportadas', d:`${pend.length} ${pend.length === 1 ? 'factura del talonario espera' : 'facturas del talonario esperan'} ser enviadas en PDF a la imprenta (00093, art. 7).`, st:'warn'});
     return L; };
   const ST = {ok:['ok','Al día'], warn:['warn','Revisar'], pend:['bad','Pendiente']};
@@ -2312,15 +2310,15 @@ const FX = (() => {
     return `<p class="lead">Lo que el SENIAT puede pedir en una visita a <b>${E(M.F.razon)}</b> (RIF ${E(M.F.rif)}). Cada negocio del grupo tiene su propia lista, porque cada uno es un contribuyente distinto.</p>
     <div class="kpis"><div class="kpi hero"><span class="l">Al día</span><span class="v num">${ok} de ${L.length}</span><span class="s">${L.length - ok ? 'Hay puntos por revisar' : 'Todo en regla'}</span></div>
       <div class="kpi"><span class="l">Tipo de contribuyente</span><span class="v" style="font-size:20px;line-height:34px">${E(M.F.tipo)}</span><span class="s">Especial: módulo apagado</span></div>
-      <div class="kpi"><span class="l">Contador</span><span class="v" style="font-size:18px;line-height:34px">${E(M.F.contador)}</span><span class="s">Revisa libros y declaraciones</span></div></div>
+      <div class="kpi"><span class="l">Contador</span><span class="v" style="font-size:18px;line-height:34px">${E(M.F.contador || 'Por asignar')}</span><span class="s">Revisa libros y declaraciones</span></div></div>
     <section class="panel"><div class="hd"><h2>Checklist del SENIAT · ${E(Y.negocio)}</h2><span class="small muted">${fd(Y.hoy)}</span></div>
       <div class="bd flush list fx-chk">${L.map(x => `<div class="it"><span class="fx-dot ${ST[x.st][0]}" aria-hidden="true">${x.st === 'ok' ? ic('check') : ic('alert')}</span><div class="t"><b>${x.t}</b><span class="small muted">${E(x.d)}</span></div>
         <div style="display:grid;gap:6px;justify-items:end"><span class="pill ${ST[x.st][0]}">${ST[x.st][1]}</span>${x.man && S.role === 'Dueño' ? `<button class="btn sm" data-act="fx-chk" data-k="${x.k}">${M.chk[x.k] ? 'Marcar pendiente' : 'Marcar cumplido'}</button>` : ''}</div></div>`).join('')}</div>
-      <p class="base-legal">Código Orgánico Tributario, art. 102: no llevar los libros, o tenerlos fuera del establecimiento o atrasados, se sanciona con cierre y multa. Los puntos con datos de muestra quedan en “Revisar” hasta que el cliente y su contador los confirmen.</p></section>`; };
+      <p class="base-legal">Código Orgánico Tributario, art. 102: no llevar los libros, o tenerlos fuera del establecimiento o atrasados, se sanciona con cierre y multa. Los puntos sin confirmar quedan en «Revisar» hasta que el dueño y su contador los confirmen.</p></section>`; };
 
   /* ---------- Datos fiscales (Configuración, solo el dueño) ---------- */
   M.datosPanel = () => { const F = M.F, fi = (k, l, cls = '', ph = '') => `<div class="field"><label for="fx-f-${k}">${l}</label><input id="fx-f-${k}" class="input ${cls}" data-fxf="${k}" value="${E(F[k])}" placeholder="${E(ph)}"></div>`;
-    return `<section class="panel" id="fx-datos"><div class="hd"><h2>Datos fiscales</h2>${F.rifMuestra ? '<span class="pill warn">RIF de muestra: se confirma con el cliente</span>' : '<span class="pill ok">Confirmados con el cliente</span>'}</div>
+    return `<section class="panel" id="fx-datos"><div class="hd"><h2>Datos fiscales</h2>${F.rifMuestra ? '<span class="pill warn">Sin confirmar: el negocio no factura</span>' : '<span class="pill ok">Confirmados</span>'}</div>
     <form class="bd" id="fx-dform" style="display:grid;gap:10px">
       <p class="small muted" style="margin:0">Salen en cada factura, nota, libro, cierre y reporte de este negocio. Se escriben una sola vez, aquí.</p>
       <div class="grid g2" style="gap:10px">${fi('razon', 'Razón social')}${fi('rif', 'RIF', 'num', 'J-00000000-0')}</div>
@@ -2335,7 +2333,7 @@ const FX = (() => {
       <div class="grid g2" style="gap:10px">${fi('talDesde', 'Talonario: primer número', 'num', '1')}${fi('talHasta', 'Talonario: último número', 'num', '50')}</div>
       <div class="fx-sub">Para la declaración de IVA (lo da el contador)</div>
       <div class="grid g2" style="gap:10px">${fi('excedente', 'Excedente de crédito fiscal del mes anterior (Bs)', 'num', '0,00')}${fi('declPrev', 'Última declaración de IVA', '', 'declarada el 14-10-2026')}</div>
-      <label class="fx-ck"><input type="checkbox" id="fx-f-conf" ${F.rifMuestra ? '' : 'checked'}><span>RIF y razón social confirmados con el cliente</span></label>
+      <label class="fx-ck"><input type="checkbox" id="fx-f-conf" ${F.rifMuestra ? '' : 'checked'}><span>RIF y razón social confirmados (revisados contra el RIF del SENIAT)</span></label>
       <div class="fx-iva"><b>IVA de este negocio</b><span>${Y.ivaNota}</span><span class="pill warn" style="justify-self:start">Que el contador lo confirme</span></div>
       <button class="btn primary" type="submit">${ic('check')}Guardar datos fiscales</button>
     </form></section>`; };
@@ -2350,8 +2348,8 @@ const FX = (() => {
       <p class="small muted" style="margin:10px 0 0">Hasta el 18-04-2027 rige la Providencia 0071; desde el 19-04-2027, la SNAT/2026/00093, que deja elegir el medio de emisión. <i>El paso a imprenta digital lo tramita el contador ante el SENIAT.</i></p></div></section></div>`;
 
   /* ---------- Tablero del dueño: calendario y Grupo Azullab ---------- */
-  M.calPanel = () => `<section class="panel"><div class="hd"><h2>Calendario fiscal · ${(() => { const [a, b] = Y.hoy.split('-').map(Number); return new Date(b === 12 ? a + 1 : a, b === 12 ? 0 : b, 1).toLocaleDateString('es-VE', {month: 'long', year: 'numeric'}); })()}</h2><span class="pill warn">Muestra: confirmar</span></div>
-    <div class="bd flush tbl-wrap keep">${M.calTabla()}</div><p class="base-legal">Fechas de muestra para ${E(M.F.razon)} según el último dígito del RIF (${M.digito()}). Confirmar con el calendario vigente del SENIAT y con el contador.</p></section>`;
+  M.calPanel = () => `<section class="panel"><div class="hd"><h2>Calendario fiscal · ${(() => { const [a, b] = Y.hoy.split('-').map(Number); return new Date(b === 12 ? a + 1 : a, b === 12 ? 0 : b, 1).toLocaleDateString('es-VE', {month: 'long', year: 'numeric'}); })()}</h2><span class="pill warn">Confirmar con el contador</span></div>
+    <div class="bd flush tbl-wrap keep">${M.calTabla()}</div><p class="base-legal">Fechas para ${E(M.F.razon)} según el último dígito del RIF (${M.digito()}). Confírmalas con el calendario vigente del SENIAT y con el contador.</p></section>`;
   M.grupoPanel = () => { const G = Y.grupo(M), t = r2(G.reduce((a, g) => a + g.v, 0));
     return `<section class="panel"><div class="hd"><h2>Grupo Azullab · solo gerencia</h2><span class="pill info">No es un documento fiscal</span></div>
     <div class="bd"><p class="fx-aviso">${ic('alert')}<span>Cada negocio factura, declara y lleva sus libros con su propio RIF. Este consolidado no es un documento fiscal.</span></p></div>

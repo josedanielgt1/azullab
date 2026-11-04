@@ -27,7 +27,7 @@ const { chromium } = require('playwright'); const mock = require('./mock');
     await pg.fill('#fx-f-rif', 'j41234567-8'); await pg.fill('#fx-f-talDesde', '1'); await pg.fill('#fx-f-talHasta', '100'); await pg.check('#fx-f-conf'); await pg.click('#fx-dform [type=submit]');
     await pg.waitForFunction(() => document.getElementById('toast').textContent.includes('ya puede facturar'));
     ok(st.empresa.rif === 'J-41234567-8' && st.empresa.datos_confirmados === true, 'guarda el RIF normalizado y confirmado');
-    ok((await txt(pg)).includes('Confirmados con el cliente'), 'la pantalla marca los datos como confirmados');
+    ok((await txt(pg)).includes('Confirmados'), 'la pantalla marca los datos como confirmados');
     ok(+st.empresa.talonario_desde === 1 && +st.empresa.talonario_hasta === 100, 'el rango del talonario de contingencia se guarda');
     await pg.evaluate(() => go('dashboard')); await pg.click('[data-act="tasa"]'); await pg.fill('#t-val', '412,30'); await pg.click('#tasaForm [type=submit]');
     await pg.waitForFunction(() => document.body.textContent.includes('412,30'));

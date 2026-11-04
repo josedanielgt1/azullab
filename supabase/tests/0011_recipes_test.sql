@@ -29,6 +29,14 @@ begin
   raise notice 'ok   %', caso;
 end $$;
 
+-- Ayudantes de prueba: llaman a las funciones internas como lo hacen vender(), crear_orden()...
+create function prueba.emitir(p_empresa uuid, p_tipo tipo_doc, p_cliente jsonb, p_lineas jsonb, p_pagos jsonb default '[]', p_afecta uuid default null,
+  p_motivo text default null, p_origen origen_doc default 'sistema', p_numero_manual bigint default null) returns documentos
+language plpgsql security definer set search_path = public as $$ begin return emitir_documento(p_empresa, p_tipo, p_cliente, p_lineas, p_pagos, p_afecta, p_motivo, p_origen, p_numero_manual); end $$;
+create function prueba.imprenta(p_doc uuid, p_control text, p_estado estado_doc, p_resp jsonb) returns documentos
+language plpgsql security definer set search_path = public as $$ begin return registrar_imprenta(p_doc, p_control, p_estado, p_resp); end $$;
+grant execute on all functions in schema prueba to authenticated, anon, service_role;
+
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000d', 'jose@azullab.com'), ('00000000-0000-0000-0000-0000000000a1', 'regente@azullab.com'), ('00000000-0000-0000-0000-0000000000c1', 'cajero@azullab.com');
 create temp table ids as select (select id from empresas where tipo = 'farmacia') f;
 grant select on ids to authenticated;

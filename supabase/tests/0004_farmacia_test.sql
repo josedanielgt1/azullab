@@ -29,6 +29,14 @@ begin
   raise notice 'ok   %', caso;
 end $$;
 
+-- Ayudantes de prueba: llaman a las funciones internas como lo hacen vender(), crear_orden()...
+create function prueba.emitir(p_empresa uuid, p_tipo tipo_doc, p_cliente jsonb, p_lineas jsonb, p_pagos jsonb default '[]', p_afecta uuid default null,
+  p_motivo text default null, p_origen origen_doc default 'sistema', p_numero_manual bigint default null) returns documentos
+language plpgsql security definer set search_path = public as $$ begin return emitir_documento(p_empresa, p_tipo, p_cliente, p_lineas, p_pagos, p_afecta, p_motivo, p_origen, p_numero_manual); end $$;
+create function prueba.imprenta(p_doc uuid, p_control text, p_estado estado_doc, p_resp jsonb) returns documentos
+language plpgsql security definer set search_path = public as $$ begin return registrar_imprenta(p_doc, p_control, p_estado, p_resp); end $$;
+grant execute on all functions in schema prueba to authenticated, anon, service_role;
+
 -- ---------- Datos ----------
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-00000000000d', 'jose@azullab.com'),
@@ -83,8 +91,9 @@ create temp table v1 as select * from vender((select f from ids), '{"rif":"V-123
   '[{"producto_id":1,"cantidad":7,"precio_usd":3},{"producto_id":2,"cantidad":1,"precio_usd":5}]',
   '[{"metodo":"Efectivo USD","monto_bs":1000,"divisa":true}]');
 select prueba.igual('vender emite la factura', (select numero from v1), 1::bigint);
--- 7 × 300 = 2100 exento; 500 + 16 % = 580; IGTF 3 % de 1000 = 30
-select prueba.igual('con sus montos', (select total from v1), 2710.00::numeric);
+-- 7 × 300 = 2100 exento; 500 + 16 % = 580; contribuyente ordinario: sin IGTF
+select prueba.igual('con sus montos', (select total from v1), 2680.00::numeric);
+select prueba.igual('pagar en divisas no suma IGTF a un contribuyente ordinario', (select igtf from v1), 0::numeric);
 select prueba.igual('primero sale el lote que vence antes (GV24 queda en 0)', (select cantidad from lotes where lote = 'GV24'), 0.000::numeric);
 select prueba.igual('y el resto del siguiente (GV25 queda en 10)', (select cantidad from lotes where lote = 'GV25'), 10.000::numeric);
 select prueba.igual('el vencido no se toca', (select cantidad from lotes where lote = 'VIEJO'), 50.000::numeric);
@@ -153,6 +162,15 @@ select prueba.debe_fallar('el número del talonario no se repite', $$ select ven
 select prueba.debe_fallar('ni se sale del talonario', $$ select vender((select f from ids), '{"rif":"V-1","nombre":"X"}', '[{"producto_id":1,"cantidad":1,"precio_usd":3}]', '[]', 'contingencia', 999, now()) $$, 'talonario');
 select prueba.debe_fallar('ni con fecha futura', $$ select vender((select f from ids), '{"rif":"V-1","nombre":"X"}', '[{"producto_id":1,"cantidad":1,"precio_usd":3}]', '[]', 'contingencia', 8, now() + interval '2 days') $$, 'Fecha');
 select prueba.igual('la venta normal sigue igual', (select origen::text from vender((select f from ids), '{"rif":"V-1","nombre":"X"}', '[{"producto_id":1,"cantidad":1,"precio_usd":3}]')), 'sistema');
+
+\echo '--- Ataques del cajero (auditoría de seguridad)'
+select prueba.como('00000000-0000-0000-0000-0000000000c1');
+select prueba.debe_fallar('el cajero no factura directo a precio inventado', $$ select emitir_documento((select f from ids), 'FAC', '{"rif":"V-1","nombre":"X"}', '[{"descripcion":"x","cantidad":100,"precio_usd":0.01,"alicuota":"E"}]') $$, 'permission denied');
+select prueba.debe_fallar('ni falsifica el número de control de la imprenta', $$ select registrar_imprenta((select id from documentos limit 1), '00-FALSO', 'emitido', '{}') $$, 'permission denied');
+select prueba.debe_fallar('ni vende sin internet a un centavo', $$ select vender((select f from ids), '{"rif":"V-1","nombre":"X"}', '[{"producto_id":1,"cantidad":1,"precio_usd":0.01}]', '[]', 'contingencia', 20, now()) $$, 'precio de Losartán');
+select prueba.igual('sin internet sí vale un precio de hace un rato (hasta 20 % menos)', (select origen::text from vender((select f from ids), '{"rif":"V-1","nombre":"X"}', '[{"producto_id":1,"cantidad":1,"precio_usd":2.5}]', '[]', 'contingencia', 21, now())), 'contingencia');
+select prueba.debe_fallar('ni se pone un nombre con código', $$ update perfiles set nombre = '<img src=x onerror=alert(1)>' where user_id = auth.uid() $$, 'sin_codigo');
+select prueba.debe_fallar('ni registra un cliente con código', $$ insert into clientes (empresa_id, cedula_rif, nombre) values ((select f from ids), 'V-7777777', '<script>') $$, 'sin_codigo');
 
 \echo '--- Otro negocio'
 select prueba.como('00000000-0000-0000-0000-0000000000b1');

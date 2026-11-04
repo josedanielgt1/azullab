@@ -23,6 +23,12 @@
   // El catálogo de la maqueta queda como «catálogo base» que el dueño puede cargar
   const BASE = {ex: JSON.parse(JSON.stringify(EX)), perf: JSON.parse(JSON.stringify(PERF))};
 
+  /* Lo de la maqueta fuera desde el arranque: si la base tarda o falla, la pantalla queda vacía,
+     nunca con pacientes, socios o clientes inventados. Lo real llega al entrar. */
+  const vaciar = (...fs) => fs.forEach(f => { try { const x = f(); if (Array.isArray(x)) x.length = 0; else if (x && typeof x === 'object') Object.keys(x).forEach(k => delete x[k]); } catch (_) {} });
+  vaciar(() => EX, () => PERF, () => PATS, () => ORD, () => REAC, () => HIST, () => PX, () => VX, () => S.queue);
+  MEDICOS.splice(1); refrescarAreasInicio();
+
   /* ---------------- Catálogo ---------------- */
   const exFila = e => ({codigo: e.c, nombre: e.n, area: e.a || null, tubo: e.t || null, tiempo: e.h || null, precio: r2(+e.p || 0), parametros: {ps: e.ps || [], ay: !!e.ay, reac: e.reac || null}});
   const deEx = r => { const pa = r.parametros || []; const o = Array.isArray(pa) ? {ps: pa} : pa;
@@ -30,6 +36,7 @@
   const pfFila = p => ({codigo: p.c, nombre: p.n, examenes: p.ex || [], precio: r2(+p.p || 0)});
   const dePf = r => ({c: r.codigo, n: r.nombre, ex: r.examenes || [], p: +r.precio, _id: r.id});
   const g = {ex: new Map(), perf: new Map(), pac: new Map(), ord: new Map(), med: new Set()};
+  function refrescarAreasInicio() { if (typeof AREAS === 'object') AREAS.splice(1); }
   const refrescarAreas = () => { if (typeof AREAS === 'object') { AREAS.length = 0; AREAS.push('Todas', ...new Set(EX.map(e => e.a))); } };
 
   async function cargarCatalogo() {

@@ -29,6 +29,14 @@ begin
   raise notice 'ok   %', caso;
 end $$;
 
+-- Ayudantes de prueba: llaman a las funciones internas como lo hacen vender(), crear_orden()...
+create function prueba.emitir(p_empresa uuid, p_tipo tipo_doc, p_cliente jsonb, p_lineas jsonb, p_pagos jsonb default '[]', p_afecta uuid default null,
+  p_motivo text default null, p_origen origen_doc default 'sistema', p_numero_manual bigint default null) returns documentos
+language plpgsql security definer set search_path = public as $$ begin return emitir_documento(p_empresa, p_tipo, p_cliente, p_lineas, p_pagos, p_afecta, p_motivo, p_origen, p_numero_manual); end $$;
+create function prueba.imprenta(p_doc uuid, p_control text, p_estado estado_doc, p_resp jsonb) returns documentos
+language plpgsql security definer set search_path = public as $$ begin return registrar_imprenta(p_doc, p_control, p_estado, p_resp); end $$;
+grant execute on all functions in schema prueba to authenticated, anon, service_role;
+
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-00000000000d', 'jose@azullab.com'),
   ('00000000-0000-0000-0000-0000000000c1', 'coach@azullab.com');
@@ -55,9 +63,10 @@ select prueba.debe_fallar('el coach no corre el vencimiento', $$ update socios s
 select prueba.como('00000000-0000-0000-0000-00000000000d');
 create temp table c1 as select cobrar_membresia((select x from ids), 1, 1, 'Efectivo $', true, '{"id":1,"cantidad":2}') r;
 grant select on c1 to authenticated;
--- 3500 + 200 = 3700; IVA 16 % = 592; total 4292; IGTF 3 % de 4292 = 128,76
+-- 3500 + 200 = 3700; IVA 16 % = 592; total 4292; contribuyente ordinario: sin IGTF
 select prueba.igual('factura con IVA 16 %', (select (r->'documento'->>'iva_general')::numeric from c1), 592.00::numeric);
-select prueba.igual('e IGTF por pagar en divisas', (select (r->'documento'->>'igtf')::numeric from c1), 128.76::numeric);
+select prueba.igual('contribuyente ordinario: sin IGTF aunque pague en divisas', (select (r->'documento'->>'igtf')::numeric from c1), 0::numeric);
+select prueba.igual('y el total es el que se cobró', (select (r->'documento'->>'total')::numeric from c1), 4292.00::numeric);
 select prueba.igual('sin vencimiento previo, cuenta desde hoy', (select vence from socios), current_date + 30);
 select prueba.igual('el renglón dice desde cuándo', (select descripcion from documento_lineas where renglon = 1), 'Mensual ilimitado · desde el ' || to_char(current_date, 'DD-MM-YYYY'));
 select cobrar_membresia((select x from ids), 1, 2, 'Pago móvil');
@@ -97,7 +106,8 @@ select prueba.igual('no ve facturas', (select count(*) from documentos), 0::bigi
 select prueba.igual('ni los cobros', (select count(*) from membresias), 0::bigint);
 select prueba.igual('ni al equipo', (select count(*) from miembros), 1::bigint);
 select prueba.igual('ni la entrada de otros', (select count(*) from asistencias), 1::bigint);
-select prueba.debe_fallar('no factura', $$ select emitir_documento((select x from ids), 'FAC', '{"rif":"V-1","nombre":"X"}', '[{"descripcion":"x","cantidad":1,"precio_usd":1,"alicuota":"G"}]') $$, 'No tienes permiso');
+select prueba.debe_fallar('no factura', $$ select prueba.emitir((select x from ids), 'FAC', '{"rif":"V-1","nombre":"X"}', '[{"descripcion":"x","cantidad":1,"precio_usd":1,"alicuota":"G"}]') $$, 'No tienes permiso');
+select prueba.debe_fallar('no escribe en las listas internas del equipo', $$ insert into colecciones (empresa_id, nombre, datos) values ((select x from ids), 'equipo_basura', '[1]') $$, 'row-level security');
 select prueba.debe_fallar('no cambia la pizarra', $$ do $x$ begin update pizarras set wod = '{}'; if not found then raise exception 'sin filas'; end if; end $x$ $$, 'sin filas');
 select prueba.igual('reserva su clase', (select reservar_clase((select x from ids), '06:00')->>'reservado'), 'true');
 select prueba.igual('queda en la lista de la clase', (select reservas->'06:00' @> to_jsonb((select id from socios where nombre = 'Andrea Peña')) from pizarras), true);
