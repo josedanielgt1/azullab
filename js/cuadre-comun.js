@@ -171,14 +171,14 @@
   }
   async function cargarDocumentos() {
     const desde = hoyVE().slice(0, 7) + '-01T00:00:00-04:00';
-    const [docs, {data: per}] = await Promise.all([
+    const [docs, {data: per}, {data: ult}] = await Promise.all([
       todo(() => db.from('documentos').select('*, documento_lineas(*), documento_pagos(*)').eq('empresa_id', A().empresa_id).gte('fecha', desde).order('fecha')),
-      db.from('perfiles').select('user_id,nombre')]);
+      db.from('perfiles').select('user_id,nombre'),
+      db.from('documentos').select('tipo,numero').eq('empresa_id', A().empresa_id).eq('origen', 'sistema').order('numero', {ascending: false}).limit(50)]);
     const nombres = {}; (per || []).forEach(p => { nombres[p.user_id] = p.nombre; });
     FX.docs.length = 0; FX.hist.length = 0; mapaDocs.clear();
     docs.filter(d => d.tipo === 'FAC').concat(docs.filter(d => d.tipo !== 'FAC')).forEach(d => FX.docs.push(aDocFX(d, nombres)));
     // El próximo número que muestra la caja (la base asigna el definitivo)
-    const {data: ult} = await db.from('documentos').select('tipo,numero').eq('empresa_id', A().empresa_id).eq('origen', 'sistema').order('numero', {ascending: false}).limit(50);
     ['FAC', 'NC', 'ND'].forEach(t => { const u = (ult || []).find(x => x.tipo === t); FX.n[t] = u ? +u.numero + 1 : 1; });
   }
   C.cargarDocumentos = cargarDocumentos;
@@ -223,8 +223,9 @@
   // así no se ven aunque la base tarde o falle (las reales llegan con cargarDocumentos)
   if (typeof FX === 'object' && FX.docs) { FX.docs.length = 0; if (FX.hist) FX.hist.length = 0; if (FX.n) ['FAC', 'NC', 'ND'].forEach(t => { FX.n[t] = 1; }); }
   C.alEntrar(async a => {
-    if (typeof FX_SYS === 'object' && a.tipo !== 'farmacia') { try { await cargarComprasServ(); } catch (x) { console.error(x); } conectarComprasServ(); }
+    const compras = typeof FX_SYS === 'object' && a.tipo !== 'farmacia' ? cargarComprasServ().catch(x => console.error(x)) : null;
     const {data} = await db.from('colecciones').select('datos').eq('empresa_id', A().empresa_id).eq('nombre', 'privado_fiscal').maybeSingle();
+    if (compras) { await compras; conectarComprasServ(); }
     if (data && data.datos && typeof FX_SYS === 'object') { FX_SYS.excedente = +data.datos.excedente || 0; FX_SYS.declPrev = data.datos.declPrev || ''; FX.F.excedente = String(FX_SYS.excedente).replace('.', ','); FX.F.declPrev = FX_SYS.declPrev; }
   });
 
@@ -425,7 +426,7 @@
   }, true);
 
   C.alEntrar(async () => {
-    const {data} = await db.auth.getUser(); EQ.yo = data && data.user && data.user.id; EQ.lista = null;
+    const {data} = await db.auth.getSession(); EQ.yo = data && data.session && data.session.user.id; EQ.lista = null;   // ya está en el equipo: sin ir al servidor
     if (typeof V !== 'object') return;
     V.users = vistaUsuarios;
     /* El sistema que no tenía la pantalla (CrossFit) la recibe en «Sistema» */

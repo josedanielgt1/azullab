@@ -685,25 +685,27 @@
     if (a.tipo !== 'farmacia') return;
     // Cada paso por su cuenta: si uno falla, los demás igual cargan (y lo de muestra se vacía)
     const paso = async (n, f) => { try { await f(); } catch (x) { console.error('Cuadre farmacia: ' + n, x); } };
-    await paso('catálogo', async () => { try { await cargarCatalogo(); } catch (x) { const c = C.leerLocal('catalogo'); if (!c) throw x; P.length = 0; P.push(...c); c.forEach(marcar); } });
+    // Cada carga lee su tabla y llena su lista: van todas a la vez (una sola espera, no doce)
+    await Promise.all([
+      paso('catálogo', async () => { try { await cargarCatalogo(); } catch (x) { const c = C.leerLocal('catalogo'); if (!c) throw x; P.length = 0; P.push(...c); c.forEach(marcar); } }),
+      paso('clientes', async () => { try { await cargarClientes(); } catch (x) { const c = C.leerLocal('clientes'); if (!c) throw x; CLIENTS.length = 0; CLIENTS.push(...c); } }),
+      paso('proveedores', cargarProveedores),
+      paso('compras', cargarCompras),
+      paso('gastos', cargarGastos),
+      paso('configuración', cargarColecciones),
+      paso('movimientos', cargarMovimientos),
+      paso('resumen', cargarResumen),
+      paso('récipes', cargarRecipes),
+      paso('alertas', cargarAlertas),
+      paso('talonario', siguienteTalonario)]);
     RECV = []; S.cart = []; S.precioAvisos.length = 0;
-    await paso('clientes', async () => { try { await cargarClientes(); } catch (x) { const c = C.leerLocal('clientes'); if (!c) throw x; CLIENTS.length = 0; CLIENTS.push(...c); } });
     ventasDeHoy();
-    await paso('proveedores', cargarProveedores);
-    await paso('compras', cargarCompras);
-    await paso('gastos', cargarGastos);
-    await paso('configuración', cargarColecciones);
-    await paso('movimientos', cargarMovimientos);
-    await paso('resumen', cargarResumen);
-    await paso('récipes', cargarRecipes);
-    await paso('alertas', cargarAlertas);
     DIF.length = 0;   // el diferencial cambiario necesita los saldos del banco: sin datos de muestra
     // Contribuyente especial (IGTF en divisas): lo dice la base, igual que lo cobra la factura
     S.spe = !!(C.empresa && +C.empresa.igtf > 0);
     if (!EMPLEADOS().some(e => e.id === S.empSel)) S.empSel = EMPLEADOS()[0] ? EMPLEADOS()[0].id : null;
     tablero(); libroVentas();
     if (navigator.onLine) guardarCopia();
-    await paso('talonario', siguienteTalonario);
     setTimeout(subirCola, 2000);
-  });
+  }, 1);   // fase 1: después de la empresa, la tasa y las facturas
 })();

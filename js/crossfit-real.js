@@ -278,14 +278,16 @@
   C.alEntrar(async a => {
     if (a.tipo !== 'crossfit') return;
     const conCopia = async (n, f, guardar, restaurar) => { try { await f(); C.guardarLocal(n, guardar()); } catch (x) { const c = C.leerLocal(n); if (!c) throw x; restaurar(c); } };
-    await conCopia('catalogo', cargarCatalogo, () => ({PLANES, PROD: FX_SYS.PROD, CLASES}), c => { PLANES.length = 0; PLANES.push(...c.PLANES); FX_SYS.PROD.length = 0; FX_SYS.PROD.push(...c.PROD); CLASES.length = 0; CLASES.push(...c.CLASES); });
-    await conCopia('socios', cargarSocios, () => SOCIOS, c => { SOCIOS.length = 0; SOCIOS.push(...c); });
-    await cargarPagos().catch(x => console.error('Cuadre CrossFit: pagos', x));
-    await cargarDia().catch(x => console.error('Cuadre CrossFit: día', x));
-    await siguienteTalonario().catch(() => {});
+    // Cada carga llena su lista: van todas a la vez
+    await Promise.all([
+      conCopia('catalogo', cargarCatalogo, () => ({PLANES, PROD: FX_SYS.PROD, CLASES}), c => { PLANES.length = 0; PLANES.push(...c.PLANES); FX_SYS.PROD.length = 0; FX_SYS.PROD.push(...c.PROD); CLASES.length = 0; CLASES.push(...c.CLASES); }),
+      conCopia('socios', cargarSocios, () => SOCIOS, c => { SOCIOS.length = 0; SOCIOS.push(...c); }),
+      cargarPagos().catch(x => console.error('Cuadre CrossFit: pagos', x)),
+      cargarDia().catch(x => console.error('Cuadre CrossFit: día', x)),
+      siguienteTalonario().catch(() => {})]);
     setTimeout(subirCola, 2000);
     if (S.pay) { S.pay.s = SOCIOS[0] ? SOCIOS[0].id : ''; S.pay.plan = PLANES[0] ? PLANES[0].id : ''; S.pay.prod = ''; }
     S.me = SOCIOS[0] ? SOCIOS[0].id : null;   // el socio solo ve su ficha: es él
     if (soySocio()) { S.user = SOCIOS[0] ? SOCIOS[0].n : a.nombre; S.tab = 'hoy'; const f = firmaSocio(); gSocio.res = f.res; gSocio.resul = f.resul; }
-  });
+  }, 1);   // fase 1: después de la empresa, la tasa y las facturas
 })();

@@ -76,7 +76,9 @@ window.Cuadre = (() => {
   const api = {
     listo, db, destino: '', acceso: null, ROLES, msg, esc, neutro,
     /* Lo que se carga de la base al entrar, antes de abrir la primera pantalla */
-    alEntrar(fn) { ganchos.push(fn); },
+    /* Lo que se carga al entrar. Los de una misma fase van a la vez; la fase 1 (lo propio de cada
+       negocio) espera a la 0 (lo común: empresa, tasa, facturas) */
+    alEntrar(fn, fase = 0) { ganchos.push({fn, fase}); },
 
     /* El formulario de entrada (lo mismo en los tres sistemas) */
     formulario(subtitulo) {
@@ -137,7 +139,10 @@ window.Cuadre = (() => {
       const abrir = async (a, t) => {
         if (t !== turno) return;
         api.acceso = {...a, tipo: op.tipo};
-        for (const g of ganchos) { if (t !== turno) return; try { await g(api.acceso); } catch (x) { console.error('Cuadre: al entrar', x); } }
+        for (const f of [...new Set(ganchos.map(g => g.fase))].sort((x, y) => x - y)) {
+          if (t !== turno) return;
+          await Promise.all(ganchos.filter(g => g.fase === f).map(g => Promise.resolve().then(() => g.fn(api.acceso)).catch(x => console.error('Cuadre: al entrar', x))));
+        }
         if (t !== turno) return;
         api.restaurando = false; api.notaEntrada = ''; marcarActividad(true);
         op.abrir(a);

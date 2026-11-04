@@ -381,16 +381,18 @@
   C.alEntrar(async a => {
     if (a.tipo !== 'laboratorio') return;
     const conCopia = async (n, f, guardar, restaurar) => { try { await f(); C.guardarLocal(n, guardar()); } catch (x) { const c = C.leerLocal(n); if (!c) throw x; restaurar(c); } };
-    await conCopia('catalogo', cargarCatalogo, () => ({EX, PERF}), c => { EX.length = 0; EX.push(...c.EX); PERF.length = 0; PERF.push(...c.PERF); refrescarAreas(); });
-    await conCopia('medicos', cargarMedicos, () => MEDICOS, c => { MEDICOS.length = 0; MEDICOS.push(...c); });
-    await conCopia('pacientes', cargarPacientes, () => PATS, c => { PATS.length = 0; PATS.push(...c); });
+    // A la vez lo que no depende de nada; las órdenes después, porque buscan a su médico en la lista
+    await Promise.all([
+      conCopia('catalogo', cargarCatalogo, () => ({EX, PERF}), c => { EX.length = 0; EX.push(...c.EX); PERF.length = 0; PERF.push(...c.PERF); refrescarAreas(); }),
+      conCopia('medicos', cargarMedicos, () => MEDICOS, c => { MEDICOS.length = 0; MEDICOS.push(...c); }),
+      conCopia('pacientes', cargarPacientes, () => PATS, c => { PATS.length = 0; PATS.push(...c); }),
+      cargarReactivos().catch(x => console.error('Cuadre laboratorio: reactivos', x)),
+      siguienteTalonario().catch(() => {})]);
     await cargarOrdenes().catch(x => console.error('Cuadre laboratorio: órdenes', x));
-    await cargarReactivos().catch(x => console.error('Cuadre laboratorio: reactivos', x));
     armarHistorial();
     ORD.forEach(o => estadoVisto.set(o.n, o.st));
     if (S.ord && typeof newOrd === 'function') S.ord = newOrd();
     S.queue.length = 0;
-    await siguienteTalonario().catch(() => {});
     setTimeout(subirCola, 2000);
-  });
+  }, 1);   // fase 1: después de la empresa, la tasa y las facturas
 })();
