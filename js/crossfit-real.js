@@ -273,6 +273,10 @@
   }, true);
 
   C.crossfit = {sincronizar};
+  /* Respaldo en carpeta: con los cobros sin subir van los socios nuevos que todavía no están en la base */
+  C.subirCola = subirCola;
+  C.respaldoExtra = cola => ({socios: SOCIOS.filter(s => !s._id && cola.some(v => v.socio === s.id))});
+  C.restaurarExtra = x => { ((x && x.socios) || []).forEach(s => { if (s && s.id && !SOCIOS.some(q => q.id === s.id)) SOCIOS.push(s); }); };
 
   /* ---------------- Al entrar ---------------- */
   C.alEntrar(async a => {

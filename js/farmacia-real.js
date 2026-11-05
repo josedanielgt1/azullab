@@ -679,6 +679,7 @@
     e.stopImmediatePropagation(); avisar(S.spe ? 'Este negocio cobra IGTF por ser contribuyente especial' : 'Contribuyente ordinario: no cobra IGTF. Si el SENIAT lo designa especial, avísale a Cuadre'); }, true);
 
   C.farmacia = {recargar, sincronizar, alCambiarDocs: () => { tablero(); libroVentas(); }};
+  C.subirCola = subirCola;   // para «Recuperar desde la carpeta»
 
   /* ---------------- Al entrar ---------------- */
   C.alEntrar(async a => {

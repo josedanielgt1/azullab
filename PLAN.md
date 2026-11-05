@@ -28,9 +28,10 @@ Las pantallas de `farmacia.html`, `laboratorio.html` y `crossfit.html` son las m
 | Laboratorio y CrossFit: sin internet | La orden del laboratorio y el cobro de membresía se hacen con el talonario de contingencia, quedan en el equipo (también el paciente o socio nuevo) y suben solos al volver | ✅ |
 | CrossFit: app del socio | El dueño le da acceso desde la ficha del socio (correo y clave); el socio ve la pizarra, reserva su clase y anota su resultado; no ve facturas, cobros, otros socios ni al equipo, y no factura | ✅ (necesita la función `usuarios`) |
 | Los tres: app instalable y PIN | Se instala en la computadora («Instalar Azullab…»), abre sin internet; en un equipo registrado cada persona entra con su PIN, con o sin internet (5 errores bloquean, 7 días sin conexión vencen) | ✅ (necesita GitHub Pages: https) |
+| Los tres: respaldo sin internet | Franja de aviso mientras haya algo sin subir; copia en una carpeta del equipo; «Recuperar desde un archivo de respaldo» sin repetir nada | ✅ |
 | Los tres: panel del grupo | El dueño ve las ventas reales del mes de los tres negocios | ✅ |
 
-Pruebas: **279 de base de datos** (`supabase/tests/correr.sh`) y **222 de navegador** (`tests/navegador/correr.sh`), incluidas las de ataque (`tests/navegador/seguridad.test.js`) y la que recorre todas las pantallas con cada rol buscando textos o nombres de la maqueta (`tests/navegador/textos.test.js`).
+Pruebas: **279 de base de datos** (`supabase/tests/correr.sh`) y **234 de navegador** (`tests/navegador/correr.sh`), incluidas las de ataque (`tests/navegador/seguridad.test.js`) y la que recorre todas las pantallas con cada rol buscando textos o nombres de la maqueta (`tests/navegador/textos.test.js`).
 
 ## Qué todavía muestra datos de muestra
 

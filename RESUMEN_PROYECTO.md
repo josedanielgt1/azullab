@@ -2,7 +2,7 @@
 
 Actualizado el 5 de noviembre de 2026.
 
-**Estado:** los tres sistemas (Farmacia, Laboratorio y CrossFit) trabajan con datos reales en Supabase (proyecto `azullab`, región us-east-2). El código está en `main` del repositorio `josedanielgt1/azullab`. Pruebas: **279 de base de datos y 222 de navegador**, todas pasan.
+**Estado:** los tres sistemas (Farmacia, Laboratorio y CrossFit) trabajan con datos reales en Supabase (proyecto `azullab`, región us-east-2). El código está en `main` del repositorio `josedanielgt1/azullab`. Pruebas: **279 de base de datos y 234 de navegador**, todas pasan.
 
 ---
 
@@ -28,6 +28,14 @@ Actualizado el 5 de noviembre de 2026.
 - **Datos malos:** no se toma un salto de más de 25 % contra la tasa anterior.
 - **Hora de Caracas:** la base usa la hora de Caracas. Antes, desde las 8 p. m., la base ya creía que era el día siguiente.
 - **Feriados bancarios:** no se calculan solos. Si el BCV publica para el día después de un feriado, el sistema puede tomarla un día antes. En ese caso el dueño corrige la tasa a mano.
+
+### Respaldo de lo hecho sin internet (nuevo)
+- **Qué hay en la computadora:** casi nada. Todo el negocio (ventas, facturas, inventario, clientes, pacientes y socios) está en Supabase. Lo único que vive en la computadora son las ventas, órdenes y cobros hechos sin internet, hasta que suben.
+- **Aviso:** mientras haya algo sin subir, una franja arriba dice «N ventas sin subir: no cierres ni borres los datos del navegador».
+- **Carpeta de respaldo:** en «Este equipo» → «Escoger la carpeta de respaldo», por ejemplo `Documentos\Cuadre-respaldo`. Cada venta sin internet se copia ahí en `cuadre-farmacia-pendientes.json` (o `-laboratorio`, `-crossfit`), y el archivo se borra cuando todo subió. Funciona en Chrome y Edge.
+- **Si borraron los datos del navegador:** entra, ve a «Este equipo» → «Recuperar desde un archivo de respaldo» y escoge ese archivo. Lo que falte en la base sube solo y no se repite nada. Un respaldo de otro negocio se rechaza.
+- **Almacenamiento protegido:** el sistema le pide al navegador que no borre sus datos por su cuenta cuando falta espacio.
+- **Limpieza:** el historial del reloj de la base se limpia solo cada domingo.
 
 ### Auditoría de seguridad (ya aplicada en la base real)
 - Un cajero ya no puede facturar a cualquier precio ni falsificar el número de control de la imprenta.
@@ -110,6 +118,7 @@ Actualizado el 5 de noviembre de 2026.
 | Quitar el registro del equipo | Se borran todos los PIN guardados ahí |
 
 ### Cuidados importantes
+- **Escoge la carpeta de respaldo en cada equipo de caja** («Este equipo»). Si Chrome pide permiso para la carpeta, acepta «Permitir siempre».
 - **Cada sistema se registra e instala por separado:** farmacia, laboratorio y CrossFit.
 - **Cada navegador es aparte:** registrar en Chrome no registra en Edge.
 - **No borren los datos de navegación en las computadoras de la caja.** Se pierden el registro, los PIN y las ventas sin internet que todavía no hayan subido.

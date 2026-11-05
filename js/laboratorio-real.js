@@ -376,6 +376,10 @@
   ['portal', 'equipos', 'convenios', 'calidad', 'grupo'].forEach(v => { const o = V[v]; if (o) V[v] = () => aviso('Esta pantalla muestra cómo funcionará; las cifras no son reales todavía.') + o(); });
 
   C.laboratorio = {sincronizar, cargarOrdenes};
+  /* Respaldo en carpeta: con las órdenes sin subir van los pacientes nuevos que todavía no están en la base */
+  C.subirCola = subirCola;
+  C.respaldoExtra = cola => ({pacientes: PATS.filter(p => !p._id && cola.some(v => v.pat === p.id))});
+  C.restaurarExtra = x => { ((x && x.pacientes) || []).forEach(p => { if (p && p.id && !PATS.some(q => q.id === p.id)) PATS.push(p); }); };
 
   /* ---------------- Al entrar ---------------- */
   C.alEntrar(async a => {

@@ -61,6 +61,80 @@
   C.guardarLocal = (k, v) => { try { localStorage.setItem('cuadre.' + A().tipo + '.' + k, JSON.stringify(v)); } catch (_) {} };
   C.leerLocal = k => { try { return C.neutro(JSON.parse(localStorage.getItem('cuadre.' + A().tipo + '.' + k) || 'null')); } catch (_) { return null; } };   // también lo guardado en el equipo pasa por el filtro
 
+  /* ---------------- Lo hecho sin internet: aviso, copia en carpeta y recuperación ----------------
+     Las ventas, órdenes y cobros sin internet viven en el navegador hasta que suben. Mientras tanto:
+       * una franja arriba avisa cuántas hay, para que nadie cierre ni borre el navegador;
+       * si se escogió una carpeta del equipo, cada cambio se copia ahí (cuadre-<sistema>-pendientes.json)
+         y el archivo se borra cuando todo subió;
+       * en «Este equipo» se recuperan desde ese archivo si se borraron los datos del navegador. */
+  const QUE = {farmacia: ['venta', 'ventas'], laboratorio: ['orden', 'órdenes'], crossfit: ['cobro', 'cobros']};
+  const hayCarpetas = () => typeof window.showDirectoryPicker === 'function';
+  const archivoResp = () => `cuadre-${A().tipo}-pendientes.json`;
+  const idb = (modo, f) => new Promise((ok, mal) => { const r = indexedDB.open('cuadre', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('claves');
+    r.onerror = () => mal(r.error);
+    r.onsuccess = () => { const t = r.result.transaction('claves', modo), q = f(t.objectStore('claves')); t.oncomplete = () => ok(q && q.result); t.onerror = () => mal(t.error); }; });
+  const R = C.respaldo = {estado: '', manija: null,
+    async carpeta() { if (R.manija) return R.manija; if (!hayCarpetas()) return null; try { R.manija = await idb('readonly', st => st.get('carpeta')) || null; } catch (_) {} return R.manija; },
+    async escoger() {
+      const h = await window.showDirectoryPicker({id: 'cuadre-respaldo', mode: 'readwrite', startIn: 'documents'});
+      R.manija = h; try { await idb('readwrite', st => st.put(h, 'carpeta')); } catch (_) {}
+      await respaldar(); return h;
+    },
+    async permiso(pedir) {
+      const h = await R.carpeta(); if (!h) return false;
+      if ((await h.queryPermission({mode: 'readwrite'})) === 'granted') return true;
+      if (!pedir) return false;
+      try { return (await h.requestPermission({mode: 'readwrite'})) === 'granted'; } catch (_) { return false; }
+    }
+  };
+  async function respaldar() {
+    if (!C.acceso) return;
+    const h = await R.carpeta(); if (!h) { R.estado = ''; return pintarPendientes(); }
+    if (!(await R.permiso(true))) { R.estado = 'permiso'; return pintarPendientes(); }
+    const cola = C.leerLocal('cola') || [];
+    try {
+      if (!cola.length) await h.removeEntry(archivoResp()).catch(() => {});
+      else {
+        const f = await h.getFileHandle(archivoResp(), {create: true}), w = await f.createWritable();
+        await w.write(JSON.stringify({sistema: 'Cuadre', tipo: A().tipo, empresa_id: A().empresa_id, empresa: A().empresa, guardado: new Date().toISOString(),
+          cola, extra: C.respaldoExtra ? C.respaldoExtra(cola) : null}, null, 1));
+        await w.close();
+      }
+      R.estado = 'ok';
+    } catch (x) { console.error('Cuadre: respaldo', x); R.estado = 'error'; }
+    pintarPendientes();
+  }
+  function pintarPendientes() {
+    let b = document.getElementById('cuadre-pendientes');
+    const n = C.acceso ? (C.leerLocal('cola') || []).length : 0;
+    if (!n) { if (b) b.remove(); return; }
+    if (!b) { b = document.createElement('div'); b.id = 'cuadre-pendientes'; b.setAttribute('role', 'status');
+      b.style.cssText = 'position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:9999;max-width:calc(100% - 24px);background:#fff4e0;color:#5a3a00;border:1px solid #f0b54a;border-radius:8px;padding:8px 12px;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,.15);display:flex;gap:10px;align-items:center;flex-wrap:wrap';
+      document.body.appendChild(b); }
+    const [uno, varios] = QUE[A().tipo] || ['registro', 'registros'];
+    const copia = R.estado === 'ok' ? ' Hay copia en la carpeta del equipo.' : R.estado === 'permiso' ? '' : R.estado === 'error' ? ' No se pudo copiar a la carpeta.' : '';
+    b.innerHTML = `<span><b>${n} ${n === 1 ? uno + ' sin subir' : varios + ' sin subir'}.</b> No cierres ni borres los datos del navegador: ${n === 1 ? 'sube sola' : 'suben solas'} al volver internet.${copia}</span>`
+      + (R.estado === 'permiso' ? '<button type="button" class="btn sm" data-act="eq-permiso">Activar la copia en la carpeta</button>' : '');
+  }
+  const guardarLocalBase = C.guardarLocal;
+  C.guardarLocal = (k, v) => { guardarLocalBase(k, v); if (k === 'cola') { pintarPendientes(); respaldar().catch(() => {}); } };
+  C.alEntrar(async () => { pintarPendientes(); respaldar().catch(() => {}); });
+  /* Recuperar desde el archivo de la carpeta: se suma a lo que haya (sin repetir números) y sube */
+  C.recuperarRespaldo = async texto => {
+    let d; try { d = C.neutro(JSON.parse(texto)); } catch (_) { throw new Error('Ese archivo no es un respaldo de Cuadre'); }
+    if (!d || d.sistema !== 'Cuadre' || !Array.isArray(d.cola)) throw new Error('Ese archivo no es un respaldo de Cuadre');
+    if (d.tipo !== A().tipo || d.empresa_id !== A().empresa_id) throw new Error(`Ese respaldo es de ${d.empresa || 'otro negocio'}, no de ${A().empresa || 'este'}`);
+    const cola = C.leerLocal('cola') || [], nuevas = d.cola.filter(v => v && Number.isInteger(v.numero) && !cola.some(x => x.numero === v.numero));
+    if (C.restaurarExtra) C.restaurarExtra(d.extra);
+    C.guardarLocal('cola', cola.concat(nuevas));
+    const tope = Math.max(0, ...cola.concat(nuevas).map(v => v.numero)); if (tope && +(C.leerLocal('talonario') || 0) <= tope) C.guardarLocal('talonario', tope + 1);
+    if (navigator.onLine && C.subirCola) await C.subirCola();
+    return nuevas.length;
+  };
+  /* Que el navegador no borre por su cuenta lo guardado (cuando falta espacio en el disco) */
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persisted().then(p => p || navigator.storage.persist()).then(p => { R.persistente = !!p; }).catch(() => {});
+
   /* ---------------- Tasa BCV ---------------- */
   let tasaVista = 0;
   function ponerTasa(v, fecha) {
@@ -378,6 +452,30 @@
         <p class="small muted" style="margin:10px 0 0">«Dar acceso» sirve para alguien que ya tiene usuario en otro negocio del grupo: entra con el mismo correo y aquí tiene su propio rol. Para entrar con PIN en la caja: menú «Este equipo».</p></div></section></div>`;
   }
 
+  /* ---------------- Este equipo: copia de lo hecho sin internet ---------------- */
+  function panelRespaldo() {
+    const n = (C.leerLocal('cola') || []).length, [uno, varios] = QUE[A().tipo] || ['registro', 'registros'];
+    if (R.manija === null && hayCarpetas()) R.carpeta().then(h => { if (h && S.view === 'equipo') repintar(); });
+    const carpeta = !hayCarpetas() ? '<p class="small muted" style="margin:0">Este navegador no guarda copias en carpetas: usa Chrome o Edge en la computadora.</p>'
+      : R.manija ? `<div class="stat"><span>Carpeta de respaldo</span><span><b>${esc(R.manija.name)}</b> ${R.estado === 'permiso' ? '<button class="btn sm" data-act="eq-permiso">Dar permiso</button>' : ''}<button class="btn sm" data-act="eq-carpeta">Cambiar</button></span></div>`
+      : `<button class="btn primary" data-act="eq-carpeta">${icono('check')}Escoger la carpeta de respaldo</button>`;
+    return `<section class="panel"><div class="hd"><h2>Respaldo de lo hecho sin internet</h2>${n ? `<span class="pill warn">${n} ${n === 1 ? uno : varios} sin subir</span>` : '<span class="pill ok">Todo subido</span>'}</div>
+      <div class="bd" style="display:grid;gap:10px">
+        <p class="small muted" style="margin:0">Todo lo del negocio se guarda en la base de datos, no en esta computadora. Lo único que vive aquí son las ${varios} hechas sin internet hasta que suben. Con una carpeta de respaldo, cada una se copia también en un archivo del equipo; si alguien borra los datos del navegador, se recuperan desde ese archivo.</p>
+        ${carpeta}
+        <div class="stat"><span>Almacenamiento protegido</span><span>${R.persistente ? '<span class="pill ok">Sí</span>' : '<span class="pill ghost">El navegador decide</span>'}</span></div>
+        <label class="btn" style="justify-self:start;cursor:pointer">${icono('download')}Recuperar desde un archivo de respaldo<input type="file" id="eq-recuperar" accept=".json,application/json" hidden></label>
+        <p class="small muted" style="margin:0">El archivo se llama <code>${esc(archivoResp())}</code>. Si se borraron los datos del navegador: entra, toca «Recuperar desde un archivo de respaldo» y escógelo; lo que no esté en la base sube solo (no se repite nada).</p>
+      </div></section>`;
+  }
+  document.addEventListener('change', async e => {
+    if (e.target.id !== 'eq-recuperar' || !e.target.files || !e.target.files[0]) return;
+    try { const n = await C.recuperarRespaldo(await e.target.files[0].text()); repintar();
+      avisar(n ? `${n} ${n === 1 ? 'registro recuperado' : 'registros recuperados'}${navigator.onLine ? ': subiendo a la base' : ': suben al volver internet'}` : 'Ese respaldo ya estaba en este equipo o en la base');
+    } catch (x) { avisar(C.msg(x)); }
+    e.target.value = '';
+  }, true);
+
   /* ---------------- Este equipo: registro, PIN e instalación ---------------- */
   const DISP = () => window.CuadreEquipo;
   const instalada = () => window.matchMedia && matchMedia('(display-mode: standalone)').matches;
@@ -421,6 +519,8 @@
     const b = e.target.closest('[data-act^="eq-"]'); if (!b) return;
     e.preventDefault(); e.stopImmediatePropagation();
     const D = DISP(), t = A().tipo, act = b.dataset.act;
+    if (act === 'eq-carpeta') { try { await R.escoger(); repintar(); avisar('Carpeta de respaldo lista: lo hecho sin internet se copiará ahí'); } catch (x) { if (x && x.name !== 'AbortError') avisar(C.msg(x)); } return; }
+    if (act === 'eq-permiso') { if (await R.permiso(true)) { await respaldar(); repintar(); avisar('Copia en la carpeta activada'); } else avisar('Sin permiso: la copia en la carpeta queda en pausa'); return; }
     if (act === 'eq-instalar' && C.instalar) { const ev = C.instalar; ev.prompt(); try { await ev.userChoice; } catch (_) {} window.__cuadreInstalar = null; repintar(); }
     else if (act === 'eq-mi-pin') openModal(hoja('Crear mi PIN para este equipo', `<form class="bd" id="eq-pin-f" style="display:grid;gap:10px">
       <p class="small muted" style="margin:0">De 4 a 6 números. No uses repetidos (1111) ni seguidos (1234).</p>
@@ -510,7 +610,7 @@
       if (typeof CODE === 'object') CODE.users = 'US';
     }
     /* «Este equipo» (registro, PIN e instalación), justo después de Usuarios: solo dueño y gerente */
-    V.equipo = () => puedoEquipo() ? `<p class="lead">Registra aquí las computadoras de uso fijo (la caja, la recepción) e instala la app. En un equipo registrado cada persona entra con su PIN, con o sin internet.</p>${panelEquipo()}`
+    V.equipo = () => puedoEquipo() ? `<p class="lead">Registra aquí las computadoras de uso fijo (la caja, la recepción) e instala la app. En un equipo registrado cada persona entra con su PIN, con o sin internet.</p>${panelEquipo()}${panelRespaldo()}`
       : '<p class="lead">Solo el dueño o el gerente registran equipos.</p>';
     if (typeof NAV === 'object' && !NAV.some(g => g.items.some(it => it[1] === 'equipo'))) {
       const g = NAV.find(x => x.items.some(it => it[1] === 'users'));
