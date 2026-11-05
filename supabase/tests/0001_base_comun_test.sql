@@ -178,4 +178,32 @@ select prueba.igual('total neto del libro', (select sum(total) from libro_ventas
 
 reset role;
 select prueba.igual('la auditoría guarda las facturas', (select count(*) from auditoria where tabla = 'documentos'), 5::bigint);
+\echo '--- Tasa BCV automática'
+select prueba.como('00000000-0000-0000-0000-00000000000d');
+select prueba.igual('la base cuenta el día con la hora de Caracas', current_date, (now() at time zone 'America/Caracas')::date);
+select prueba.igual('lo publicado a las 9:20 a. m. vale para ese día', fecha_valor_bcv('2026-11-05 09:20-04'), '2026-11-05'::date);
+select prueba.igual('lo publicado a las 5:20 p. m. vale para el día siguiente', fecha_valor_bcv('2026-11-05 17:20-04'), '2026-11-06'::date);
+select prueba.igual('lo del viernes en la tarde vale para el lunes', fecha_valor_bcv('2026-11-06 17:20-04'), '2026-11-09'::date);
+create temp table pub as select ((current_date + time '00:05') at time zone 'America/Caracas') t;
+select prueba.igual('el reloj guarda la tasa con su fecha valor',
+  registrar_tasa_bcv(jsonb_build_object('promedio', 870, 'fechaActualizacion', (select t from pub))), fecha_valor_bcv((select t from pub)));
+select prueba.igual('y queda guardada', (select tasa from tasas_bcv where fecha = fecha_valor_bcv((select t from pub))), 870.0000::numeric);
+insert into tasas_bcv (fecha, tasa) values (current_date + 3, 999);
+select prueba.igual('una tasa con fecha futura no se usa hoy', tasa_del_dia() <> 999, true);
+select prueba.igual('ni aunque se pida una fecha futura', tasa_del_dia(current_date + 5) <> 999, true);
+delete from tasas_bcv where fecha = current_date + 3;
+update tasas_bcv set tasa = 865, fuente = 'Dueño' where fecha = fecha_valor_bcv((select t from pub));
+select registrar_tasa_bcv(jsonb_build_object('promedio', 871, 'fechaActualizacion', (select t from pub)));
+select prueba.igual('lo que escribió el dueño manda sobre lo automático', (select tasa from tasas_bcv where fecha = fecha_valor_bcv((select t from pub))), 865.0000::numeric);
+select prueba.igual('un salto de más de 25 % no se toma',
+  registrar_tasa_bcv(jsonb_build_object('promedio', 2000, 'fechaActualizacion', (select t from pub) + interval '15 hours 20 minutes')) is null, true);
+select prueba.igual('lo que dolarapi publica a las 5 p. m. llega con la fecha de mañana y se guarda para mañana',
+  registrar_tasa_bcv(jsonb_build_object('promedio', 872, 'fechaActualizacion', ((current_date + 1) + time '00:00') at time zone 'America/Caracas')), fecha_valor_bcv(((current_date + 1) + time '00:00') at time zone 'America/Caracas'));
+select prueba.igual('y hoy se sigue usando la de hoy', tasa_del_dia() <> 872 or fecha_valor_bcv(((current_date + 1) + time '00:00') at time zone 'America/Caracas') <= current_date, true);
+select prueba.igual('un dato viejo no se toma', registrar_tasa_bcv(jsonb_build_object('promedio', 870, 'fechaActualizacion', now() - interval '6 days')) is null, true);
+grant select on pub to authenticated;
+set role authenticated;
+select prueba.como('00000000-0000-0000-0000-0000000000c1');
+select prueba.debe_fallar('el cajero no carga la tasa automática', $$ select registrar_tasa_bcv('{"promedio":1,"fechaActualizacion":"2026-11-05T09:20:00-04:00"}') $$, 'Solo el dueño');
+reset role;
 \echo '--- Todas las pruebas pasaron'

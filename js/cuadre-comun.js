@@ -62,8 +62,10 @@
   C.leerLocal = k => { try { return C.neutro(JSON.parse(localStorage.getItem('cuadre.' + A().tipo + '.' + k) || 'null')); } catch (_) { return null; } };   // también lo guardado en el equipo pasa por el filtro
 
   /* ---------------- Tasa BCV ---------------- */
+  let tasaVista = 0;
   function ponerTasa(v, fecha) {
     if (!(v > 0)) return;
+    tasaVista = v;
     if (typeof S === 'object' && 'rate' in S) S.rate = v;
     try { if (typeof RATE !== 'undefined') RATE = v; } catch (_) {}
     if (typeof bcvSet === 'function') { try { bcvSet(v, fecha); } catch (_) {} }
@@ -73,22 +75,38 @@
     if (error) throw error;
     ponerTasa(v, new Date().toISOString());
   }
+  // La tasa vigente hoy: la última con fecha hasta hoy (la publicada a las 5 p. m. tiene la fecha de mañana)
+  const leerTasa = () => db.from('tasas_bcv').select('fecha,tasa').lte('fecha', hoyVE()).order('fecha', {ascending: false}).limit(1);
   C.alEntrar(async () => {
-    const {data, error} = await db.from('tasas_bcv').select('fecha,tasa').order('fecha', {ascending: false}).limit(1);
+    const {data, error} = await leerTasa();
     const t = error ? C.leerLocal('tasa') : data && data[0];
     if (t) { ponerTasa(+t.tasa, t.fecha); if (!error) C.guardarLocal('tasa', t); }
     if (error) return;
+    // La busca sola la base (cada 5 minutos en las horas en que publica el BCV). Si aun así falta la de hoy,
+    // el dueño la pide al entrar, en segundo plano, y la base la guarda con su fecha valor
     if ((!t || t.fecha < hoyVE()) && soyDueno()) {
-      // En segundo plano: la entrada no espera a la fuente de la tasa
       (async () => {
         try {
           const j = await (await fetch('https://ve.dolarapi.com/v1/dolares/oficial', {cache: 'no-store'})).json();
-          const v = +(j.promedio || j.venta);
-          if (v > 0) { await guardarTasa(v, 'BCV vía dolarapi.com'); repintar(); }
+          const {error: e} = await db.rpc('registrar_tasa_bcv', {j});
+          if (!e) await revisarTasa(true);
         } catch (_) { /* sin internet o la fuente falló: el dueño la escribe en «Tasa BCV» */ }
       })();
     }
   });
+  /* Cajas abiertas: cada 5 minutos (y al volver a la ventana) revisan si la tasa del día cambió */
+  async function revisarTasa(callado) {
+    if (!C.acceso || !navigator.onLine) return;
+    const {data, error} = await leerTasa(); const t = !error && data && data[0];
+    if (!t || +t.tasa === tasaVista) return;
+    const antes = tasaVista; ponerTasa(+t.tasa, t.fecha); C.guardarLocal('tasa', t);
+    // No se redibuja en medio de algo que se está escribiendo: la tasa ya quedó puesta y se ve en el próximo paso
+    const ocupado = document.querySelector('#modal:not([hidden])') || ['INPUT', 'TEXTAREA', 'SELECT'].includes((document.activeElement || {}).tagName);
+    if (!ocupado) repintar();
+    if (antes && !callado) avisar('Tasa BCV actualizada: Bs ' + (+t.tasa).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 4}) + ' por dólar');
+  }
+  setInterval(() => { if (!document.hidden) revisarTasa().catch(() => {}); }, 5 * 60 * 1000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) revisarTasa().catch(() => {}); });
   /* Farmacia: el formulario «Tasa BCV» guarda en la base */
   document.addEventListener('submit', async e => {
     if (e.target.id !== 'tasaForm') return;

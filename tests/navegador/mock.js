@@ -19,6 +19,7 @@ module.exports = function mock(page, o = {}) {
     if (p === '/rest/v1/rpc/dar_acceso') { if (b.p_correo.startsWith('nadie')) return json(r, { code: 'P0001', message: 'No hay ningún usuario con el correo ' + b.p_correo + '. Créalo con «Nuevo usuario»' }, 400); st.equipo.push({ user_id: 'u-' + st.equipo.length, nombre: b.p_correo.split('@')[0], correo: b.p_correo, rol: b.p_rol, caja: b.p_caja, activo: true }); return r.fulfill({ status: 204 }); }
     if (p === '/functions/v1/usuarios') { if (b.accion === 'crear') st.equipo.push({ user_id: 'u-' + st.equipo.length, nombre: b.nombre, correo: b.correo, rol: b.rol, caja: b.caja, activo: true, ultima_entrada: null }); return json(r, { ok: true }); }
     if (p === '/rest/v1/tasas_bcv' && m === 'GET') return json(r, st.tasas.slice().sort((a, c) => c.fecha.localeCompare(a.fecha)).slice(0, 1));
+    if (p === '/rest/v1/rpc/registrar_tasa_bcv') { const f = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Caracas' }).format(new Date()); st.tasas = st.tasas.filter(t => t.fecha !== f).concat([{ fecha: f, tasa: +(b.j.promedio || b.j.venta), fuente: 'BCV vía dolarapi.com' }]); return json(r, f); }
     if (p === '/rest/v1/tasas_bcv' && m === 'POST') { st.tasas = st.tasas.filter(t => t.fecha !== b.fecha).concat([b]); return json(r, [b], 201); }
     if (p === '/rest/v1/empresas' && m === 'GET') return json(r, u.searchParams.get('id') ? st.empresa : (o.empresas || [st.empresa]));
     if (p === '/rest/v1/empresas' && m === 'PATCH') { Object.assign(st.empresa, b); return json(r, st.empresa); }

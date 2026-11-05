@@ -1,128 +1,105 @@
 -- Cuadre · Para pegar en el SQL Editor de Supabase (proyecto azullab) y darle Run una vez.
--- Migraciones desde la 0018. Generado por supabase/armar_sql_editor.sh; no editar a mano.
+-- Migraciones desde la 0020. Generado por supabase/armar_sql_editor.sh; no editar a mano.
 
--- >>>>> migrations/0018_seguridad_ataque.sql
+-- >>>>> migrations/0020_tasa_automatica.sql
 -- =====================================================================
--- Cuadre · Migración 0018: auditoría de seguridad (pruebas como atacante)
---   1. Nadie emite facturas directo: solo por vender(), crear_orden(),
---      cobrar_membresia() y emitir_nota(), que controlan precio, inventario
---      y permisos. (Antes un cajero podía facturar a cualquier precio.)
---   2. Solo la integración con la imprenta digital (clave de servicio)
---      registra el número de control. (Antes un cajero podía falsificarlo.)
---   3. La venta sin internet no baja del 80 % del precio vigente.
---   4. Los socios del CrossFit no escriben en las listas internas del equipo.
---   5. Un resultado del laboratorio solo se entrega si fue validado.
---   6. Nombres y textos libres no aceptan < ni > (nadie esconde código en un nombre).
+-- Cuadre · Migración 0020: tasa BCV automática
+--   1. «Hoy» en la base es el de Caracas (antes, desde las 8 p. m. la base
+--      ya estaba en el día siguiente, porque usaba la hora de Londres).
+--   2. La tasa de un día nunca es una con fecha futura: la que el BCV
+--      publica a las 5 p. m. vale para el día hábil siguiente.
+--   3. registrar_tasa_bcv(): guarda la tasa de dolarapi.com con su fecha
+--      valor. Lo que escribió el dueño a mano manda sobre lo automático.
+--   4. El reloj de la base (pg_cron + pg_net) la busca cada 5 minutos de
+--      9:00 a 10:55 a. m. y de 5:00 a 6:55 p. m. (lunes a viernes), y una
+--      vez por hora entre medio, sin que nadie entre al sistema.
 -- =====================================================================
 
--- 1 y 2
-revoke execute on function emitir_documento(uuid, tipo_doc, jsonb, jsonb, jsonb, uuid, text, origen_doc, bigint, text, uuid) from public, anon, authenticated;
-revoke execute on function registrar_imprenta(uuid, text, estado_doc, jsonb) from public, anon, authenticated;
-grant execute on function registrar_imprenta(uuid, text, estado_doc, jsonb) to service_role;
+-- 1
+do $$ begin execute format('alter database %I set timezone to %L', current_database(), 'America/Caracas'); end $$;
+set timezone to 'America/Caracas';
+
+-- 2
+create or replace function tasa_del_dia(f date default current_date) returns numeric
+language sql stable security definer set search_path = public as $$
+  select tasa from tasas_bcv
+  where fecha <= least(coalesce(f, (now() at time zone 'America/Caracas')::date), (now() at time zone 'America/Caracas')::date)
+  order by fecha desc limit 1
+$$;
 
 -- 3
-create or replace function vender(p_empresa uuid, p_cliente jsonb, p_items jsonb, p_pagos jsonb default '[]',
-                                  p_origen origen_doc default 'sistema', p_numero bigint default null, p_fecha timestamptz default null)
-returns documentos
-language plpgsql security definer set search_path = public as $$
-declare
-  it jsonb; pr productos; lt lotes; d documentos;
-  lineas jsonb := '[]'; resta numeric; toma numeric; pu numeric; ok boolean;
+-- Fecha valor: lo publicado desde las 3 p. m. vale para el día hábil siguiente (viernes en la tarde → lunes)
+create or replace function fecha_valor_bcv(publicada timestamptz) returns date
+language plpgsql stable set search_path = public as $$
+declare l timestamp := publicada at time zone 'America/Caracas'; d date := l::date;
 begin
-  if not tiene_rol(p_empresa, '{dueno,gerente,regente,cajero}') then raise exception 'Tu usuario no vende'; end if;
-  if jsonb_array_length(coalesce(p_items, '[]')) = 0 then raise exception 'La venta no tiene productos'; end if;
-
-  for it in select * from jsonb_array_elements(p_items) loop
-    select * into pr from productos where id = (it->>'producto_id')::bigint and empresa_id = p_empresa and activo;
-    if pr.id is null then raise exception 'Producto no encontrado'; end if;
-    pu := (it->>'precio_usd')::numeric;
-    select abs(pu - pr.precio) < 0.005 or exists (
-             select 1 from lotes where producto_id = pr.id and cantidad > 0 and precio is not null and abs(pu - precio) < 0.005)
-      into ok;
-    -- Sin internet vale el precio que tenía la caja, pero nunca por debajo del 80 % del precio vigente
-    -- (antes, por esta vía se podía vender a cualquier precio)
-    if not ok and (p_origen <> 'contingencia' or pu < round(0.8 * least(pr.precio, coalesce((select min(precio) from lotes where producto_id = pr.id and cantidad > 0 and precio is not null), pr.precio)), 2)) then
-      raise exception 'El precio de % cambió. Actualiza la caja', pr.nombre;
-    end if;
-    lineas := lineas || jsonb_build_object('descripcion', pr.nombre || coalesce(' · ' || nullif(pr.presentacion, '—'), ''),
-                                           'cantidad', (it->>'cantidad')::numeric, 'precio_usd', pu, 'alicuota', pr.iva,
-                                           'ref', jsonb_build_object('producto_id', pr.id));
-  end loop;
-
-  -- Venta hecha sin internet: número del talonario de contingencia y fecha en que se vendió
-  if p_origen = 'contingencia' then
-    if p_fecha is null or p_fecha > now() + interval '5 minutes' or p_fecha < now() - interval '30 days' then
-      raise exception 'Fecha de la venta sin conexión inválida';
-    end if;
-    perform set_config('cuadre.fecha', p_fecha::text, true);
-  end if;
-  d := emitir_documento(p_empresa, 'FAC', p_cliente, lineas, p_pagos, null, null, p_origen, p_numero, 'venta', null);
-  perform set_config('cuadre.fecha', '', true);
-
-  perform set_config('cuadre.inventario', 'si', true);
-  for it in select * from jsonb_array_elements(p_items) loop
-    resta := (it->>'cantidad')::numeric;
-    for lt in select * from lotes where producto_id = (it->>'producto_id')::bigint and cantidad > 0 and vence >= current_date
-              order by vence, id for update loop
-      exit when resta <= 0;
-      toma := least(lt.cantidad, resta);
-      update lotes set cantidad = cantidad - toma where id = lt.id;
-      insert into movimientos (empresa_id, producto_id, lote_id, tipo, cantidad, costo, documento_id)
-      values (p_empresa, lt.producto_id, lt.id, 'venta', -toma, lt.costo, d.id);
-      resta := resta - toma;
-    end loop;
-    if resta > 0 then
-      raise exception 'No hay existencia suficiente de % (faltan %)',
-        (select nombre from productos where id = (it->>'producto_id')::bigint), resta;
-    end if;
-  end loop;
-  perform set_config('cuadre.inventario', '', true);
+  if l::time >= time '15:00' then d := d + 1; end if;
+  while extract(isodow from d) > 5 loop d := d + 1; end loop;
   return d;
 end $$;
 
--- 4
-drop policy if exists escribir on colecciones;
-drop policy if exists editar on colecciones;
-create policy escribir on colecciones for insert with check (tiene_rol(empresa_id, '{dueno,gerente}') or (nombre like 'equipo\_%' and es_miembro(empresa_id) and not es_socio(empresa_id)));
-create policy editar on colecciones for update using (tiene_rol(empresa_id, '{dueno,gerente}') or (nombre like 'equipo\_%' and es_miembro(empresa_id) and not es_socio(empresa_id)))
-  with check (tiene_rol(empresa_id, '{dueno,gerente}') or (nombre like 'equipo\_%' and es_miembro(empresa_id) and not es_socio(empresa_id)));
-
--- 5
-create or replace function ordenes_entrega() returns trigger
-language plpgsql set search_path = public as $$
+create or replace function registrar_tasa_bcv(j jsonb, p_fuente text default 'BCV vía dolarapi.com') returns date
+language plpgsql security definer set search_path = public as $$
+declare
+  v numeric := coalesce(nullif(j->>'promedio', '')::numeric, nullif(j->>'venta', '')::numeric);
+  pub timestamptz := nullif(j->>'fechaActualizacion', '')::timestamptz;
+  f date; actual tasas_bcv; previa numeric;
 begin
-  if new.estado = 'Entregado' and old.estado not in ('Validado', 'Entregado') then
-    raise exception 'Solo se entrega un resultado validado por el bioanalista';
+  -- Desde la pantalla solo el dueño; el reloj de la base (sin usuario) siempre puede
+  if auth.uid() is not null and not exists (select 1 from miembros where user_id = auth.uid() and rol = 'dueno' and activo) then
+    raise exception 'Solo el dueño carga la tasa';
   end if;
-  return new;
+  if v is null or v <= 0 or pub is null or pub < now() - interval '4 days' or pub > now() + interval '4 days' then return null; end if;   -- dolarapi manda la fecha valor (00:00 de ese día): puede ser mañana o el lunes
+  f := fecha_valor_bcv(pub);
+  select * into actual from tasas_bcv where fecha = f;
+  if found and (actual.fuente = 'Dueño' or actual.tasa = v) then return f; end if;
+  -- Un salto de más de 25 % contra la tasa anterior es un dato malo de la fuente: no se toma
+  select tasa into previa from tasas_bcv where fecha < f order by fecha desc limit 1;
+  if previa is not null and abs(v - previa) / previa > 0.25 then return null; end if;
+  insert into tasas_bcv (fecha, tasa, fuente) values (f, v, p_fuente)
+  on conflict (fecha) do update set tasa = excluded.tasa, fuente = excluded.fuente, creado_en = now();
+  return f;
 end $$;
-revoke execute on function ordenes_entrega() from public, anon, authenticated;
-drop trigger if exists ordenes_entrega on ordenes;
-create trigger ordenes_entrega before update on ordenes for each row execute function ordenes_entrega();
+revoke execute on function registrar_tasa_bcv(jsonb, text) from public, anon;
+grant execute on function registrar_tasa_bcv(jsonb, text) to authenticated;
 
--- 6 (not valid: lo ya guardado no se revisa; todo lo nuevo sí)
-alter table perfiles    add constraint perfiles_sin_codigo    check (nombre !~ '[<>]') not valid;
-alter table clientes    add constraint clientes_sin_codigo    check (nombre !~ '[<>]' and coalesce(direccion, '') !~ '[<>]') not valid;
-alter table productos   add constraint productos_sin_codigo   check ((nombre || coalesce(principio_activo, '') || coalesce(laboratorio, '') || coalesce(presentacion, '') || coalesce(seccion, '')) !~ '[<>]') not valid;
-alter table pacientes   add constraint pacientes_sin_codigo   check (nombre !~ '[<>]') not valid;
-alter table socios      add constraint socios_sin_codigo      check (nombre !~ '[<>]') not valid;
-alter table proveedores add constraint proveedores_sin_codigo check (nombre !~ '[<>]') not valid;
-alter table medicos     add constraint medicos_sin_codigo     check (nombre !~ '[<>]') not valid;
-alter table examenes    add constraint examenes_sin_codigo    check (nombre !~ '[<>]') not valid;
-alter table planes      add constraint planes_sin_codigo      check (nombre !~ '[<>]') not valid;
-
--- >>>>> migrations/0019_igtf_contribuyente.sql
--- Cuadre · 0019 · IGTF solo para contribuyentes especiales
--- La Ley del IGTF pone a cobrar el 3 % por pagos en divisas a los sujetos pasivos especiales.
--- Los tres negocios del grupo son contribuyentes ordinarios: la caja no lo cobra y la factura
--- tampoco debe sumarlo (antes la base lo agregaba y el total no cuadraba con lo cobrado).
--- Si el SENIAT designa especial a un negocio, se pone igtf = 3 en su fila de empresas.
-alter table empresas alter column igtf set default 0;
-update empresas set igtf = 0 where igtf <> 0;
-comment on column empresas.igtf is 'IGTF en %: 0 para contribuyente ordinario; 3 si el SENIAT lo designa contribuyente especial';
+-- 4 (solo donde existen pg_cron y pg_net, como en Supabase)
+do $$
+begin
+  if not exists (select 1 from pg_available_extensions where name = 'pg_cron')
+     or not exists (select 1 from pg_available_extensions where name = 'pg_net') then
+    raise notice 'Sin pg_cron o pg_net: la tasa automática no se programa aquí';
+    return;
+  end if;
+  create extension if not exists pg_net with schema extensions;
+  create extension if not exists pg_cron;
+  execute $f$
+    create or replace function pedir_tasa_bcv() returns void
+    language sql security definer set search_path = public, extensions as $q$
+      select net.http_get('https://ve.dolarapi.com/v1/dolares/oficial', timeout_milliseconds := 10000);
+    $q$ $f$;
+  execute $f$
+    create or replace function procesar_tasa_bcv() returns void
+    language plpgsql security definer set search_path = public, extensions as $q$
+    declare r record;
+    begin
+      for r in select content from net._http_response
+               where status_code = 200 and created > now() - interval '15 minutes' order by created desc limit 1 loop
+        perform registrar_tasa_bcv(r.content::jsonb);
+      end loop;
+    end $q$ $f$;
+  execute 'revoke execute on function pedir_tasa_bcv() from public, anon, authenticated';
+  execute 'revoke execute on function procesar_tasa_bcv() from public, anon, authenticated';
+  -- pg_cron trabaja en hora UTC: Caracas es UTC − 4
+  perform cron.unschedule(jobname) from cron.job where jobname like 'tasa-bcv-%';
+  perform cron.schedule('tasa-bcv-pedir',         '*/5 13,14,21,22 * * 1-5',  'select pedir_tasa_bcv()');      -- 9:00–10:55 y 17:00–18:55
+  perform cron.schedule('tasa-bcv-guardar',       '2-59/5 13,14,21,22 * * 1-5', 'select procesar_tasa_bcv()');
+  perform cron.schedule('tasa-bcv-pedir-hora',    '30 15-20 * * 1-5',          'select pedir_tasa_bcv()');      -- cada hora, 11:30 a 16:30
+  perform cron.schedule('tasa-bcv-guardar-hora',  '32 15-20 * * 1-5',          'select procesar_tasa_bcv()');
+end $$;
 
 -- >>>>> Historial de migraciones
 insert into supabase_migrations.schema_migrations (version, name) values
-  ('0018', 'seguridad_ataque'),('0019', 'igtf_contribuyente')
+  ('0020', 'tasa_automatica')
 on conflict (version) do nothing;
 select 'Listo: migraciones aplicadas' as resultado;

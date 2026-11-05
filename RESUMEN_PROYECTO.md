@@ -2,7 +2,7 @@
 
 Actualizado el 5 de noviembre de 2026.
 
-**Estado:** los tres sistemas (Farmacia, Laboratorio y CrossFit) trabajan con datos reales en Supabase (proyecto `azullab`, región us-east-2). El código está en `main` del repositorio `josedanielgt1/azullab`. Pruebas: **265 de base de datos y 220 de navegador**, todas pasan.
+**Estado:** los tres sistemas (Farmacia, Laboratorio y CrossFit) trabajan con datos reales en Supabase (proyecto `azullab`, región us-east-2). El código está en `main` del repositorio `josedanielgt1/azullab`. Pruebas: **279 de base de datos y 222 de navegador**, todas pasan.
 
 ---
 
@@ -19,6 +19,15 @@ Actualizado el 5 de noviembre de 2026.
 - **Equipos registrados:** el dueño o el gerente registra las computadoras de uso fijo (la caja, la recepción) en el menú «Este equipo».
 - **Mientras el equipo no está registrado**, la sesión guardada abre sola, como siempre. Ya registrado, al cerrar la app y abrirla de nuevo pide el PIN.
 - **PIN:** en un equipo registrado, cada persona entra con un PIN de 4 a 6 números, con o sin internet. La guía completa está en la sección 3.
+
+### Tasa BCV automática (nuevo, ya activa en la base real)
+- **Búsqueda automática:** la base busca sola la tasa en dolarapi.com cada 5 minutos, de 9:00 a 10:55 a. m. y de 5:00 a 6:55 p. m., y cada hora entre medio, de lunes a viernes. No hace falta que nadie entre al sistema.
+- **Fecha valor:** cada tasa se guarda con el día en que vale. La que sale a las 5:20 p. m. es la de mañana y la del viernes en la tarde es la del lunes. Mientras tanto se sigue facturando con la de hoy, y a medianoche las cajas pasan solas a la nueva.
+- **Cajas abiertas:** revisan cada 5 minutos si cambió la tasa del día. Si cambió, la toman y avisan: «Tasa BCV actualizada».
+- **Tasa a mano:** si el dueño escribe la tasa en «Tasa BCV», esa manda sobre la automática.
+- **Datos malos:** no se toma un salto de más de 25 % contra la tasa anterior.
+- **Hora de Caracas:** la base usa la hora de Caracas. Antes, desde las 8 p. m., la base ya creía que era el día siguiente.
+- **Feriados bancarios:** no se calculan solos. Si el BCV publica para el día después de un feriado, el sistema puede tomarla un día antes. En ese caso el dueño corrige la tasa a mano.
 
 ### Auditoría de seguridad (ya aplicada en la base real)
 - Un cajero ya no puede facturar a cualquier precio ni falsificar el número de control de la imprenta.
@@ -106,3 +115,23 @@ Actualizado el 5 de noviembre de 2026.
 - **No borren los datos de navegación en las computadoras de la caja.** Se pierden el registro, los PIN y las ventas sin internet que todavía no hayan subido.
 - **No registren equipos personales ni prestados.** El PIN es corto: su seguridad depende de que el equipo esté en el negocio. Si roban un equipo, el dueño le quita el acceso a esas personas en Usuarios y el PIN deja de servir en cuanto el equipo se conecte.
 - **Sin internet**, los reportes y consultas muestran lo último que se guardó en el equipo. Todo se pone al día al volver la conexión.
+
+---
+
+## 4. Desinstalar y volver a instalar la app
+
+### Desinstalar (Chrome o Edge en Windows)
+1. Abre la app instalada (Azullab Farmacia).
+2. En la ventana de la app, toca el menú **⋮** (arriba a la derecha) → **«Desinstalar Azullab Farmacia»**.
+3. Marca **«Borrar también los datos»** si quieres empezar de cero. Esto borra el registro del equipo, los PIN y las ventas sin internet que no hayan subido; antes de marcarla, confirma que no queda nada pendiente.
+4. Toca **Desinstalar**.
+
+Otras formas: en Chrome, `chrome://apps` → clic derecho en la app → **Quitar de Chrome**; en Edge, `edge://apps` → **…** → **Desinstalar**; o en Windows: Configuración → Aplicaciones → buscar «Azullab» → **Desinstalar**.
+
+### Volver a instalar (por ejemplo, en la reunión)
+1. Abre `https://josedanielgt1.github.io/azullab/farmacia.html` en Chrome y entra con tu correo y tu clave.
+2. Menú **Este equipo** → nombre del equipo → **Registrar este equipo**.
+3. **Crear mi PIN**.
+4. **Instalar la app en este equipo**, o el ícono de instalar en la barra de direcciones.
+5. Cierra y abre la app desde el ícono: sale «¿Quién entra?».
+

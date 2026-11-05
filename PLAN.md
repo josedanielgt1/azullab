@@ -11,7 +11,7 @@ Las pantallas de `farmacia.html`, `laboratorio.html` y `crossfit.html` son las m
 | Entrada | Correo y clave; el sistema abre según el rol; sesión guardada; «Olvidé mi clave» | ✅ (la recuperación necesita GitHub Pages, ver abajo) |
 | Usuarios | Equipo de cada negocio, nuevo usuario, dar acceso por correo, cambiar rol, caja, nombre y clave, quitar acceso | ✅ («Nuevo usuario» necesita subir la función `usuarios`) |
 | Datos fiscales | RIF, razón social, domicilio, imprenta, talonario y contador en Configuración; sin confirmarlos el negocio no factura | ✅ |
-| Tasa BCV | Se lee de la base; si falta la de hoy, la carga el dueño al entrar o la escribe a mano | ✅ |
+| Tasa BCV | La base la busca sola (pg_cron cada 5 min a las horas del BCV) y la guarda con su fecha valor; las cajas abiertas la toman solas; el dueño puede escribirla a mano | ✅ |
 | Facturas y notas | Número correlativo por RIF, IVA e IGTF calculados por la base, notas de crédito y débito, libro de ventas; nada se edita ni se borra | ✅ (número de control: espera la imprenta) |
 | **Farmacia** | Catálogo (vacío al instalar), códigos únicos, compras por lote, venta que factura y descuenta el lote que vence antes, salidas, devoluciones a su lote, clientes | ✅ |
 | **Laboratorio** | Catálogo vacío con opción de cargar el catálogo base, pacientes, médicos, orden con su factura (L-0001), toma, resultados, validación solo del bioanalista, entrega, anulación con nota de crédito | ✅ |
@@ -30,7 +30,7 @@ Las pantallas de `farmacia.html`, `laboratorio.html` y `crossfit.html` son las m
 | Los tres: app instalable y PIN | Se instala en la computadora («Instalar Azullab…»), abre sin internet; en un equipo registrado cada persona entra con su PIN, con o sin internet (5 errores bloquean, 7 días sin conexión vencen) | ✅ (necesita GitHub Pages: https) |
 | Los tres: panel del grupo | El dueño ve las ventas reales del mes de los tres negocios | ✅ |
 
-Pruebas: **265 de base de datos** (`supabase/tests/correr.sh`) y **220 de navegador** (`tests/navegador/correr.sh`), incluidas las de ataque (`tests/navegador/seguridad.test.js`) y la que recorre todas las pantallas con cada rol buscando textos o nombres de la maqueta (`tests/navegador/textos.test.js`).
+Pruebas: **279 de base de datos** (`supabase/tests/correr.sh`) y **222 de navegador** (`tests/navegador/correr.sh`), incluidas las de ataque (`tests/navegador/seguridad.test.js`) y la que recorre todas las pantallas con cada rol buscando textos o nombres de la maqueta (`tests/navegador/textos.test.js`).
 
 ## Qué todavía muestra datos de muestra
 
