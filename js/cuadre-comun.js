@@ -354,8 +354,7 @@
       <div class="grid g2" style="align-items:start">
       <section class="panel"><div class="hd"><h2>Equipo de ${esc(A().empresa || '')}</h2><span class="muted small">${L.filter(u => u.activo).length} con acceso</span></div><div class="bd flush list">${filas}</div></section>
       <section class="panel"><div class="hd"><h2>Qué ve cada rol</h2></div><div class="bd">${qv}
-        <p class="small muted" style="margin:10px 0 0">«Dar acceso» sirve para alguien que ya tiene usuario en otro negocio del grupo: entra con el mismo correo y aquí tiene su propio rol.</p></div></section></div>
-      ${panelEquipo()}`;
+        <p class="small muted" style="margin:10px 0 0">«Dar acceso» sirve para alguien que ya tiene usuario en otro negocio del grupo: entra con el mismo correo y aquí tiene su propio rol. Para entrar con PIN en la caja: menú «Este equipo».</p></div></section></div>`;
   }
 
   /* ---------------- Este equipo: registro, PIN e instalación ---------------- */
@@ -488,6 +487,15 @@
       g.items.unshift(['key', 'users', 'Usuarios']);
       if (typeof TITLES === 'object') TITLES.users = 'Usuarios';
       if (typeof CODE === 'object') CODE.users = 'US';
+    }
+    /* «Este equipo» (registro, PIN e instalación), justo después de Usuarios: solo dueño y gerente */
+    V.equipo = () => puedoEquipo() ? `<p class="lead">Registra aquí las computadoras de uso fijo (la caja, la recepción) e instala la app. En un equipo registrado cada persona entra con su PIN, con o sin internet.</p>${panelEquipo()}`
+      : '<p class="lead">Solo el dueño o el gerente registran equipos.</p>';
+    if (typeof NAV === 'object' && !NAV.some(g => g.items.some(it => it[1] === 'equipo'))) {
+      const g = NAV.find(x => x.items.some(it => it[1] === 'users'));
+      if (g) g.items.splice(g.items.findIndex(it => it[1] === 'users') + 1, 0, ['key', 'equipo', 'Este equipo']);
+      if (typeof TITLES === 'object') TITLES.equipo = 'Este equipo';
+      if (typeof CODE === 'object') CODE.equipo = 'EQ';
     }
   });
 })();

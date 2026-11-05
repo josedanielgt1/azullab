@@ -16,7 +16,7 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   await pg.fill('#lu', 'jose@azullab.com'); await pg.fill('#lp', 'clave-buena'); await pg.click('#loginForm [type=submit]'); await adentro();
 
   // Registrar el equipo y crear el PIN
-  await pg.evaluate(() => go('users')); await pg.fill('#eq-nom', 'Caja 1'); await pg.click('#eq-reg-f [type=submit]');
+  await pg.evaluate(() => go('equipo')); await pg.fill('#eq-nom', 'Caja 1'); await pg.click('#eq-reg-f [type=submit]');
   ok((await pg.evaluate(() => JSON.parse(localStorage.getItem('cuadre.equipo.farmacia')))).nombre === 'Caja 1', 'el dueño registra el equipo «Caja 1»');
   await pg.click('[data-act="eq-mi-pin"]'); await pg.fill('#eq-p1', '1234'); await pg.fill('#eq-p2', '1234'); await pg.click('#eq-pin-f [type=submit]');
   await pg.waitForFunction(() => !document.getElementById('cq-err').hidden);

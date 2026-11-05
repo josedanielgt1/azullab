@@ -16,7 +16,8 @@ Actualizado el 5 de noviembre de 2026.
 
 ### App instalable y entrada con PIN (nuevo)
 - **App instalable:** el sistema se instala en la computadora como una aplicación, con su ícono y su propia ventana, y abre sin internet.
-- **Equipos registrados:** el dueño o el gerente registra las computadoras de uso fijo (la caja, la recepción).
+- **Equipos registrados:** el dueño o el gerente registra las computadoras de uso fijo (la caja, la recepción) en el menú «Este equipo».
+- **Mientras el equipo no está registrado**, la sesión guardada abre sola, como siempre. Ya registrado, al cerrar la app y abrirla de nuevo pide el PIN.
 - **PIN:** en un equipo registrado, cada persona entra con un PIN de 4 a 6 números, con o sin internet. La guía completa está en la sección 3.
 
 ### Auditoría de seguridad (ya aplicada en la base real)
@@ -70,7 +71,7 @@ Actualizado el 5 de noviembre de 2026.
 
 ### Paso a paso para probarlo en tu computadora
 1. Abre `https://josedanielgt1.github.io/azullab/farmacia.html` en Chrome y entra con tu correo y tu clave.
-2. Ve a **Usuarios**. Abajo está el panel **Este equipo**. Escribe un nombre (por ejemplo «Caja 1») y toca **Registrar este equipo**.
+2. En el menú, debajo de Usuarios, entra a **Este equipo**. Escribe un nombre (por ejemplo «Caja 1») y toca **Registrar este equipo**.
 3. Toca **Crear mi PIN**. Son de 4 a 6 números, sin repetidos (1111) ni seguidos (1234).
 4. Toca **Instalar la app en este equipo**. Si no aparece el botón, usa el ícono de instalar al final de la barra de direcciones (o menú ⋮ → «Instalar Azullab Farmacia»). Queda un ícono en el escritorio.
 5. Cierra todo y abre la app desde el ícono. Sale **«¿Quién entra?»**: toca tu nombre, escribe el PIN y entras.
@@ -96,7 +97,7 @@ Actualizado el 5 de noviembre de 2026.
 | Recargar la página | No pide el PIN |
 | Cerrar la app y abrirla de nuevo | Pide el PIN |
 | El dueño le quita el acceso a alguien | Su PIN deja de servir apenas el equipo tenga internet |
-| Se le olvidó el PIN | El dueño toca **Quitar PIN** en Usuarios → Este equipo; la persona entra con su clave y crea otro |
+| Se le olvidó el PIN | El dueño toca **Quitar PIN** en «Este equipo»; la persona entra con su clave y crea otro |
 | Quitar el registro del equipo | Se borran todos los PIN guardados ahí |
 
 ### Cuidados importantes
