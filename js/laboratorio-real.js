@@ -122,7 +122,7 @@
   async function sincronizar() {
     if (enCurso) { otraVez = true; return enCurso; }
     enCurso = (async () => { do { otraVez = false; descontarReactivos(); await subir(); await subirReactivos(); } while (otraVez); })()
-      .catch(async x => { avisar('No se pudo guardar: ' + C.msg(x)); await cargarOrdenes().catch(() => {}); render(); })
+      .catch(async x => { avisar(C.deRed(x) ? 'Sin conexión: quedó guardado en este equipo y sube solo al volver internet' : 'No se pudo guardar: ' + C.msg(x)); await cargarOrdenes().catch(() => {}); render(); })
       .finally(() => { enCurso = null; });
     return enCurso;
   }
@@ -138,6 +138,7 @@
       if (p._id && g.pac.get(p._id) === j) continue;
       if (p._id) { const {error} = await db.from('pacientes').update(f).eq('id', p._id); if (error) throw error; g.pac.set(p._id, j); continue; }
       const viejo = p.id, {data, error} = await db.from('pacientes').insert({...f, empresa_id: EMP()}).select().single();
+      if (error && C.deRed(error)) throw error;   // sin conexión: el paciente se queda y sube después
       if (error) { const i = PATS.indexOf(p); if (i >= 0) PATS.splice(i, 1); if (S.ord && S.ord.pat === viejo) S.ord.pat = null; render();
         throw /duplicate|unique/i.test(error.message) ? new Error('Ya hay un paciente con esa cédula') : error; }
       p._id = data.id; p.id = 'P' + data.id; g.pac.set(p._id, j);
@@ -378,6 +379,12 @@
   C.laboratorio = {sincronizar, cargarOrdenes};
   /* Respaldo en carpeta: con las órdenes sin subir van los pacientes nuevos que todavía no están en la base */
   C.subirCola = subirCola;
+  /* Pacientes creados o cambiados sin internet: se guardan en el equipo y suben al volver la conexión */
+  C.sincronizarTodo = sincronizar;
+  C.cambiosSinSubir = () => ({pacientes: PATS.filter(p => !p._id || g.pac.get(p._id) !== JSON.stringify(pacFila(p)))});
+  C.reponerCambios = x => { ((x && x.pacientes) || []).forEach(p => { if (!p || !p.id) return;
+    const o = p._id ? PATS.find(q => q._id === p._id) : PATS.find(q => q.id === p.id);
+    if (o) Object.assign(o, p); else if (!p._id) PATS.push(p); }); };
   C.respaldoExtra = cola => ({pacientes: PATS.filter(p => !p._id && cola.some(v => v.pat === p.id))});
   C.restaurarExtra = x => { ((x && x.pacientes) || []).forEach(p => { if (p && p.id && !PATS.some(q => q.id === p.id)) PATS.push(p); }); };
 

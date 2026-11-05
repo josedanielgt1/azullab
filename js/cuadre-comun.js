@@ -50,6 +50,9 @@
   /* La fecha de hoy de verdad (las maquetas traían una fija) */
   try { if (typeof TODAY === 'object' && TODAY.setTime) { const [y, m, d] = hoyVE().split('-').map(Number); TODAY.setTime(new Date(y, m - 1, d).getTime()); } } catch (_) {}
 
+  /* Un error de conexión (no de la base): lo nuevo se queda en el equipo y sube después, nunca se descarta */
+  C.deRed = e => !navigator.onLine || /fetch|network|load failed|timeout/i.test(String(e && ((e.name || '') + ' ' + (e.message || ''))));
+
   /* ---------------- Sin conexión: el estado real del equipo ---------------- */
   const ponerRed = () => { if (typeof S === 'object' && 'online' in S) { S.online = navigator.onLine; if (S.view && S.view !== 'login') repintar(); } };
   window.addEventListener('online', ponerRed); window.addEventListener('offline', ponerRed);
@@ -58,7 +61,7 @@
   document.addEventListener('click', e => { const b = e.target.closest('[data-act="net"]'); if (!b || !C.acceso) return;
     e.stopImmediatePropagation(); avisar(navigator.onLine ? 'Hay internet: todo se guarda en la base al momento' : 'Sin internet: las ventas se guardan en este equipo y suben solas al volver'); }, true);
   // Copia local de lo necesario para abrir sin internet
-  C.guardarLocal = (k, v) => { try { localStorage.setItem('cuadre.' + A().tipo + '.' + k, JSON.stringify(v)); } catch (_) {} };
+  C.guardarLocal = (k, v) => { try { const c = 'cuadre.' + A().tipo + '.' + k; if (v == null) localStorage.removeItem(c); else localStorage.setItem(c, JSON.stringify(v)); } catch (_) {} };
   C.leerLocal = k => { try { return C.neutro(JSON.parse(localStorage.getItem('cuadre.' + A().tipo + '.' + k) || 'null')); } catch (_) { return null; } };   // también lo guardado en el equipo pasa por el filtro
 
   /* ---------------- Lo hecho sin internet: aviso, copia en carpeta y recuperación ----------------
@@ -75,7 +78,9 @@
     r.onerror = () => mal(r.error);
     r.onsuccess = () => { const t = r.result.transaction('claves', modo), q = f(t.objectStore('claves')); t.oncomplete = () => ok(q && q.result); t.onerror = () => mal(t.error); }; });
   const R = C.respaldo = {estado: '', manija: null,
-    async carpeta() { if (R.manija) return R.manija; if (!hayCarpetas()) return null; try { R.manija = await idb('readonly', st => st.get('carpeta')) || null; } catch (_) {} return R.manija; },
+    async carpeta() { if (R.manija) return R.manija; if (!hayCarpetas()) return null;
+      try { const h = await idb('readonly', st => st.get('carpeta')); if (!R.manija && h) R.manija = h; } catch (_) {}   // si mientras tanto escogieron otra, se queda esa
+      return R.manija; },
     async escoger() {
       const h = await window.showDirectoryPicker({id: 'cuadre-respaldo', mode: 'readwrite', startIn: 'documents'});
       R.manija = h; try { await idb('readwrite', st => st.put(h, 'carpeta')); } catch (_) {}
@@ -88,17 +93,20 @@
       try { return (await h.requestPermission({mode: 'readwrite'})) === 'granted'; } catch (_) { return false; }
     }
   };
-  async function respaldar() {
+  // Una copia a la vez y cada una con lo que hay en ese momento: una vieja nunca pisa a una nueva
+  let filaResp = Promise.resolve();
+  function respaldar() { filaResp = filaResp.then(respaldarYa, respaldarYa); return filaResp; }
+  async function respaldarYa() {
     if (!C.acceso) return;
     const h = await R.carpeta(); if (!h) { R.estado = ''; return pintarPendientes(); }
     if (!(await R.permiso(true))) { R.estado = 'permiso'; return pintarPendientes(); }
-    const cola = C.leerLocal('cola') || [];
+    const cola = C.leerLocal('cola') || [], cambios = C.leerLocal('cambios');
     try {
-      if (!cola.length) await h.removeEntry(archivoResp()).catch(() => {});
+      if (!cola.length && !cuantosCambios(cambios)) await h.removeEntry(archivoResp()).catch(() => {});
       else {
         const f = await h.getFileHandle(archivoResp(), {create: true}), w = await f.createWritable();
         await w.write(JSON.stringify({sistema: 'Cuadre', tipo: A().tipo, empresa_id: A().empresa_id, empresa: A().empresa, guardado: new Date().toISOString(),
-          cola, extra: C.respaldoExtra ? C.respaldoExtra(cola) : null}, null, 1));
+          cola, extra: C.respaldoExtra ? C.respaldoExtra(cola) : null, cambios}, null, 1));
         await w.close();
       }
       R.estado = 'ok';
@@ -107,19 +115,52 @@
   }
   function pintarPendientes() {
     let b = document.getElementById('cuadre-pendientes');
-    const n = C.acceso ? (C.leerLocal('cola') || []).length : 0;
-    if (!n) { if (b) b.remove(); return; }
+    const n = C.acceso ? (C.leerLocal('cola') || []).length : 0, cambios = C.acceso ? C.leerLocal('cambios') : null, m = cuantosCambios(cambios);
+    if (!n && !m) { if (b) b.remove(); return; }
     if (!b) { b = document.createElement('div'); b.id = 'cuadre-pendientes'; b.setAttribute('role', 'status');
       b.style.cssText = 'position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:9999;max-width:calc(100% - 24px);background:#fff4e0;color:#5a3a00;border:1px solid #f0b54a;border-radius:8px;padding:8px 12px;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,.15);display:flex;gap:10px;align-items:center;flex-wrap:wrap';
       document.body.appendChild(b); }
     const [uno, varios] = QUE[A().tipo] || ['registro', 'registros'];
+    const partes = (n ? [`${n} ${n === 1 ? uno : varios}`] : []).concat(Object.entries(cambios || {}).filter(([, l]) => l && l.length)
+      .map(([k, l]) => `${l.length} ${l.length === 1 ? (NOMBRE[k] || k) : (NOMBRE[k] || k) + 's'}`));
     const copia = R.estado === 'ok' ? ' Hay copia en la carpeta del equipo.' : R.estado === 'permiso' ? '' : R.estado === 'error' ? ' No se pudo copiar a la carpeta.' : '';
-    b.innerHTML = `<span><b>${n} ${n === 1 ? uno + ' sin subir' : varios + ' sin subir'}.</b> No cierres ni borres los datos del navegador: ${n === 1 ? 'sube sola' : 'suben solas'} al volver internet.${copia}</span>`
+    b.innerHTML = `<span><b>${partes.join(' y ')} sin subir.</b> No cierres ni borres los datos del navegador: todo sube solo al volver internet.${copia}</span>`
       + (R.estado === 'permiso' ? '<button type="button" class="btn sm" data-act="eq-permiso">Activar la copia en la carpeta</button>' : '');
   }
   const guardarLocalBase = C.guardarLocal;
-  C.guardarLocal = (k, v) => { guardarLocalBase(k, v); if (k === 'cola') { pintarPendientes(); respaldar().catch(() => {}); } };
+  C.guardarLocal = (k, v) => { guardarLocalBase(k, v); if (k === 'cola' || k === 'cambios') { pintarPendientes(); respaldar().catch(() => {}); } };
   C.alEntrar(async () => { pintarPendientes(); respaldar().catch(() => {}); });
+
+  /* Clientes, productos, pacientes y socios creados o cambiados sin internet: cada sistema dice cuáles son
+     (C.cambiosSinSubir); se guardan en el equipo (y en la carpeta), suben al volver internet y, si la página
+     se recargó o se cerró, se reponen al entrar */
+  const NOMBRE = {clientes: 'cliente', productos: 'producto', pacientes: 'paciente', socios: 'socio'};
+  function cuantosCambios(x) { return Object.values(x || {}).reduce((t, l) => t + (Array.isArray(l) ? l.length : 0), 0); }
+  let ultimaFirma = '';
+  function guardarCambios() {
+    if (!C.acceso || !C.cambiosSinSubir) return;
+    let x = null; try { x = C.cambiosSinSubir(); } catch (_) { return; }
+    const firma = JSON.stringify(x); if (firma === ultimaFirma) return; ultimaFirma = firma;
+    C.guardarLocal('cambios', cuantosCambios(x) ? x : null);
+  }
+  async function subirCambios() {
+    if (!C.acceso || !navigator.onLine) return;
+    if (C.sincronizarTodo) { try { await C.sincronizarTodo(); } catch (_) {} }
+    guardarCambios();
+  }
+  // Después de cada acción: con internet se sube (cada sistema ya lo hace) y se anota lo que quedó sin subir
+  ['click', 'submit', 'change'].forEach(ev => document.addEventListener(ev, () => setTimeout(() => {
+    if (!C.acceso || !C.cambiosSinSubir || (typeof S === 'object' && S.view === 'login')) return;
+    if (navigator.onLine) subirCambios(); else guardarCambios();
+  }, 0)));
+  // Volvió internet: primero los clientes, pacientes o socios nuevos; después las ventas, órdenes y cobros
+  window.addEventListener('online', () => setTimeout(async () => { await subirCambios(); if (C.subirCola) C.subirCola().catch(() => {}); }, 800));
+  // Al entrar (después de cargar todo): lo que quedó sin subir la vez anterior vuelve y sube
+  C.alEntrar(async () => {
+    const x = C.leerLocal('cambios'); ultimaFirma = '';
+    if (cuantosCambios(x) && C.reponerCambios) { try { C.reponerCambios(x); } catch (e) { console.error('Cuadre: reponer', e); } }
+    if (navigator.onLine) await subirCambios(); else guardarCambios();
+  }, 2);
   /* Recuperar desde el archivo de la carpeta: se suma a lo que haya (sin repetir números) y sube */
   C.recuperarRespaldo = async texto => {
     let d; try { d = C.neutro(JSON.parse(texto)); } catch (_) { throw new Error('Ese archivo no es un respaldo de Cuadre'); }
@@ -127,10 +168,11 @@
     if (d.tipo !== A().tipo || d.empresa_id !== A().empresa_id) throw new Error(`Ese respaldo es de ${d.empresa || 'otro negocio'}, no de ${A().empresa || 'este'}`);
     const cola = C.leerLocal('cola') || [], nuevas = d.cola.filter(v => v && Number.isInteger(v.numero) && !cola.some(x => x.numero === v.numero));
     if (C.restaurarExtra) C.restaurarExtra(d.extra);
+    const nc = cuantosCambios(d.cambios); if (nc && C.reponerCambios) { C.reponerCambios(d.cambios); ultimaFirma = ''; guardarCambios(); }
     C.guardarLocal('cola', cola.concat(nuevas));
     const tope = Math.max(0, ...cola.concat(nuevas).map(v => v.numero)); if (tope && +(C.leerLocal('talonario') || 0) <= tope) C.guardarLocal('talonario', tope + 1);
-    if (navigator.onLine && C.subirCola) await C.subirCola();
-    return nuevas.length;
+    if (navigator.onLine) { await subirCambios(); if (C.subirCola) await C.subirCola(); }
+    return nuevas.length + nc;
   };
   /* Que el navegador no borre por su cuenta lo guardado (cuando falta espacio en el disco) */
   if (navigator.storage && navigator.storage.persist) navigator.storage.persisted().then(p => p || navigator.storage.persist()).then(p => { R.persistente = !!p; }).catch(() => {});

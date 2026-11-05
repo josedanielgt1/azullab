@@ -82,7 +82,7 @@
   async function sincronizar() {
     if (enCurso) { otraVez = true; return enCurso; }
     enCurso = (async () => { do { otraVez = false; await subir(); } while (otraVez); })()
-      .catch(x => avisar('No se pudo guardar: ' + C.msg(x))).finally(() => { enCurso = null; });
+      .catch(x => avisar(C.deRed(x) ? 'Sin conexión: quedó guardado en este equipo y sube solo al volver internet' : 'No se pudo guardar: ' + C.msg(x))).finally(() => { enCurso = null; });
     return enCurso;
   }
   async function subir() {
@@ -92,6 +92,7 @@
       if (s._id && g.soc.get(s._id) === j) continue;
       if (s._id) { const {error} = await db.from('socios').update(f).eq('id', s._id); if (error) throw error; g.soc.set(s._id, j); continue; }
       const viejo = s.id, {data, error} = await db.from('socios').insert({...f, vence: s.v, empresa_id: EMP()}).select().single();
+      if (error && C.deRed(error)) throw error;   // sin conexión: el socio se queda y sube después
       if (error) { const i = SOCIOS.indexOf(s); if (i >= 0) SOCIOS.splice(i, 1); render(); throw /duplicate|unique/i.test(error.message) ? new Error('Esa cédula ya está registrada') : error; }
       s._id = data.id; s.id = sid(data.id); g.soc.set(s._id, j);
       CLASES.forEach(c => { c.res = c.res.map(x => x === viejo ? s.id : x); });
@@ -275,6 +276,12 @@
   C.crossfit = {sincronizar};
   /* Respaldo en carpeta: con los cobros sin subir van los socios nuevos que todavía no están en la base */
   C.subirCola = subirCola;
+  /* Socios creados o cambiados sin internet: se guardan en el equipo y suben al volver la conexión */
+  C.sincronizarTodo = sincronizar;
+  C.cambiosSinSubir = () => soySocio() ? {} : ({socios: SOCIOS.filter(s => !s._id || g.soc.get(s._id) !== JSON.stringify(socFila(s)))});
+  C.reponerCambios = x => { ((x && x.socios) || []).forEach(s => { if (!s || !s.id) return;
+    const o = s._id ? SOCIOS.find(q => q._id === s._id) : SOCIOS.find(q => q.id === s.id);
+    if (o) Object.assign(o, s); else if (!s._id) SOCIOS.push(s); }); };
   C.respaldoExtra = cola => ({socios: SOCIOS.filter(s => !s._id && cola.some(v => v.socio === s.id))});
   C.restaurarExtra = x => { ((x && x.socios) || []).forEach(s => { if (s && s.id && !SOCIOS.some(q => q.id === s.id)) SOCIOS.push(s); }); };
 

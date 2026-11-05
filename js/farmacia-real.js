@@ -82,7 +82,7 @@
     if (enCurso) { otraVez = true; return enCurso; }
     enCurso = (async () => {
       do { otraVez = false; await subirCatalogo(); await subirClientes(); await subirProveedores(); await subirGastos(); await subirColecciones(); await subirRecipes(); } while (otraVez);
-    })().catch(x => avisar('No se pudo guardar: ' + C.msg(x))).finally(() => { enCurso = null; });
+    })().catch(x => avisar(C.deRed(x) ? 'Sin conexión: quedó guardado en este equipo y sube solo al volver internet' : 'No se pudo guardar: ' + C.msg(x))).finally(() => { enCurso = null; });
     return enCurso;
   }
   async function subirCatalogo() {
@@ -108,7 +108,7 @@
       } else {
         // Producto nuevo: la base le da su número y se cambia en todas partes
         const viejo = p.id, {data, error} = await db.from('productos').insert({...aFila(p), empresa_id: EMP()}).select().single();
-        if (error) { const i = P.indexOf(p); if (i >= 0) P.splice(i, 1); render(); throw error; }
+        if (error) { if (!C.deRed(error)) { const i = P.indexOf(p); if (i >= 0) P.splice(i, 1); } render(); throw error; }
         p.id = data.id; marcar(p); vivos.add(p.id);
         RECV.forEach(r => { if (r.id === viejo) r.id = p.id; });
         S.cart.forEach(c => { if (c.id === viejo) c.id = p.id; });
@@ -137,7 +137,7 @@
       const q = c._id ? db.from('clientes').update(f).eq('id', c._id) : db.from('clientes').insert({...f, empresa_id: EMP()});
       const {data, error} = await q.select().single();
       if (error) {
-        if (!c._id) { const i = CLIENTS.indexOf(c); if (i >= 0) CLIENTS.splice(i, 1); }
+        if (!c._id && !C.deRed(error)) { const i = CLIENTS.indexOf(c); if (i >= 0) CLIENTS.splice(i, 1); }   // sin conexión se queda y sube después
         render(); throw error;
       }
       c._id = data.id; c.ci = data.cedula_rif; clientesGuardados.set(normCI(c.ci), JSON.stringify(cFila(c)));
@@ -680,6 +680,20 @@
 
   C.farmacia = {recargar, sincronizar, alCambiarDocs: () => { tablero(); libroVentas(); }};
   C.subirCola = subirCola;   // para «Recuperar desde la carpeta»
+  /* Lo creado o cambiado sin internet (clientes y productos): se guarda en el equipo y sube al volver la conexión */
+  C.sincronizarTodo = sincronizar;
+  C.cambiosSinSubir = () => ({
+    clientes: CLIENTS.filter(c => clientesGuardados.get(normCI(c.ci)) !== JSON.stringify(cFila(c))),
+    productos: P.filter(p => !guardado.has(p.id) || guardado.get(p.id) !== JSON.stringify(aFila(p))).map(p => ({...p, _nuevo: !guardado.has(p.id)}))});
+  C.reponerCambios = x => {
+    ((x && x.clientes) || []).forEach(c => { if (!c || !c.ci) return;
+      const i = CLIENTS.findIndex(q => normCI(q.ci) === normCI(c.ci));
+      if (i >= 0) Object.assign(CLIENTS[i], c, {_id: CLIENTS[i]._id}); else { const n = {...c}; delete n._id; CLIENTS.unshift(n); } });
+    ((x && x.productos) || []).forEach(p => { if (!p || !p.name) return;
+      const {_nuevo, ...q} = p;
+      if (_nuevo) { if (!P.some(o => !guardado.has(o.id) && o.name === q.name && o.pres === q.pres)) P.push({...q, id: Math.max(0, ...P.map(o => +o.id || 0)) + 1}); return; }
+      const o = P.find(r => r.id === q.id); if (o) Object.assign(o, q, {lots: o.lots, stock: o.stock}); });   // la existencia la manda la base
+  };
 
   /* ---------------- Al entrar ---------------- */
   C.alEntrar(async a => {

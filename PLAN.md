@@ -31,7 +31,7 @@ Las pantallas de `farmacia.html`, `laboratorio.html` y `crossfit.html` son las m
 | Los tres: respaldo sin internet | Franja de aviso mientras haya algo sin subir; copia en una carpeta del equipo; «Recuperar desde un archivo de respaldo» sin repetir nada | ✅ |
 | Los tres: panel del grupo | El dueño ve las ventas reales del mes de los tres negocios | ✅ |
 
-Pruebas: **279 de base de datos** (`supabase/tests/correr.sh`) y **234 de navegador** (`tests/navegador/correr.sh`), incluidas las de ataque (`tests/navegador/seguridad.test.js`) y la que recorre todas las pantallas con cada rol buscando textos o nombres de la maqueta (`tests/navegador/textos.test.js`).
+Pruebas: **279 de base de datos** (`supabase/tests/correr.sh`) y **245 de navegador** (`tests/navegador/correr.sh`), incluidas las de ataque (`tests/navegador/seguridad.test.js`) y la que recorre todas las pantallas con cada rol buscando textos o nombres de la maqueta (`tests/navegador/textos.test.js`).
 
 ## Qué todavía muestra datos de muestra
 

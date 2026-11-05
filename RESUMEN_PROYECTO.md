@@ -2,7 +2,7 @@
 
 Actualizado el 5 de noviembre de 2026.
 
-**Estado:** los tres sistemas (Farmacia, Laboratorio y CrossFit) trabajan con datos reales en Supabase (proyecto `azullab`, región us-east-2). El código está en `main` del repositorio `josedanielgt1/azullab`. Pruebas: **279 de base de datos y 234 de navegador**, todas pasan.
+**Estado:** los tres sistemas (Farmacia, Laboratorio y CrossFit) trabajan con datos reales en Supabase (proyecto `azullab`, región us-east-2). El código está en `main` del repositorio `josedanielgt1/azullab`. Pruebas: **279 de base de datos y 245 de navegador**, todas pasan.
 
 ---
 
@@ -34,6 +34,7 @@ Actualizado el 5 de noviembre de 2026.
 - **Aviso:** mientras haya algo sin subir, una franja arriba dice «N ventas sin subir: no cierres ni borres los datos del navegador».
 - **Carpeta de respaldo:** en «Este equipo» → «Escoger la carpeta de respaldo», por ejemplo `Documentos\Cuadre-respaldo`. Cada venta sin internet se copia ahí en `cuadre-farmacia-pendientes.json` (o `-laboratorio`, `-crossfit`), y el archivo se borra cuando todo subió. Funciona en Chrome y Edge.
 - **Si borraron los datos del navegador:** entra, ve a «Este equipo» → «Recuperar desde un archivo de respaldo» y escoge ese archivo. Lo que falte en la base sube solo y no se repite nada. Un respaldo de otro negocio se rechaza.
+- **Clientes, productos, pacientes y socios nuevos sin internet:** quedan guardados en el equipo y en la carpeta de respaldo, la franja los cuenta («1 cliente sin subir») y suben solos al volver internet, antes que las ventas. Si la página se recarga antes de subir, se reponen al entrar. Una caída de conexión nunca los descarta; solo se quitan si la base los rechaza (por ejemplo, una cédula repetida).
 - **Almacenamiento protegido:** el sistema le pide al navegador que no borre sus datos por su cuenta cuando falta espacio.
 - **Limpieza:** el historial del reloj de la base se limpia solo cada domingo.
 
