@@ -79,11 +79,14 @@
     if (t) { ponerTasa(+t.tasa, t.fecha); if (!error) C.guardarLocal('tasa', t); }
     if (error) return;
     if ((!t || t.fecha < hoyVE()) && soyDueno()) {
-      try {
-        const j = await (await fetch('https://ve.dolarapi.com/v1/dolares/oficial', {cache: 'no-store'})).json();
-        const v = +(j.promedio || j.venta);
-        if (v > 0) await guardarTasa(v, 'BCV vía dolarapi.com');
-      } catch (_) { /* sin internet o la fuente falló: el dueño la escribe en «Tasa BCV» */ }
+      // En segundo plano: la entrada no espera a la fuente de la tasa
+      (async () => {
+        try {
+          const j = await (await fetch('https://ve.dolarapi.com/v1/dolares/oficial', {cache: 'no-store'})).json();
+          const v = +(j.promedio || j.venta);
+          if (v > 0) { await guardarTasa(v, 'BCV vía dolarapi.com'); repintar(); }
+        } catch (_) { /* sin internet o la fuente falló: el dueño la escribe en «Tasa BCV» */ }
+      })();
     }
   });
   /* Farmacia: el formulario «Tasa BCV» guarda en la base */

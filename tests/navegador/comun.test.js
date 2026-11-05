@@ -6,6 +6,7 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   // ---------- Farmacia ----------
   { const ctx = await b.newContext(); const pg = await ctx.newPage(); const errs = []; pg.on('pageerror', e => errs.push(e.message));
     const st = mock(pg); await entrar(pg, 'farmacia');
+    await pg.waitForFunction(() => document.body.textContent.includes('300,50'), null, { timeout: 5000 }).catch(() => {});
     ok(st.tasas.length === 1 && st.tasas[0].tasa === 300.5, 'sin tasa de hoy, el dueño la carga sola al entrar');
     ok((await txt(pg)).includes('300,50'), 'la caja muestra la tasa de la base');
     await pg.evaluate(() => go('users')); await pg.waitForFunction(() => document.body.textContent.includes('jose@azullab.com'));

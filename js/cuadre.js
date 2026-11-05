@@ -272,13 +272,17 @@ window.Cuadre = (() => {
           const r = await E.entrar(op.tipo, uid, document.getElementById('lpin').value);
           localStorage.setItem(K_SESION, JSON.stringify(r.sesion));
           db.auth.startAutoRefresh().catch(() => {});
-          let a = {...r.acceso, sinConexion: true};
-          if (navigator.onLine) {
-            try { a = await acceso(op.tipo); E.confirmar(op.tipo, uid, a); }
-            catch (x) {
-              if (!errorDeRed(x)) { E.quitar(op.tipo, uid); try { localStorage.removeItem(K_SESION); } catch (_) {} throw new Error('Tu PIN ya no sirve en este equipo: cambió tu acceso. Entra con tu correo y tu clave.'); }
-            }
-          }
+          // Abre de una vez con el rol guardado; con internet, la base confirma el acceso a la vez que se cargan los datos
+          const a = {...r.acceso, sinConexion: !navigator.onLine};
+          if (navigator.onLine) acceso(op.tipo).then(n => {
+            E.confirmar(op.tipo, uid, n);
+            if (n.rol !== a.rol || n.empresa_id !== a.empresa_id) location.reload();   // le cambiaron el rol: abre de nuevo con el nuevo
+          }).catch(async x => {
+            if (errorDeRed(x)) { if (api.acceso) api.acceso.sinConexion = true; return; }
+            E.quitar(op.tipo, uid); ++turno;
+            api.notaEntrada = 'Tu PIN ya no sirve en este equipo: cambió tu acceso. Entra con tu correo y tu clave.';
+            const p = api.salir(op.tipo); if (typeof go === 'function') go('login'); else repintar(); await p;
+          });
           api.quien = null; api.notaEntrada = '';
           if (t === turno) await abrir(a, t);
         } catch (x) {
