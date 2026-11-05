@@ -27,9 +27,10 @@ Las pantallas de `farmacia.html`, `laboratorio.html` y `crossfit.html` son las m
 | Los tres: declaración de IVA | En Datos fiscales, el excedente de crédito fiscal del mes anterior y la última declaración (los da el contador) | ✅ |
 | Laboratorio y CrossFit: sin internet | La orden del laboratorio y el cobro de membresía se hacen con el talonario de contingencia, quedan en el equipo (también el paciente o socio nuevo) y suben solos al volver | ✅ |
 | CrossFit: app del socio | El dueño le da acceso desde la ficha del socio (correo y clave); el socio ve la pizarra, reserva su clase y anota su resultado; no ve facturas, cobros, otros socios ni al equipo, y no factura | ✅ (necesita la función `usuarios`) |
+| Los tres: app instalable y PIN | Se instala en la computadora («Instalar Azullab…»), abre sin internet; en un equipo registrado cada persona entra con su PIN, con o sin internet (5 errores bloquean, 7 días sin conexión vencen) | ✅ (necesita GitHub Pages: https) |
 | Los tres: panel del grupo | El dueño ve las ventas reales del mes de los tres negocios | ✅ |
 
-Pruebas: **265 de base de datos** (`supabase/tests/correr.sh`) y **194 de navegador** (`tests/navegador/correr.sh`), incluidas las de ataque (`tests/navegador/seguridad.test.js`) y la que recorre todas las pantallas con cada rol buscando textos o nombres de la maqueta (`tests/navegador/textos.test.js`).
+Pruebas: **265 de base de datos** (`supabase/tests/correr.sh`) y **220 de navegador** (`tests/navegador/correr.sh`), incluidas las de ataque (`tests/navegador/seguridad.test.js`) y la que recorre todas las pantallas con cada rol buscando textos o nombres de la maqueta (`tests/navegador/textos.test.js`).
 
 ## Qué todavía muestra datos de muestra
 
@@ -51,7 +52,7 @@ Guía para instalar y revisar: `INSTALACION.md`.
 1. **Pegar en el SQL Editor** `supabase/pendiente_sql_editor.sql` (migraciones 0018 y 0019: seguridad e IGTF). Una sola vez, completo, y Run.
 2. **Volver a subir la función `usuarios`** (cambió por seguridad): Supabase → Edge Functions → `usuarios` → Code, pegar `supabase/functions/usuarios/index.ts` y Deploy.
 3. **Activar la protección de claves filtradas**: Supabase → Authentication → Sign In / Providers → Email → «Prevent use of leaked passwords».
-4. **GitHub Pages** (para «Olvidé mi clave» y para entrar desde cualquier equipo): Settings → Pages → rama `claude/inspiring-pascal-ljb7rr`, carpeta raíz. En Supabase → Authentication → URL Configuration: Site URL `https://josedanielgt1.github.io/azullab/` y en Redirect URLs `https://josedanielgt1.github.io/azullab/**`.
+4. **GitHub Pages** (para «Olvidé mi clave» y para entrar desde cualquier equipo): Settings → Pages → rama `main`, carpeta raíz. En Supabase → Authentication → URL Configuration: Site URL `https://josedanielgt1.github.io/azullab/` y en Redirect URLs `https://josedanielgt1.github.io/azullab/**`.
 5. **Talonario de contingencia**: en Configuración → Datos fiscales, el rango del talonario (desde y hasta). Sin eso, la farmacia no puede vender sin internet.
 6. **Imprenta digital**: cuando la escojan, se conecta para el número de control.
 

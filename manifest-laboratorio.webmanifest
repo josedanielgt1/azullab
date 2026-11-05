@@ -1,0 +1,38 @@
+{
+  "name": "Azullab Laboratorio",
+  "short_name": "Laboratorio",
+  "id": "./laboratorio.html",
+  "start_url": "./laboratorio.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0c1347",
+  "theme_color": "#0c1347",
+  "lang": "es-VE",
+  "description": "Cuadre · Azullab Laboratorio",
+  "icons": [
+    {
+      "src": "assets/iconos/icono-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/iconos/icono-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/iconos/icono-192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "assets/iconos/icono-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

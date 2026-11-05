@@ -354,8 +354,61 @@
       <div class="grid g2" style="align-items:start">
       <section class="panel"><div class="hd"><h2>Equipo de ${esc(A().empresa || '')}</h2><span class="muted small">${L.filter(u => u.activo).length} con acceso</span></div><div class="bd flush list">${filas}</div></section>
       <section class="panel"><div class="hd"><h2>Qué ve cada rol</h2></div><div class="bd">${qv}
-        <p class="small muted" style="margin:10px 0 0">«Dar acceso» sirve para alguien que ya tiene usuario en otro negocio del grupo: entra con el mismo correo y aquí tiene su propio rol.</p></div></section></div>`;
+        <p class="small muted" style="margin:10px 0 0">«Dar acceso» sirve para alguien que ya tiene usuario en otro negocio del grupo: entra con el mismo correo y aquí tiene su propio rol.</p></div></section></div>
+      ${panelEquipo()}`;
   }
+
+  /* ---------------- Este equipo: registro, PIN e instalación ---------------- */
+  const DISP = () => window.CuadreEquipo;
+  const instalada = () => window.matchMedia && matchMedia('(display-mode: standalone)').matches;
+  function panelEquipo() {
+    const D = DISP(), t = A().tipo; if (!D) return '';
+    const inst = instalada() ? '<span class="pill ok">App instalada en este equipo</span>'
+      : C.instalar ? `<button class="btn" data-act="eq-instalar">${icono('download')}Instalar la app en este equipo</button>`
+      : `<span class="small muted">Para instalarla: en Chrome o Edge, el ícono de instalar al final de la barra de direcciones, o menú ⋮ → «Instalar ${esc(A().empresa || 'Azullab')}».</span>`;
+    if (!D.disponible()) return `<section class="panel"><div class="hd"><h2>Este equipo</h2></div><div class="bd"><p class="small muted" style="margin:0">La entrada con PIN necesita el sistema publicado con https (por ejemplo, GitHub Pages). Abierto como archivo del equipo no se puede.</p></div></section>`;
+    const eq = D.equipo(t);
+    if (!eq) return `<section class="panel"><div class="hd"><h2>Este equipo</h2><span class="pill ghost">Sin registrar</span></div><form class="bd" id="eq-reg-f" style="display:grid;gap:10px">
+      <p class="small muted" style="margin:0">Registra las computadoras de uso fijo (la caja, la recepción). En un equipo registrado cada persona entra con su PIN, aunque no haya internet. No registres tu celular ni una computadora prestada.</p>
+      <div class="field"><label for="eq-nom">Nombre del equipo</label><input id="eq-nom" class="input" placeholder="Caja 1" maxlength="40" required></div>
+      <button class="btn primary" type="submit">${icono('check')}Registrar este equipo</button><div>${inst}</div></form></section>`;
+    const yo = (C.acceso || {}).uid, ps = D.personas(t), f = x => new Date(x).toLocaleString('es-VE', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'});
+    return `<section class="panel"><div class="hd"><h2>Este equipo · ${esc(eq.nombre)}</h2><span class="pill ok">Registrado</span></div>
+      <div class="bd flush list">${ps.length ? ps.map(p => `<div class="it"><span class="av">${esc(iniciales(p.nombre))}</span><div class="t"><b>${esc(p.nombre)}</b>
+        <span class="small muted">${esc(p.rol)} · última conexión ${esc(f(p.ultima))}${p.bloqueado ? ' · <span style="color:var(--bad)">Bloqueado</span>' : p.vencido ? ' · <span style="color:var(--bad)">Vencido</span>' : ''}</span></div>
+        <button class="btn sm" data-act="eq-quitar-pin" data-uid="${esc(p.uid)}">Quitar PIN</button></div>`).join('')
+        : '<div class="it"><div class="t"><span class="muted">Nadie tiene PIN todavía. Cada persona lo crea la primera vez que entra aquí con su correo y su clave.</span></div></div>'}</div>
+      <div class="bd" style="display:grid;gap:10px">
+        <div class="row" style="gap:8px;flex-wrap:wrap">${yo && !D.tienePin(t, yo) ? `<button class="btn primary" data-act="eq-mi-pin">${icono('key')}Crear mi PIN</button>` : ''}
+          <button class="btn" data-act="eq-quitar">Quitar el registro</button></div>
+        <div>${inst}</div>
+        <p class="small muted" style="margin:0">5 PIN errados bloquean a esa persona en este equipo y 7 días sin conexión vencen su PIN: en los dos casos vuelve a entrar con su correo y su clave. Si le quitas el acceso en «Usuarios», su PIN deja de servir apenas el equipo tenga internet.</p></div></section>`;
+  }
+  document.addEventListener('submit', async e => {
+    if (!['eq-reg-f', 'eq-pin-f'].includes(e.target.id)) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    const D = DISP(), t = A().tipo;
+    if (e.target.id === 'eq-reg-f') {
+      if (!puedoEquipo()) { avisar('Solo el dueño o el gerente registran equipos'); return; }
+      D.registrar(t, document.getElementById('eq-nom').value, A().nombre); repintar();
+      avisar('Equipo registrado. Crea tu PIN aquí abajo; los demás lo crean la primera vez que entren en este equipo'); return;
+    }
+    const p1 = document.getElementById('eq-p1').value, p2 = document.getElementById('eq-p2').value;
+    if (p1 !== p2) { errModal('Los dos PIN no son iguales'); return; }
+    try { await C.crearMiPin(p1); closeModal(); repintar(); avisar('PIN guardado: la próxima vez entras aquí con tu PIN'); } catch (x) { errModal(C.msg(x)); }
+  }, true);
+  document.addEventListener('click', async e => {
+    const b = e.target.closest('[data-act^="eq-"]'); if (!b) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    const D = DISP(), t = A().tipo, act = b.dataset.act;
+    if (act === 'eq-instalar' && C.instalar) { const ev = C.instalar; ev.prompt(); try { await ev.userChoice; } catch (_) {} window.__cuadreInstalar = null; repintar(); }
+    else if (act === 'eq-mi-pin') openModal(hoja('Crear mi PIN para este equipo', `<form class="bd" id="eq-pin-f" style="display:grid;gap:10px">
+      <p class="small muted" style="margin:0">De 4 a 6 números. No uses repetidos (1111) ni seguidos (1234).</p>
+      <div class="field"><label for="eq-p1">PIN</label><input id="eq-p1" class="input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" required></div>
+      <div class="field"><label for="eq-p2">Repite el PIN</label><input id="eq-p2" class="input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" required></div>${pie('Guardar PIN')}</form>`));
+    else if (act === 'eq-quitar-pin') { if (!puedoEquipo()) return; D.quitar(t, b.dataset.uid); repintar(); avisar('PIN quitado: esa persona vuelve a entrar con su correo y su clave'); }
+    else if (act === 'eq-quitar') { if (!puedoEquipo() || !confirm('¿Quitar el registro de este equipo? Se borran todos los PIN guardados aquí.')) return; D.quitarEquipo(t); repintar(); avisar('Este equipo ya no está registrado'); }
+  }, true);
   const modalNuevo = () => hoja('Nuevo usuario', `<form class="bd" id="cq-nuevo-f" style="display:grid;gap:10px">
       <div class="field"><label for="cq-nom">Nombre y apellido</label><input id="cq-nom" class="input" required></div>
       <div class="field"><label for="cq-correo">Correo</label><input id="cq-correo" class="input" type="email" autocomplete="off" required></div>
