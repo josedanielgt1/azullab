@@ -159,20 +159,34 @@
 
   /* ---------------- Venta: la base emite la factura y descuenta los lotes ---------------- */
   let pase = false, venta = null;
+  // Segunda vuelta: la pantalla arma el ticket. Si en el medio se abrió otra ventana (la impresora
+  // falló y se preguntó qué hacer), el botón ya no está: se vuelve a abrir el cobro, que sigue intacto
+  const segundaVuelta = b => { let x = b; if (!x.isConnected) { openModal(payModal()); x = document.querySelector('#modal [data-act="emit"]') || b; } pase = true; x.click(); };
   const fxEmitir = FX.emitir;
   FX.emitir = o => {
     const d = fxEmitir(o);
-    if (venta && o.origen && o.origen.sale) { d.num = p8(venta.numero); d.ctrl = venta.numero_control || 'Pendiente de imprenta'; d.dbId = venta.id; d.cont = false; FX.n.FAC = venta.numero + 1; venta = null; }
+    if (venta && o.origen && o.origen.sale) {
+      // Con máquina fiscal el número es el de la memoria fiscal; si la máquina falló, el del talonario
+      const maq = venta.medio === 'maquina';
+      d.num = maq && venta.numero_fiscal ? p8(venta.numero_fiscal) : venta.numero == null ? d.num : maq ? 'P-' + p8(venta.numero) : p8(venta.numero);
+      d.ctrl = maq ? (venta.numero_fiscal ? 'MH ' + venta.maquina_registro : 'Pendiente de la impresora') : venta.numero_control || 'Pendiente de imprenta';
+      d.medio = venta.medio || 'imprenta'; d.dbId = venta.id; d.cont = venta.medio === 'talonario';
+      if (venta.numero != null) FX.n.FAC = venta.numero + 1;
+      venta = null; }
     return d;
   };
   document.addEventListener('click', async e => {
     const b = e.target.closest('[data-act="emit"]'); if (!b || A().tipo !== 'farmacia') return;
     if (pase) { pase = false; return; }   // segunda vuelta: la pantalla arma el ticket
     e.preventDefault(); e.stopImmediatePropagation();
-    if (S.medio === 'maquina') { avisar('La máquina fiscal no está conectada: factura con imprenta digital'); return; }
+    const maquina = S.medio === 'maquina';
+    if (maquina && !C.maquina) { avisar('Falta el módulo de la máquina fiscal: recarga la página'); return; }
     const t = totals();
     if (t.rem > 0.005) { avisar('Falta cobrar ' + usd(t.rem)); return; }
-    if (!navigator.onLine) { if (ventaSinInternet()) { pase = true; b.click(); } return; }
+    if (!navigator.onLine) {
+      // La máquina va por cable: sin internet imprime igual y la venta se guarda en el equipo
+      if (maquina) { const v = await C.maquina.ventaSinInternet(); if (v) { venta = v; segundaVuelta(b); } return; }
+      if (ventaSinInternet()) { pase = true; b.click(); } return; }
     const txt = b.innerHTML; b.disabled = true; b.textContent = 'Facturando…';
     try {
       await sincronizar();   // por si hay un producto nuevo sin número de la base
@@ -185,8 +199,10 @@
       const pagos = S.pays.map(p => ({metodo: p.k, monto_bs: r2(p.a * S.rate), divisa: !!p.div}));
       const {data, error} = await db.rpc('vender', {p_empresa: EMP(), p_cliente: cli, p_items: items, p_pagos: pagos});
       if (error) throw error;
-      venta = data; const ids = items.map(i => i.producto_id), cliente = S.client;
-      b.disabled = false; b.innerHTML = txt; pase = true; b.click();
+      // Máquina fiscal: la impresora imprime y devuelve su número (o, si falla, pasa al talonario)
+      venta = data.medio === 'maquina' ? await C.maquina.imprimir(data) : data;
+      const ids = items.map(i => i.producto_id), cliente = S.client;
+      b.disabled = false; b.innerHTML = txt; segundaVuelta(b);
       await recargar(ids); if (cliente) await cargarClientes(); tablero(); libroVentas(); if (P.some(p => ids.includes(p.id) && p.ctrl)) await C.recargarControlados();
       if (S.view !== 'pos') render(); else rerenderPOS();
     } catch (x) { avisar(C.msg(x)); }
@@ -554,10 +570,22 @@
   /* ---------------- Libro de ventas del módulo fiscal: las facturas del mes ---------------- */
   function libroVentas() {
     LIBRO.length = 0; LIBRO_DIG.length = 0;
-    FX.docs.forEach(d => {
+    // Máquina fiscal: las facturas a consumidor final ya cerradas en un Reporte Z van en un renglón por Z,
+    // del primer al último número (Reglamento de la Ley del IVA, art. 77); las de RIF y las notas, una por una
+    const conRif = d => /^[JGVEP]-\d{8}-\d$/.test(d.cli.id || '');
+    const enZ = d => d.medio === 'maquina' && d.tipo === 'FAC' && d.z && !conRif(d);
+    const zs = {};
+    FX.docs.filter(enZ).forEach(d => { (zs[d.z] = zs[d.z] || []).push(d); });
+    Object.keys(zs).sort((a, b) => a - b).forEach(z => {
+      const ds = zs[z], sum = f => r2(ds.reduce((t, d) => t + (+f(d) || 0) / d.tasa, 0)), nums = ds.map(d => +d.nf).sort((a, b) => a - b);
+      LIBRO.push([dmy(ds[0].fecha), 'Reporte Z N.° ' + String(z).padStart(4, '0') + ' · ' + p8(nums[0]) + ' al ' + p8(nums[nums.length - 1]), '—', 'Consumidor final',
+        sum(d => d.t.total), sum(d => d.t.ex), sum(d => d.t.bg), sum(d => d.t.ivg), sum(d => d.igtf)]);
+      LIBRO_DIG.push(`Reporte Z N.° ${String(z).padStart(4, '0')} · facturas ${p8(nums[0])} al ${p8(nums[nums.length - 1])} · máquina ${ds[0].reg || ''}`);
+    });
+    FX.docs.filter(d => !enZ(d)).forEach(d => {
       const s = d.tipo === 'NC' ? -1 : 1, t = d.t || {}, k = x => r2(s * (+x || 0) / d.tasa);
       LIBRO.push([dmy(d.fecha), (d.tipo === 'FAC' ? 'Factura ' : d.tipo === 'NC' ? 'Nota de crédito ' : 'Nota de débito ') + d.num, d.cli.id || '—', d.cli.n, k(t.total), k(t.ex), k(t.bg), k(t.ivg), k(d.igtf)]);
-      LIBRO_DIG.push(`${d.tipo === 'FAC' ? 'Factura' : d.tipo === 'NC' ? 'Nota de crédito' : 'Nota de débito'} ${d.num} · control ${d.ctrl}`);
+      LIBRO_DIG.push(`${d.tipo === 'FAC' ? 'Factura' : d.tipo === 'NC' ? 'Nota de crédito' : 'Nota de débito'} ${d.num} · ${d.medio === 'maquina' ? 'máquina ' + (d.reg || '') : 'control ' + d.ctrl}`);
     });
   }
 
@@ -624,10 +652,11 @@
     const F = FX.F, desde = +F.talDesde || 1;
     let n = desde;
     try {
-      const {data} = await db.from('documentos').select('numero').eq('empresa_id', EMP()).eq('origen', 'contingencia').order('numero', {ascending: false}).limit(1);
+      // Lo usado del talonario: sin internet y por falla de la máquina fiscal
+      const {data} = await db.from('talonario_usados').select('numero').eq('empresa_id', EMP()).order('numero', {ascending: false}).limit(1);
       if (data && data[0]) n = Math.max(n, +data[0].numero + 1);
     } catch (_) {}
-    COLA().forEach(v => { n = Math.max(n, v.numero + 1); });
+    COLA().forEach(v => { if (!v.maquina) n = Math.max(n, v.numero + 1); });
     const loc = C.leerLocal('talonario'); if (loc) n = Math.max(n, +loc);
     FX.n.tal = n;
   }
@@ -649,7 +678,10 @@
     subiendo = true; let ok = 0, malas = [];
     try {
       for (const v of cola) {
-        const {error} = await db.rpc('vender', {p_empresa: EMP(), p_cliente: v.cliente, p_items: v.items, p_pagos: v.pagos, p_origen: 'contingencia', p_numero: v.numero, p_fecha: v.fecha});
+        // Lo que imprimió la máquina sin internet sube con su número fiscal; lo demás, del talonario
+        const {error} = v.maquina
+          ? await db.rpc('vender_impresa', {p_empresa: EMP(), p_cliente: v.cliente, p_items: v.items, p_pagos: v.pagos, p_fecha: v.fecha, p_numero: v.numero, p_registro: v.maquina, p_resp: v.resp || {}})
+          : await db.rpc('vender', {p_empresa: EMP(), p_cliente: v.cliente, p_items: v.items, p_pagos: v.pagos, p_origen: 'contingencia', p_numero: v.numero, p_fecha: v.fecha});
         if (!error || /duplicate/i.test(error.message)) ok++;            // repetida: ya había subido
         else if (/Failed to fetch|network/i.test(error.message)) { malas.push(v); continue; }
         else { v.error = C.msg(error); malas.push(v); }
@@ -667,8 +699,8 @@
   // «Modo sin conexión»: lo que está en la cola de este equipo
   const vOffline = V.offline;
   V.offline = () => { const cola = COLA();
-    return `<section class="panel"><div class="hd"><h2>Ventas guardadas en este equipo</h2><span class="pill ${cola.length ? 'warn' : 'ok'}">${cola.length ? cola.length + ' por subir' : 'Todo subido'}</span></div><div class="bd flush tbl-wrap"><table><thead><tr><th>Talonario</th><th>Fecha</th><th>Cliente</th><th class="r">Renglones</th><th>Estado</th></tr></thead><tbody>
-      ${cola.map(v => `<tr><td class="num">${FX.F.talSerie}-${p8(v.numero)}</td><td class="num small">${new Date(v.fecha).toLocaleString('es-VE')}</td><td>${C.esc(v.cliente.nombre)}</td><td class="r">${v.items.length}</td><td>${v.error ? `<span class="pill bad">${C.esc(v.error)}</span>` : '<span class="pill warn">Esperando internet</span>'}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">No hay ventas pendientes.</td></tr>'}</tbody></table></div>
+    return `<section class="panel"><div class="hd"><h2>Ventas guardadas en este equipo</h2><span class="pill ${cola.length ? 'warn' : 'ok'}">${cola.length ? cola.length + ' por subir' : 'Todo subido'}</span></div><div class="bd flush tbl-wrap"><table><thead><tr><th>Número</th><th>Fecha</th><th>Cliente</th><th class="r">Renglones</th><th>Estado</th></tr></thead><tbody>
+      ${cola.map(v => `<tr><td class="num">${v.maquina ? 'Máquina ' + p8(v.numero) : FX.F.talSerie + '-' + p8(v.numero)}</td><td class="num small">${new Date(v.fecha).toLocaleString('es-VE')}</td><td>${C.esc(v.cliente.nombre)}</td><td class="r">${v.items.length}</td><td>${v.error ? `<span class="pill bad">${C.esc(v.error)}</span>` : '<span class="pill warn">Esperando internet</span>'}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">No hay ventas pendientes.</td></tr>'}</tbody></table></div>
       ${cola.length && navigator.onLine ? `<div class="bd"><button class="btn primary" data-act="fr-subir">${ic('sync')}Subir ahora</button></div>` : ''}</section>` + vOffline(); };
   document.addEventListener('click', e => { if (e.target.closest('[data-act="fr-subir"]')) { e.stopImmediatePropagation(); subirCola(); } }, true);
   // Copia local para abrir sin internet
@@ -678,7 +710,7 @@
   document.addEventListener('click', e => { if (!e.target.closest('[data-act="spe"]') || !C.acceso) return;
     e.stopImmediatePropagation(); avisar(S.spe ? 'Este negocio cobra IGTF por ser contribuyente especial' : 'Contribuyente ordinario: no cobra IGTF. Si el SENIAT lo designa especial, avísale a Cuadre'); }, true);
 
-  C.farmacia = {recargar, sincronizar, alCambiarDocs: () => { tablero(); libroVentas(); }};
+  C.farmacia = {recargar, sincronizar, alCambiarDocs: () => { tablero(); libroVentas(); }, ventaTalonario: ventaSinInternet};
   C.subirCola = subirCola;   // para «Recuperar desde la carpeta»
   /* Lo creado o cambiado sin internet (clientes y productos): se guarda en el equipo y sube al volver la conexión */
   C.sincronizarTodo = sincronizar;

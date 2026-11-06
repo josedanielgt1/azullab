@@ -166,11 +166,12 @@
     let d; try { d = C.neutro(JSON.parse(texto)); } catch (_) { throw new Error('Ese archivo no es un respaldo de Cuadre'); }
     if (!d || d.sistema !== 'Cuadre' || !Array.isArray(d.cola)) throw new Error('Ese archivo no es un respaldo de Cuadre');
     if (d.tipo !== A().tipo || d.empresa_id !== A().empresa_id) throw new Error(`Ese respaldo es de ${d.empresa || 'otro negocio'}, no de ${A().empresa || 'este'}`);
-    const cola = C.leerLocal('cola') || [], nuevas = d.cola.filter(v => v && Number.isInteger(v.numero) && !cola.some(x => x.numero === v.numero));
+    // Sin repetir: un número del talonario o, si la imprimió la máquina, su número fiscal
+    const cola = C.leerLocal('cola') || [], nuevas = d.cola.filter(v => v && Number.isInteger(v.numero) && !cola.some(x => x.numero === v.numero && (x.maquina || '') === (v.maquina || '')));
     if (C.restaurarExtra) C.restaurarExtra(d.extra);
     const nc = cuantosCambios(d.cambios); if (nc && C.reponerCambios) { C.reponerCambios(d.cambios); ultimaFirma = ''; guardarCambios(); }
     C.guardarLocal('cola', cola.concat(nuevas));
-    const tope = Math.max(0, ...cola.concat(nuevas).map(v => v.numero)); if (tope && +(C.leerLocal('talonario') || 0) <= tope) C.guardarLocal('talonario', tope + 1);
+    const tope = Math.max(0, ...cola.concat(nuevas).filter(v => !v.maquina).map(v => v.numero)); if (tope && +(C.leerLocal('talonario') || 0) <= tope) C.guardarLocal('talonario', tope + 1);
     if (navigator.onLine) { await subirCambios(); if (C.subirCola) await C.subirCola(); }
     return nuevas.length + nc;
   };
@@ -302,8 +303,10 @@
       lines: (d.documento_lineas || []).sort((a, b) => a.renglon - b.renglon).map(l => ({d: l.descripcion, q: +l.cantidad, pu: +l.precio_unit, a: l.alicuota, pid: l.ref && l.ref.producto_id})),
       tasa: +d.tasa, div: 0, pagos: (d.documento_pagos || []).map(p => ({k: p.metodo, bs: +p.monto_bs})), origen: d.ref_tipo === 'venta' ? {sale: true} : null,
       afecta: d.afecta_id ? mapaDocs.get(d.afecta_id) || null : null, motivo: d.motivo || '', igtf: +d.igtf, u: nombres[d.creado_por] || '',
-      cont: d.origen === 'contingencia', num: d.origen === 'contingencia' ? 'C-' + p8(d.numero) : p8(d.numero),
-      ctrl: d.numero_control || 'Pendiente de imprenta', dbId: d.id};
+      cont: d.origen === 'contingencia' || d.medio === 'talonario', num: d.origen === 'contingencia' ? 'C-' + p8(d.numero) : p8(d.numero),
+      ctrl: d.numero_control || 'Pendiente de imprenta', dbId: d.id, medio: d.medio || 'imprenta', z: d.reporte_z || null, nf: d.numero_fiscal, reg: d.maquina_registro};
+    // Máquina fiscal: el número de la factura es el de la memoria fiscal
+    if (d.medio === 'maquina') { x.num = d.numero_fiscal ? p8(d.numero_fiscal) : 'P-' + p8(d.numero); x.ctrl = d.numero_fiscal ? 'MH ' + d.maquina_registro : 'Pendiente de la impresora'; }
     x.t = FX.tot(x); return x;
   }
   async function cargarDocumentos() {
@@ -373,7 +376,10 @@
     FX.emitir = o => {
       const d = fxEmitir(o);
       if (notaReal && (o.tipo === 'NC' || o.tipo === 'ND')) {
-        d.num = p8(notaReal.numero); d.ctrl = notaReal.numero_control || 'Pendiente de imprenta'; d.dbId = notaReal.id; d.cont = false;
+        const maq = notaReal.medio === 'maquina';
+        d.num = maq && notaReal.numero_fiscal ? p8(notaReal.numero_fiscal) : p8(notaReal.numero);
+        d.ctrl = maq ? (notaReal.numero_fiscal ? 'MH ' + notaReal.maquina_registro : 'Pendiente de la impresora') : notaReal.numero_control || 'Pendiente de imprenta';
+        d.medio = notaReal.medio || 'imprenta'; d.dbId = notaReal.id; d.cont = notaReal.medio === 'talonario';
         FX.n[o.tipo] = notaReal.numero + 1; notaReal = null;
       }
       return d;
@@ -404,7 +410,8 @@
     const {data, error} = await db.rpc('emitir_nota', {p_factura: fac.dbId, p_tipo: tipo, p_lineas: lineas, p_motivo: motivo, p_reintegrar: reintegrar});
     b.disabled = false;
     if (error) { avisar(C.msg(error)); return; }
-    notaReal = data; otraVuelta();
+    // Con máquina fiscal la nota también la imprime la impresora, citando la factura
+    notaReal = data.medio === 'maquina' && C.maquina ? await C.maquina.imprimir(data) : data; otraVuelta();
     if (C.farmacia && C.farmacia.alCambiarDocs) C.farmacia.alCambiarDocs();
     // Lo devuelto: la existencia que manda es la de la base
     if (reintegrar && C.farmacia) { await C.farmacia.recargar(lineas.filter(l => l.ref).map(l => l.ref.producto_id)); if (C.recargarControlados) await C.recargarControlados(); repintar(); }
