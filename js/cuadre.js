@@ -8,14 +8,17 @@
      <script src="js/config.js"></script>
    ===================================================================== */
 /* Seguridad: publicado en internet, el navegador solo deja que la página hable con la base de datos,
-   la fuente de la tasa BCV y las letras de Google. Aunque alguien colara código, no podría mandar
+   la fuente de la tasa BCV, las letras de Google y (en la farmacia) el agente
+   de la impresora fiscal en la misma computadora. Aunque alguien colara código, no podría mandar
    los datos ni la sesión a ningún otro sitio. (Abierto como archivo del equipo no se aplica: allí
    algunos navegadores bloquearían el propio sistema.) */
 if (location.protocol !== 'file:' && window.CUADRE_CONFIG && window.CUADRE_CONFIG.url) {
   const base = window.CUADRE_CONFIG.url.replace(/\/+$/, ''), ws = base.replace(/^http/, 'ws');
+  // La farmacia habla además con el agente de la impresora fiscal, en la misma computadora de la caja
+  const agente = /farmacia\.html$/.test(location.pathname) ? ' http://127.0.0.1:* http://localhost:*' : '';
   const m = document.createElement('meta'); m.httpEquiv = 'Content-Security-Policy';
   m.content = ["default-src 'self'", "script-src 'self' 'unsafe-inline'", "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' data: https://fonts.gstatic.com", "img-src 'self' data: blob:", `connect-src 'self' ${base} ${ws} https://ve.dolarapi.com`,
+    "font-src 'self' data: https://fonts.gstatic.com", "img-src 'self' data: blob:", `connect-src 'self' ${base} ${ws} https://ve.dolarapi.com${agente}`,
     "frame-src 'none'", "object-src 'none'", "base-uri 'self'", "form-action 'self'"].join('; ');
   document.head.appendChild(m);
 }

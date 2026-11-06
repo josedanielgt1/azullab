@@ -933,7 +933,7 @@ function shell(inner){
         ${(()=>{ const n = S.fallas.filter(f=>f.nuevo).length; return S.role!=='Cajero' && n ? `<button class="chip alerta" data-act="verfallas" title="Fallas anotadas por los cajeros" aria-label="${n} ${n===1?'falla nueva':'fallas nuevas'}">${ic('alert')}<b>${n}</b><span class="lbl"> ${n===1?'falla nueva':'fallas nuevas'}</span></button>` : ''; })()}
         ${(()=>{ const n = S.precioAvisos.length; return S.role==='Dueño' && n ? `<button class="chip alerta" data-act="verprecios" title="Compras que entraron con la opción por defecto" aria-label="${n} ${n===1?'precio por revisar':'precios por revisar'}">${ic('coins')}<b>${n}</b><span class="lbl"> ${n===1?'precio por revisar':'precios por revisar'}</span></button>` : ''; })()}
         ${S.role==='Dueño'?`<button class="chip num" data-act="tasa" title="Cambiar la tasa BCV">BCV <b style="color:var(--ink)">${nf(S.rate)}</b><span class="lbl"> Bs/$</span> ${ic('edit')}</button>`:`<span class="chip num" title="Tasa oficial BCV">BCV <b style="color:var(--ink)">${nf(S.rate)}</b><span class="lbl"> Bs/$</span></span>`}
-        <span class="chip" title="Medio de facturación" aria-label="${S.medio==='digital'?(S.online?'Imprenta digital':'Talonario de contingencia'):'Máquina fiscal HKA80'}">${S.medio==='digital'?ic('receipt')+'<span class="lbl">'+(S.online?'Imprenta digital':'Talonario de contingencia')+'</span>':ic('printer')+'<span class="lbl">HKA80 lista</span>'}</span>
+        <span class="chip" title="Medio de facturación" aria-label="${S.medio==='digital'?(S.online?'Imprenta digital':'Talonario de contingencia'):'Máquina fiscal '+MAQ.corto}">${S.medio==='digital'?ic('receipt')+'<span class="lbl">'+(S.online?'Imprenta digital':'Talonario de contingencia')+'</span>':ic('printer')+'<span class="lbl">'+MAQ.corto+(MAQ.lista?' lista':' sin conexión')+'</span>'}</span>
         <button class="chip ${S.online?'':'off'}" data-act="net" title="Simular corte de internet">${S.online?'<span class="dot"></span>En línea':'<span class="dot"></span>Sin conexión'}</button>
       </div>
     </header>
@@ -1004,9 +1004,9 @@ V.dashboard = () => {
       ${S.medio==='digital'?`<div class="stat"><span class="row" style="gap:8px">${ic('receipt')}Imprenta digital</span>${S.online?(FX.F.prov&&!/muestra/i.test(FX.F.prov)?'<span class="pill ok">Configurada</span>':'<span class="pill warn">Por conectar</span>'):'<span class="pill warn">Talonario de contingencia</span>'}</div>
       <div class="stat"><span class="muted">Facturas del mes</span><span class="num">${nf0(FX.docs.filter(d=>d.tipo==='FAC').length)}</span></div>
       <div class="stat"><span class="muted">Próxima factura</span><span class="num">${String(FX.n.FAC).padStart(8,'0')}</span></div>`
-      :`<div class="stat"><span class="row" style="gap:8px">${ic('printer')}Impresora fiscal</span><span class="pill ok">Conectada</span></div>
-      <div class="stat"><span class="muted">Modelo y serial</span><span class="num">HKA80 · Z7C0012345</span></div>
-      <div class="stat"><span class="muted">Último Reporte Z</span><span class="num">#00${S.z-1} · 25/10 20:04</span></div>`}
+      :`<div class="stat"><span class="row" style="gap:8px">${ic('printer')}Impresora fiscal</span><span class="pill ${MAQ.lista?'ok':'warn'}">${MAQ.estado}</span></div>
+      <div class="stat"><span class="muted">Modelo y registro</span><span class="num">${MAQ.corto} · ${MAQ.registro}</span></div>
+      <div class="stat"><span class="muted">Último Reporte Z</span><span class="num">${maqUltZ()}</span></div>`}
       <div class="stat"><span class="row" style="gap:8px">${ic(S.online?'cloud':'cloudoff')}Internet</span>${S.online?'<span class="pill ok">En línea</span>':'<span class="pill warn">Sin conexión</span>'}</div>
       <div class="stat"><span class="muted">Respaldo en la nube</span><span class="num">${(()=>{ const c = (window.Cuadre && Cuadre.leerLocal && Cuadre.leerLocal('cola')) || []; return S.online ? (c.length ? c.length+' por subir' : 'Al día') : c.length+' guardadas en el equipo'; })()}</span></div>
       <div class="stat"><span class="muted">Tasa BCV del día</span><span class="num">${nf(S.rate)} Bs/$</span></div>
@@ -1214,6 +1214,12 @@ const offText = () => S.medio==='digital'
   : `<b>Sin internet.</b> La caja sigue vendiendo y la impresora fiscal sigue facturando. ${S.queue.length} ${S.queue.length===1?'venta guardada':'ventas guardadas'} en este equipo; se suben solas cuando vuelva la conexión.`;
 const pad = (a,b,w=32) => { a=String(a); b=String(b); const sp = Math.max(1, w-a.length-b.length); return a + ' '.repeat(sp) + b; };
 const ctr = (s,w=32) => { s=String(s); const l = Math.max(0, Math.floor((w-s.length)/2)); return ' '.repeat(l)+s; };
+/* Impresora fiscal: valores de muestra de la maqueta. Con datos reales los pone js/maquina-fiscal.js */
+var MAQ = {modelo:'The Factory HKA80', corto:'HKA80', registro:'Z7C0012345', conexion:'USB · Caja 1', estado:'Conectada', lista:true,
+  ultFac:null, ultZ:null, memoria:'4% usada'};
+const hoyTk = () => new Intl.DateTimeFormat('es-VE',{timeZone:'America/Caracas',day:'2-digit',month:'2-digit',year:'numeric'}).format(new Date()).replace(/\//g,'-');
+const maqUltFac = () => MAQ.ultFac!=null ? String(MAQ.ultFac).padStart(8,'0') : String(S.inv-1).padStart(8,'0');
+const maqUltZ = () => MAQ.ultZ!==null ? (MAQ.ultZ ? '#'+String(MAQ.ultZ.numero).padStart(4,'0')+(MAQ.ultZ.cuando?' · '+MAQ.ultZ.cuando:'') : 'Todavía no hay') : '#00'+(S.z-1)+' · 25/10 20:04';
 function ticketText(sale){
   /* Imprenta digital o talonario: la factura sale del motor fiscal común (FX), con los datos fiscales de Configuración */
   if (sale.doc && sale.mode!=='maquina') return FX.ticketText(FX.byId(sale.doc), {head:[pad('CAJERO: '+shortName(sale.u||S.user), (sale.caja||'').toUpperCase()), 'VENDEDOR: '+shortName(sale.v||sale.u||S.user)]});
@@ -1222,7 +1228,7 @@ function ticketText(sale){
   L.push(ctr(UPN(EMPRESA.razon)), ctr('RIF '+EMPRESA.rif), ctr(UPN(EMPRESA.dir)), ctr(UPN(EMPRESA.mun)), '');
   L.push(ctr(sale.mode==='cont'?'FACTURA DE CONTINGENCIA':'FACTURA'), pad('FACTURA N:', sale.n));
   if (sale.mode!=='maquina') L.push(pad(sale.mode==='cont'?'N CONTROL TALONARIO:':'N DE CONTROL:', sale.ctrl));
-  L.push(pad('FECHA: 26-10-2026', 'HORA: '+sale.t));
+  L.push(pad('FECHA: '+hoyTk(), 'HORA: '+sale.t));
   L.push(pad('CAJERO: '+shortName(sale.u||S.user), (sale.caja||'').toUpperCase()));
   L.push('VENDEDOR: '+shortName(sale.v||sale.u||S.user));
   L.push('RIF/C.I.: '+(sale.client?sale.client.ci.replace(/\./g,''):'CONSUMIDOR FINAL'));
@@ -1238,7 +1244,7 @@ function ticketText(sale){
   L.push('='.repeat(32), pad('TOTAL', 'Bs '+nf(t.total*r)), '='.repeat(32));
   sale.pays.forEach(p => L.push(pad(p.k.toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,''),'Bs '+nf((p.div&&S.spe?p.a*1.03:p.a)*r))));
   L.push('', pad('REF. USD', nf(t.total)), pad('TASA BCV', nf(r)), '');
-  if (sale.mode==='maquina') L.push(ctr('MH  Z7C0012345'));
+  if (sale.mode==='maquina') L.push(ctr('MH  '+MAQ.registro));
   else if (sale.mode==='digital') L.push(ctr('IMPRENTA DIGITAL AUTORIZADA'), ctr('POR EL SENIAT'), ctr('VERIFIQUE CON EL CODIGO QR'));
   else L.push(ctr('SE REPORTA EN PDF A LA'), ctr('IMPRENTA DIGITAL'));
   L.push(ctr('GRACIAS POR SU COMPRA'), '', '', '', '');
@@ -1246,14 +1252,14 @@ function ticketText(sale){
 }
 function ticketModal(sale){
   const tit = sale.mode==='cont' ? `Factura de contingencia ${sale.ctrl} registrada` : `Factura ${sale.n} emitida`;
-  const top = sale.mode==='maquina' ? `<p class="small muted" style="text-align:center">${ic('printer')} Impresa en la HKA80 · ${sale.offline?'Guardada en este equipo, se sube al volver internet':'Respaldada en la nube'}</p>`
+  const top = sale.mode==='maquina' ? `<p class="small muted" style="text-align:center">${ic('printer')} Impresa en la ${MAQ.corto} · ${sale.offline?'Guardada en este equipo, se sube al volver internet':'Respaldada en la nube'}</p>`
     : sale.mode==='digital' ? `<p class="envio">${ic('check')}Enviada a la imprenta digital <span class="pill ok">Control ${sale.ctrl}</span></p>`
     : `<p class="envio">${ic('clock')}Guardada en este equipo <span class="pill warn">Se reporta al volver internet</span></p>`;
   const qr = sale.mode==='digital' ? `<div class="qrbox">${qrSvg(+sale.n)}<span class="small"><b>Número de control ${sale.ctrl}</b><br>Asignado por la imprenta digital a las ${sale.t}. El cliente verifica la factura con el QR.</span></div>
   <div class="row"><button class="btn" style="flex:1" data-act="toast" data-m="Factura en PDF enviada por WhatsApp${sale.client&&sale.client.tel&&sale.client.tel!=='—'?' al '+sale.client.tel:''}">${ic('wa')}Enviar por WhatsApp</button><button class="btn" style="flex:1" data-act="toast" data-m="Factura en PDF enviada por correo">Enviar por correo</button></div>` : '';
   return `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="tt" style="max-width:440px"><div class="hd"><h2 id="tt">${tit}</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div>
   <div class="bd">${top}
-  <div class="printer"></div><div class="tkwrap"><pre class="ticket printing" aria-label="Ticket fiscal">${ticketText(sale)}</pre><span class="sello verde tk-sello estampar">Pagado<small>26-10-2026 ${sale.t}</small></span></div>
+  <div class="printer"></div><div class="tkwrap"><pre class="ticket printing" aria-label="Ticket fiscal">${ticketText(sale)}</pre><span class="sello verde tk-sello estampar">Pagado<small>${hoyTk()} ${sale.t}</small></span></div>
   ${qr}
   ${sale.doc?`<button class="btn linkb" data-act="fx-ver" data-id="${sale.doc}">${ic('receipt')}Ver la factura completa</button>`:''}
   <button class="btn linkb" data-act="cnf" data-n="${sale.n}">${ic('doc')}Comprobante no fiscal para despacho</button>
@@ -1265,7 +1271,7 @@ const nowHM = () => { const n = new Date(); return String(n.getHours()).padStart
 function cotText(x){
   const r = x.rate || S.rate, L = [], tot = cotTotal(x);
   L.push(ctr(UPN(EMPRESA.razon)), ctr('RIF '+EMPRESA.rif), ctr(UPN(EMPRESA.dir)), '', '*'.repeat(32), ctr('COTIZACION'), ctr('NO ES FACTURA'), '*'.repeat(32));
-  L.push(pad('COTIZACION N:', x.n), pad('FECHA: 26-10-2026', 'HORA: '+x.h), pad('VALIDA HASTA:', x.vence));
+  L.push(pad('COTIZACION N:', x.n), pad('FECHA: '+hoyTk(), 'HORA: '+x.h), pad('VALIDA HASTA:', x.vence));
   L.push('CLIENTE: '+(x.client ? UPN(x.client.name).slice(0,23) : 'CONSUMIDOR'), 'ATENDIDO POR: '+shortName(x.u), '-'.repeat(32));
   x.it.forEach(l => { const [id,q,pv] = l, p = P.find(z=>z.id===id), u = (pv ?? p.price)*(p.iva==='G'?1.16:p.iva==='R'?1.08:1);
     L.push(UPN(p.name).slice(0,32), pad(`  ${q} x $ ${nf(u)}`, '$ '+nf(u*q)+(p.iva==='E'?' (E)':' (G)'))); });
@@ -1291,7 +1297,7 @@ function cotListModal(){
 function cnfText(x){
   const L = [], it = {}; (x.it||[]).forEach(([id,q]) => { it[id] = (it[id]||0) + q; });
   L.push(ctr(UPN(EMPRESA.razon)), ctr('RIF '+EMPRESA.rif), '', '*'.repeat(32), ctr('COMPROBANTE NO FISCAL'), ctr('NO ES FACTURA'), '*'.repeat(32));
-  L.push('CORRESPONDE A LA FACTURA', pad('FACTURA N:', x.n), pad(x.cont?'N CONTROL TALONARIO:':'N DE CONTROL:', x.ctrl || ctrlNum(+x.n)), pad('FECHA: 26-10-2026', 'HORA: '+x.t));
+  L.push('CORRESPONDE A LA FACTURA', pad('FACTURA N:', x.n), pad(x.cont?'N CONTROL TALONARIO:':'N DE CONTROL:', x.ctrl || ctrlNum(+x.n)), pad('FECHA: '+hoyTk(), 'HORA: '+x.t));
   L.push('CLIENTE: '+UPN(x.c).slice(0,23), 'VENDEDOR: '+shortName(x.v||x.u), '-'.repeat(32), pad('PRODUCTO', 'CANT.'), '-'.repeat(32));
   Object.keys(it).forEach(id => { const p = P.find(z=>z.id===+id); L.push(pad(UPN(p.name).slice(0,26), String(it[id]))); });
   L.push('-'.repeat(32), pad('ARTICULOS', Object.values(it).reduce((a,q)=>a+q,0)), '', ctr('NO ES FACTURA'), ctr('NO SUSTITUYE LA FACTURA'), ctr('NI DA DERECHO A CREDITO FISCAL'), '', '', '');
@@ -1610,13 +1616,13 @@ V.fiscal = () => `<div class="grid g-dash">
     <button class="btn" data-act="nav" data-v="docs">Notas de crédito y débito</button>
     <span class="spacer"></span><button class="btn sm" data-act="medio">Usar máquina fiscal (módulo)</button>
   </div><p class="small muted" style="margin-top:10px">Cada factura recibe su número de control de la imprenta digital en el momento. Sin internet, la caja usa el talonario de contingencia y al volver la conexión reporta esas facturas en PDF (Providencia SNAT/2026/00093, arts. 6 y 7).</p></div></section>`
-  :`  <section class="panel"><div class="hd"><h2>Impresora fiscal</h2><span class="pill ok">${ic('check')}Lista para facturar</span></div><div class="bd grid g2" style="gap:6px 24px">
-    <div class="stat"><span class="muted">Modelo</span><span>The Factory HKA80</span></div>
-    <div class="stat"><span class="muted">Serial (MH)</span><span class="num">Z7C0012345</span></div>
-    <div class="stat"><span class="muted">Conexión</span><span>USB · Caja 1</span></div>
-    <div class="stat"><span class="muted">Última factura</span><span class="num">${String(S.inv-1).padStart(8,'0')}</span></div>
-    <div class="stat"><span class="muted">Último Reporte Z</span><span class="num">#00${S.z-1}</span></div>
-    <div class="stat"><span class="muted">Memoria fiscal</span><span class="num">4% usada</span></div>
+  :`  <section class="panel"><div class="hd"><h2>Impresora fiscal</h2><span class="pill ${MAQ.lista?'ok':'warn'}">${ic(MAQ.lista?'check':'alert')}${MAQ.lista?'Lista para facturar':MAQ.estado}</span></div><div class="bd grid g2" style="gap:6px 24px">
+    <div class="stat"><span class="muted">Modelo</span><span>${MAQ.modelo}</span></div>
+    <div class="stat"><span class="muted">Registro (MH)</span><span class="num">${MAQ.registro}</span></div>
+    <div class="stat"><span class="muted">Conexión</span><span>${MAQ.conexion}</span></div>
+    <div class="stat"><span class="muted">Última factura</span><span class="num">${maqUltFac()}</span></div>
+    <div class="stat"><span class="muted">Último Reporte Z</span><span class="num">${maqUltZ()}</span></div>
+    ${MAQ.memoria?`<div class="stat"><span class="muted">Memoria fiscal</span><span class="num">${MAQ.memoria}</span></div>`:''}
   </div><div class="bd" style="border-top:1px solid var(--line)"><div class="row">
     <button class="btn" data-act="repx">${ic('receipt')}Reporte X</button>
     <button class="btn primary" data-act="repz">${ic('printer')}Cierre del día (Reporte Z)</button>
@@ -3664,3 +3670,4 @@ FX.boot();
 <!-- FX:FIN -->
 <script src="js/cuadre-comun.js"></script>
 <script src="js/farmacia-real.js"></script>
+<script src="js/maquina-fiscal.js"></script>

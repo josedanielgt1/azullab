@@ -42,7 +42,8 @@ Pruebas: **279 de base de datos** (`supabase/tests/correr.sh`) y **245 de navega
 | Los tres | Fase 2 (tienda web, sucursales, Azul Puntos; portal, equipos, convenios, calidad y grupo del laboratorio) | Guardada en los archivos y fuera del menú; se activa con `FASE2 = true` en `js/cuadre-comun.js` |
 | Farmacia | Cuentas y bancos | Conciliación con el estado de cuenta: necesita los movimientos del banco |
 | Los tres | Páginas «Alcance de la propuesta», «Alcance y regalo», «Fase 2» | Decidir si se quitan para el cliente |
-| Los tres | Imprenta digital | Conectar al proveedor cuando lo escojan (hoy las facturas quedan «pendiente de imprenta») |
+| Farmacia | Máquina fiscal | Hecho en la base y en la caja (migración 0023): factura, notas, falla con talonario, sin internet, Reporte X y Z, libro de ventas por Z y libro de control. Falta el **agente** para el modelo que compren (protocolo en `docs/agente-maquina-fiscal.md`); mientras, se practica con la impresora «simulada» |
+| Laboratorio y CrossFit | Medio de facturación | Siguen con imprenta digital (se escoge por empresa). Conectar al proveedor cuando lo escojan |
 
 > **Nota · The Factory HKA.** Todo indica que la imprenta digital será The Factory HKA, y que ellos también llevarían la parte contable (libros, declaración de IVA, retenciones). Si se confirma, más adelante se pueden quitar o simplificar en Cuadre: Libro de Compras y de Ventas, forma 30 y calendario fiscal, comprobantes de retención de ISLR, checklist del SENIAT y Ganancias y gastos. Por ahora **no se quita nada**: queda anotado para decidirlo con el contador.
 
@@ -64,7 +65,8 @@ Guía para instalar y revisar: `INSTALACION.md`.
 - **Datos fiscales**: editables; sin confirmarlos no se factura.
 - **Catálogos**: vacíos al instalar (en el laboratorio, con la opción de cargar el catálogo base para ajustarlo).
 - **Socio nuevo del CrossFit**: queda vencido hasta que se le cobre.
-- **Imprenta digital**: en espera (probablemente The Factory HKA); las facturas quedan «pendiente de imprenta».
+- **Farmacia por máquina fiscal** (5 nov 2026). El medio se escoge por empresa en `empresas.medio_factura`; el laboratorio y el CrossFit siguen con imprenta digital.
+- **Imprenta digital** (laboratorio y CrossFit): en espera; las facturas quedan «pendiente de imprenta».
 - **IGTF**: los tres negocios son contribuyentes ordinarios y no lo cobran. Si el SENIAT designa especial a alguno, se pone `igtf = 3` en su fila de `empresas`.
 
 ## Cómo probar en local
