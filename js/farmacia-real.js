@@ -203,7 +203,7 @@
       venta = data.medio === 'maquina' ? await C.maquina.imprimir(data) : data;
       const ids = items.map(i => i.producto_id), cliente = S.client;
       b.disabled = false; b.innerHTML = txt; segundaVuelta(b);
-      await recargar(ids); if (cliente) await cargarClientes(); tablero(); libroVentas(); if (P.some(p => ids.includes(p.id) && p.ctrl)) await C.recargarControlados();
+      await recargar(ids); if (cliente) await cargarClientes(); tablero(); libroVentas(); actualizarInv(); if (P.some(p => ids.includes(p.id) && p.ctrl)) await C.recargarControlados();
       if (S.view !== 'pos') render(); else rerenderPOS();
     } catch (x) { avisar(C.msg(x)); }
     finally { if (b.isConnected) { b.disabled = false; if (b.textContent === 'Facturando…') b.innerHTML = txt; } }
@@ -235,7 +235,7 @@
         });
         p.stock = p.lots.reduce((t, l) => t + l.q, 0);
       });
-      S.fac = {}; await cargarCompras(); await C.recargarControlados();
+      S.fac = {}; await cargarCompras(); await C.recargarControlados(); actualizarInv();
       await sincronizar(); render();
     })().catch(x => avisar(C.msg(x)));
   };
@@ -254,7 +254,7 @@
     const {error} = await db.rpc('salida_inventario', {p_lote: l.id, p_cantidad: q, p_motivo: mot + (nota ? ' · ' + nota : '')});
     if (error) { avisar(C.msg(error)); return; }
     salidaOk = true; f.requestSubmit();
-    await recargar([p.id]); if (p.ctrl) await C.recargarControlados(); render();
+    await recargar([p.id]); if (p.ctrl) await C.recargarControlados(); render(); actualizarInv();
   }, true);
 
   /* ---------------- Proveedores ---------------- */
@@ -287,7 +287,7 @@
     COMPRAS = await todo(() => db.from('compras').select('*').eq('empresa_id', EMP()).gte('fecha', desde).order('fecha'));
     COMPRAS.filter(c => delMes(c.fecha)).forEach(c => COMPRAS_LIBRO.push([dmy(c.fecha), c.tipo, c.numero, c.control || '', c.rif || '', c.proveedor, +c.exento_usd, +c.gravable_usd]));
   }
-  FX_SYS.compras = () => COMPRAS.filter(c => delMes(c.fecha)).map(c => ({f: c.fecha, tipo: c.tipo, num: c.numero, ctrl: c.control || '', afecta: '', rif: c.rif || '',
+  FX_SYS.compras = () => COMPRAS.filter(c => delMes(c.fecha)).map(c => ({f: c.fecha, tipo: c.tipo, num: c.numero, ctrl: c.control || '', afecta: c.afecta_id ? ((COMPRAS.find(x => x.id === c.afecta_id) || {}).numero || '') : '', rif: c.rif || '',
     prov: c.proveedor, ex: r2(c.exento_usd * c.tasa), bg: r2(c.gravable_usd * c.tasa)}));
   // Lo escrito en la factura del proveedor se recuerda aunque la pantalla se redibuje
   S.fac = {};
@@ -300,10 +300,11 @@
   };
   const diasA = (f, n) => { const d = new Date(f + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
   V.suppliers = () => {
-    const deuda = COMPRAS.filter(c => c.total_usd - c.pagado_usd > 0.004).sort((a, b) => (a.vence || '').localeCompare(b.vence || ''));
+    const deuda = COMPRAS.filter(c => c.tipo === 'FAC' && c.total_usd - c.pagado_usd > 0.004).sort((a, b) => (a.vence || '').localeCompare(b.vence || ''));
     const tot = deuda.reduce((t, c) => t + (c.total_usd - c.pagado_usd), 0), semana = diasA(hoyVE(), 7);
     const pronto = deuda.filter(c => c.vence && c.vence <= semana), totPronto = pronto.reduce((t, c) => t + (c.total_usd - c.pagado_usd), 0);
-    const delMesC = COMPRAS.filter(c => delMes(c.fecha));
+    const delMesC = COMPRAS.filter(c => delMes(c.fecha) && c.tipo === 'FAC'), notasC = COMPRAS.filter(c => c.tipo === 'NC').slice(-15).reverse();
+    const puedeNota = ['dueno', 'gerente', 'regente', 'almacen'].includes(A().rol);
     const estado = c => { const d = Math.round((new Date(c.vence + 'T12:00:00') - new Date(hoyVE() + 'T12:00:00')) / 864e5);
       return d < 0 ? ['bad', `Vencida hace ${-d} ${d === -1 ? 'día' : 'días'}`] : d <= 7 ? ['warn', d === 0 ? 'Vence hoy' : `Vence en ${d} ${d === 1 ? 'día' : 'días'}`] : ['info', 'Al día']; };
     const dueno = ['dueno', 'gerente'].includes(A().rol);
@@ -315,6 +316,8 @@
     ${deuda.map(c => { const [k, t] = estado(c); return `<tr><td><b>${C.esc(c.proveedor)}</b></td><td class="num">${C.esc(c.numero)}</td><td class="num">${dmy(c.fecha)}</td><td class="num">${c.vence ? dmy(c.vence) : '—'}</td>
       <td class="r">${nf(c.total_usd)}</td><td class="r"><b>${nf(c.total_usd - c.pagado_usd)}</b></td><td><span class="pill ${k}">${t}</span></td>
       <td>${dueno ? `<button class="btn sm" data-act="fr-pagar" data-id="${c.id}">Registrar pago</button>` : ''}</td></tr>`; }).join('') || '<tr><td colspan="8" class="muted">No se le debe nada a ninguna droguería.</td></tr>'}</tbody></table></div></section>
+    <section class="panel"><div class="hd"><h2>Notas de crédito de droguerías</h2>${puedeNota ? `<button class="btn sm" data-act="fr-ncp">${ic('plus')}Registrar nota de crédito</button>` : ''}</div><div class="bd flush tbl-wrap"><table><thead><tr><th>Droguería</th><th>Nota</th><th>Afecta a la factura</th><th>Fecha</th><th>Motivo</th><th class="r">Total $</th></tr></thead><tbody>
+    ${notasC.map(n => `<tr><td><b>${C.esc(n.proveedor)}</b></td><td class="num">${C.esc(n.numero)}</td><td class="num">${C.esc((COMPRAS.find(x => x.id === n.afecta_id) || {}).numero || '—')}</td><td class="num">${dmy(n.fecha)}</td><td>${C.esc(n.motivo || '')}</td><td class="r">${nf(n.total_usd)}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Ninguna todavía. Cuando una droguería mande una nota de crédito (devolución, descuento o error de precio), regístrala aquí: resta en el Libro de Compras y en lo que se le debe.</td></tr>'}</tbody></table></div></section>
     <section class="panel"><div class="hd"><h2>Droguerías</h2><span class="muted small">El RIF sale en el Libro de Compras</span></div><div class="bd flush tbl-wrap"><table><thead><tr><th>Nombre</th><th>RIF</th><th>Días de crédito</th><th>Contacto</th></tr></thead><tbody>
     ${DROG.map((d, i) => `<tr><td><b>${C.esc(d.n)}</b></td><td><input class="input num" data-drog="${i}" data-f="rif" value="${C.esc(d.rif || '')}" placeholder="J-00000000-0"></td>
       <td><input class="input num" data-drog="${i}" data-f="cred" value="${d.cred}" inputmode="numeric" style="max-width:90px"></td><td><input class="input" data-drog="${i}" data-f="tel" value="${C.esc(d.tel === '—' ? '' : d.tel)}"></td></tr>`).join('')}
@@ -337,6 +340,61 @@
     const {error} = await db.rpc('pagar_compra', {p_compra: +e.target.dataset.id, p_monto: m, p_metodo: document.getElementById('fr-met').value});
     if (error) { avisar(C.msg(error)); return; }
     await cargarCompras(); closeModal(); render(); avisar('Pago registrado');
+  }, true);
+
+  /* ---------------- Nota de crédito de la droguería ---------------- */
+  S.ncp = S.ncp || {items: []};
+  const ncpModal = () => {
+    const facs = COMPRAS.filter(c => c.tipo === 'FAC').slice().reverse().slice(0, 60), x = S.ncp;
+    const lotes = P.flatMap(p => (p.lots || []).filter(l => l.id && l.q > 0).map(l => ({id: l.id, t: `${p.name} · lote ${l.l} (${nf0(l.q)})`})));
+    const dev = /devoluci/i.test(x.motivo || 'Devolución de mercancía');
+    return `<div class="sheet" role="dialog" aria-modal="true" style="max-width:560px"><div class="hd"><h2>Nota de crédito de la droguería</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div>
+      <form class="bd" id="fr-ncp" style="display:grid;gap:10px">
+      <div class="field"><label for="ncp-f">Factura que corrige</label><select id="ncp-f" class="input">${facs.map(c => `<option value="${c.id}" ${+x.fac === c.id ? 'selected' : ''}>${C.esc(c.proveedor)} · ${C.esc(c.numero)} · ${dmy(c.fecha)} · ${usd(+c.total_usd)}</option>`).join('')}</select></div>
+      <div class="grid g2" style="gap:8px 14px">
+        <div class="field"><label for="ncp-n">Número de la nota</label><input id="ncp-n" class="input num" value="${C.esc(x.numero || '')}"></div>
+        <div class="field"><label for="ncp-c">Número de control</label><input id="ncp-c" class="input num" value="${C.esc(x.control || '')}"></div>
+        <div class="field"><label for="ncp-d">Fecha</label><input id="ncp-d" type="date" class="input" value="${x.fecha || hoyVE()}"></div>
+        <div class="field"><label for="ncp-m">Motivo</label><select id="ncp-m" class="input">${['Devolución de mercancía', 'Descuento', 'Error en el precio', 'Otro'].map(m => `<option ${(x.motivo || 'Devolución de mercancía') === m ? 'selected' : ''}>${m}</option>`).join('')}</select></div>
+        <div class="field"><label for="ncp-e">Monto exento $</label><input id="ncp-e" class="input num" inputmode="decimal" value="${C.esc(x.ex || '')}" placeholder="0,00"></div>
+        <div class="field"><label for="ncp-g">Base gravable $ (sin IVA)</label><input id="ncp-g" class="input num" inputmode="decimal" value="${C.esc(x.gr || '')}" placeholder="0,00"></div></div>
+      ${dev ? `<div class="field"><label>Productos devueltos a la droguería (salen de su lote)</label>
+        ${x.items.map((it, i) => `<div class="row" style="gap:6px"><span style="flex:1">${C.esc((lotes.find(l => l.id === it.lote_id) || {}).t || 'Lote ' + it.lote_id)}</span><b class="num">${nf0(it.cantidad)}</b><button type="button" class="btn sm" data-act="ncp-quitar" data-i="${i}" aria-label="Quitar">${ic('x')}</button></div>`).join('')}
+        <div class="row" style="gap:6px"><select id="ncp-l" class="input" style="flex:1"><option value="">Escoge el producto y lote…</option>${lotes.map(l => `<option value="${l.id}">${C.esc(l.t)}</option>`).join('')}</select>
+          <input id="ncp-q" class="input num" inputmode="numeric" placeholder="Cant." style="max-width:80px"><button type="button" class="btn sm" data-act="ncp-agregar">${ic('plus')}Agregar</button></div></div>` : '<p class="small muted" style="margin:0">Sin devolución de mercancía: no toca el inventario.</p>'}
+      <p class="small muted" style="margin:0">Resta en el Libro de Compras (con su IVA) y en lo que se le debe a esa factura.</p>
+      <button class="btn primary big" type="submit">${ic('check')}Registrar nota de crédito</button></form></div>`;
+  };
+  const leerNcp = () => { const v = id => (document.getElementById(id) || {}).value; const x = S.ncp;
+    if (!document.getElementById('ncp-f')) return x;
+    Object.assign(x, {fac: v('ncp-f'), numero: v('ncp-n'), control: v('ncp-c'), fecha: v('ncp-d'), motivo: v('ncp-m'), ex: v('ncp-e'), gr: v('ncp-g')}); return x; };
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-act="fr-ncp"],[data-act="ncp-agregar"],[data-act="ncp-quitar"]'); if (!b || A().tipo !== 'farmacia') return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    if (b.dataset.act === 'fr-ncp') { if (!COMPRAS.some(c => c.tipo === 'FAC')) { avisar('No hay facturas de compra registradas'); return; } S.ncp = {items: []}; openModal(ncpModal()); return; }
+    const x = leerNcp();
+    if (b.dataset.act === 'ncp-quitar') x.items.splice(+b.dataset.i, 1);
+    else { const l = +document.getElementById('ncp-l').value, q = parseInt(document.getElementById('ncp-q').value, 10);
+      if (!l || !(q > 0)) { avisar('Escoge el lote y la cantidad'); return; } x.items.push({lote_id: l, cantidad: q}); }
+    openModal(ncpModal());
+  }, true);
+  document.addEventListener('change', e => { if (e.target.id === 'ncp-m') { leerNcp(); openModal(ncpModal()); } });
+  document.addEventListener('submit', async e => {
+    if (e.target.id !== 'fr-ncp') return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    const x = leerNcp(), dev = /devoluci/i.test(x.motivo);
+    const nota = {numero: (x.numero || '').trim(), control: (x.control || '').trim(), fecha: x.fecha || hoyVE(), motivo: x.motivo,
+      exento_usd: parseVE(x.ex || '0') || 0, gravable_usd: parseVE(x.gr || '0') || 0};
+    if (!nota.numero) { avisar('Escribe el número de la nota de crédito'); return; }
+    if (!(nota.exento_usd + nota.gravable_usd > 0)) { avisar('Escribe el monto de la nota'); return; }
+    const btn = e.target.querySelector('[type=submit]'); btn.disabled = true;
+    const {error} = await db.rpc('nota_compra', {p_factura: +x.fac, p_nota: nota, p_items: dev ? x.items : []});
+    btn.disabled = false;
+    if (error) { avisar(/duplicate/i.test(error.message) ? `La nota ${nota.numero} de esa droguería ya está registrada` : C.msg(error)); return; }
+    const ids = dev ? [...new Set(x.items.map(i => (P.find(p => (p.lots || []).some(l => l.id === i.lote_id)) || {}).id).filter(Boolean))] : [];
+    S.ncp = {items: []}; closeModal();
+    await cargarCompras(); if (ids.length) { await recargar(ids); await C.recargarControlados(); }
+    actualizarInv(); render(); avisar(`Nota de crédito ${nota.numero} registrada`);
   }, true);
 
   /* ---------------- Gastos ---------------- */
@@ -551,7 +609,7 @@
     const hoy = hoyVE(), docs = FX.docs.filter(d => d.tipo === 'FAC' && d.fecha === hoy), por = {};
     docs.forEach(d => d.pagos.forEach(p => { const k = p.k || '—'; por[k] = por[k] || {bs: 0, usd: 0, n: 0}; if (p.usd != null) por[k].usd += +p.usd; else por[k].bs += +p.bs || 0; por[k].n++; }));
     const tot = Object.values(por).reduce((t, x) => t + x.usd + x.bs / S.rate, 0);
-    const deuda = COMPRAS.filter(c => c.total_usd - c.pagado_usd > 0.004).sort((a, b) => (a.vence || '').localeCompare(b.vence || ''));
+    const deuda = COMPRAS.filter(c => c.tipo === 'FAC' && c.total_usd - c.pagado_usd > 0.004).sort((a, b) => (a.vence || '').localeCompare(b.vence || ''));
     const cz = S.cashea, czPend = cz.reduce((a, x) => a + (x.fin - x.cuota * x.pagadas), 0);
     return `<p class="lead">Cuánto entró hoy por cada forma de pago, cuánto le deben a la farmacia (cuotas de Cashea) y cuánto debe a las droguerías.</p>
     <div class="kpis k3">${Object.entries(por).map(([k, x]) => `<div class="kpi"><span class="l">${C.esc(k)} · hoy</span><span class="v">${x.usd ? usd(x.usd) : bs(x.bs)}</span><span class="s num">${x.n} ${x.n === 1 ? 'pago' : 'pagos'}</span></div>`).join('')}
@@ -710,7 +768,52 @@
   document.addEventListener('click', e => { if (!e.target.closest('[data-act="spe"]') || !C.acceso) return;
     e.stopImmediatePropagation(); avisar(S.spe ? 'Este negocio cobra IGTF por ser contribuyente especial' : 'Contribuyente ordinario: no cobra IGTF. Si el SENIAT lo designa especial, avísale a Cuadre'); }, true);
 
-  C.farmacia = {recargar, sincronizar, alCambiarDocs: () => { tablero(); libroVentas(); }, ventaTalonario: ventaSinInternet};
+  /* ---------------- Registro de inventario del mes (art. 177): sale de los movimientos de la base ---------------- */
+  // Antes la pantalla traía cifras de muestra de la maqueta. Ahora lo arma registro_inventario().
+  let INV = [], invCargado = false;
+  async function cargarInventario() {
+    INV = []; invCargado = false;
+    if (!['dueno', 'gerente', 'regente', 'almacen'].includes(A().rol)) return;
+    const {data, error} = await db.rpc('registro_inventario', {p_empresa: EMP()});
+    if (error) throw error;
+    INV = data || []; invCargado = true;
+  }
+  const filasInv = () => INV.map(r => {
+    const p = P.find(x => x.id === r.producto_id) || {code: r.codigo || '—', name: r.nombre, pres: '—'};
+    const t = +r.tasa || S.rate, c = r2(+r.costo_usd * t);
+    return {p, ini: +r.inicial, ent: +r.compras, dev: +r.devoluciones, sal: +r.ventas, ret: +r.retiros, dpr: +r.devoluciones_proveedor, aju: +r.ajustes, fin: +r.final,
+      c, vi: r2(+r.valor_inicial_usd * t), vf: +r.valor_final_bs};
+  });
+  if (FX_SYS && FX_SYS.inventario) {
+    const n0 = v => v ? nf0(v) : '-';
+    FX_SYS.inventario.rows = filasInv;
+    FX_SYS.inventario.html = () => {
+      const rows = filasInv(), tot = rows.reduce((t, r) => t + r.vf, 0);
+      if (!invCargado) return '<p class="muted" style="padding:12px">Cargando el registro de inventario…</p>';
+      return `<table><thead><tr><th>Código</th><th>Producto</th><th class="r">Inicial</th><th class="r">Compras</th><th class="r">Devoluciones de clientes</th><th class="r">Ventas</th><th class="r">Retiros, consumo y vencidos</th><th class="r">Devuelto a droguerías</th><th class="r">Ajustes por conteo</th><th class="r">Final</th><th class="r">Costo prom. Bs</th><th class="r">Final Bs</th></tr></thead>
+        <tbody>${rows.map(r => `<tr><td class="num small">${C.esc(r.p.code)}</td><td style="min-width:180px">${C.esc(r.p.name)}</td><td class="r">${nf0(r.ini)}</td><td class="r">${n0(r.ent)}</td><td class="r">${n0(r.dev)}</td><td class="r">${n0(r.sal)}</td><td class="r">${n0(r.ret)}</td><td class="r">${n0(r.dpr)}</td><td class="r">${r.aju ? (r.aju > 0 ? '+' : '') + nf0(r.aju) : '-'}</td><td class="r"><b>${nf0(r.fin)}</b></td><td class="r">${nf(r.c)}</td><td class="r">${nf(r.vf)}</td></tr>`).join('') || '<tr><td colspan="12" class="muted">Sin movimientos de inventario este mes.</td></tr>'}</tbody>
+        <tfoot><tr><td></td><td>Existencia valorada al cierre</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="r"><span>${nf(tot)}</span></td></tr></tfoot></table>`;
+    };
+    FX_SYS.inventario.csv = () => {
+      const rows = filasInv();
+      return [['Código', 'Descripción del producto', 'Inv. inicial cantidad', 'Inv. inicial total Bs', 'Entradas (compras) cantidad', 'Entradas (compras) total Bs', 'Devoluciones de clientes cantidad', 'Costo promedio Bs',
+          'Salidas (ventas) cantidad', 'Salidas (ventas) total Bs', 'Retiros y autoconsumo cantidad', 'Retiros y autoconsumo total Bs', 'Devoluciones a droguerías cantidad', 'Ajustes por conteo cantidad', 'Inv. final cantidad', 'Inv. final total Bs'],
+        ...rows.map(r => [r.p.code, r.p.name + (r.p.pres && r.p.pres !== '—' ? ', ' + r.p.pres : ''), r.ini, r.vi, r.ent, r2(r.ent * r.c), r.dev, r.c, r.sal, r2(r.sal * r.c), r.ret, r2(r.ret * r.c), r.dpr, r.aju, r.fin, r.vf]),
+        [], ['Sale de los movimientos registrados en Cuadre: compras, ventas, notas de crédito por devolución, salidas con motivo, devoluciones a droguerías y ajustes por conteo. Los totales en Bs usan el costo de cada lote y la tasa BCV del cierre del mes. Confirmar la presentación con el contador.']];
+    };
+    FX_SYS.inventario.base = 'Reglamento de la Ley de ISLR, art. 177: registro mensual de entradas y salidas por unidades y valores, con retiros y autoconsumo. Sale de los movimientos reales de la base: compras, ventas, devoluciones de clientes (notas de crédito por devolución), retiros con motivo, devoluciones a droguerías y ajustes por conteo. El final cuadra con la existencia de los lotes. Llevarlo en un sistema puede requerir autorización del SENIAT: confirmar con el contador.';
+  }
+  if (typeof inv177 === 'function') inv177 = () => filasInv();   // la pantalla vieja de libros, por si se abre
+  const actualizarInv = () => cargarInventario().then(() => { if (['fiscal', 'libros'].includes(S.view)) render(); }).catch(x => console.error('Cuadre: inventario', x));
+
+  /* Una nota de crédito por descuento o error de precio no devuelve mercancía: la existencia la manda la base
+     (si es por devolución, la base la devuelve y la pantalla recarga esos productos) */
+  if (FX_SYS && typeof FX_SYS.onNota === 'function') {
+    const onNotaMaqueta = FX_SYS.onNota;
+    FX_SYS.onNota = (nc, fac, seed) => { onNotaMaqueta(nc, fac, C.acceso ? true : seed); if (C.acceso) setTimeout(actualizarInv, 300); };
+  }
+
+  C.farmacia = {recargar, sincronizar, alCambiarDocs: () => { tablero(); libroVentas(); actualizarInv(); }, ventaTalonario: ventaSinInternet, cargarInventario, actualizarInv};
   C.subirCola = subirCola;   // para «Recuperar desde la carpeta»
   /* Lo creado o cambiado sin internet (clientes y productos): se guarda en el equipo y sube al volver la conexión */
   C.sincronizarTodo = sincronizar;
@@ -741,6 +844,7 @@
       paso('gastos', cargarGastos),
       paso('configuración', cargarColecciones),
       paso('movimientos', cargarMovimientos),
+      paso('registro de inventario', cargarInventario),
       paso('resumen', cargarResumen),
       paso('récipes', cargarRecipes),
       paso('alertas', cargarAlertas),

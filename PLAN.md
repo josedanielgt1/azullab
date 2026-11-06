@@ -43,6 +43,8 @@ Pruebas: **279 de base de datos** (`supabase/tests/correr.sh`) y **245 de navega
 | Farmacia | Cuentas y bancos | Conciliación con el estado de cuenta: necesita los movimientos del banco |
 | Los tres | Páginas «Alcance de la propuesta», «Alcance y regalo», «Fase 2» | Decidir si se quitan para el cliente |
 | Farmacia | Máquina fiscal | Hecho en la base y en la caja (migración 0023): factura, notas, falla con talonario, sin internet, Reporte X y Z, libro de ventas por Z y libro de control. Falta el **agente** para el modelo que compren (protocolo en `docs/agente-maquina-fiscal.md`); mientras, se practica con la impresora «simulada» |
+| Farmacia | Registro de inventario (art. 177) | Real desde la migración 0024: sale de los movimientos de la base (antes eran cifras de muestra). Confirmar la presentación con el contador |
+| Farmacia | Notas de crédito de droguerías | En Proveedores y pagos (migración 0024): restan en el Libro de Compras y en la deuda, y lo devuelto sale de sus lotes |
 | Laboratorio y CrossFit | Medio de facturación | Siguen con imprenta digital (se escoge por empresa). Conectar al proveedor cuando lo escojan |
 
 > **Nota · The Factory HKA.** Todo indica que la imprenta digital será The Factory HKA, y que ellos también llevarían la parte contable (libros, declaración de IVA, retenciones). Si se confirma, más adelante se pueden quitar o simplificar en Cuadre: Libro de Compras y de Ventas, forma 30 y calendario fiscal, comprobantes de retención de ISLR, checklist del SENIAT y Ganancias y gastos. Por ahora **no se quita nada**: queda anotado para decidirlo con el contador.

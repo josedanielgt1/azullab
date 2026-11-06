@@ -353,6 +353,40 @@
     };
   }
 
+  /* ---------------- Libro de ventas con máquina fiscal ----------------
+     Reglamento de la Ley del IVA, art. 77: las facturas a consumidor final van resumidas por Reporte Z,
+     del primer al último número, con el registro de la máquina. Las de RIF, las notas y las del talonario
+     van una por una (eso lo hace el motor fiscal común). Las que la impresora aún no imprimió se listan aparte. */
+  if (typeof FX === 'object' && typeof FX.libroVentas === 'function') {
+    const libroComun = FX.libroVentas;
+    const conRif = id => /^[JGVEPC]-\d{8}-\d$/.test(String(id || '').replace(/\./g, '').toUpperCase());
+    FX.libroVentas = () => {
+      if (!activa()) return libroComun();
+      const mes = (FX.Y && FX.Y.hoy ? FX.Y.hoy : hoyVE()).slice(0, 7);
+      const resumida = d => d.medio === 'maquina' && d.tipo === 'FAC' && !d.cont && !conRif(d.cli.id);
+      const todos = FX.docs.slice(), quedan = todos.filter(d => !resumida(d));
+      let rows;
+      FX.docs.length = 0; FX.docs.push(...quedan);
+      try { rows = libroComun(); } finally { FX.docs.length = 0; FX.docs.push(...todos); }
+      const grupos = {};
+      todos.filter(d => resumida(d) && d.fecha.startsWith(mes)).forEach(d => {
+        const pend = !/^\d+$/.test(String(d.num)), k = pend ? 'P|' + d.fecha : d.z ? 'Z|' + d.z : 'A|' + d.fecha;
+        const g = grupos[k] = grupos[k] || {fecha: d.fecha, z: d.z, pend, reg: d.reg, n: 0, lo: Infinity, hi: 0, ex: 0, bg: 0, ivg: 0, br: 0, ivr: 0, total: 0};
+        const t = d.t, n = pend ? 0 : +d.num;
+        g.n++; if (!pend) { g.lo = Math.min(g.lo, n); g.hi = Math.max(g.hi, n); }
+        g.fecha = d.fecha < g.fecha ? d.fecha : g.fecha;
+        g.ex = r2(g.ex + t.ex); g.bg = r2(g.bg + t.bg); g.ivg = r2(g.ivg + t.ivg); g.br = r2(g.br + t.br); g.ivr = r2(g.ivr + t.ivr); g.total = r2(g.total + t.total - t.igtf);
+      });
+      Object.values(grupos).forEach(g => rows.push({fecha: g.fecha, kind: 'cf', tipo: 'FAC',
+        num: g.pend ? '—' : g.n > 1 ? `${p8(g.lo)} al ${p8(g.hi)}` : p8(g.lo), ctrl: g.reg ? 'MH ' + g.reg : '', afecta: '', rif: '',
+        nombre: g.pend ? `Consumidor final · ${g.n} pendientes de imprimir` : g.z ? `Consumidor final · Reporte Z N.° ${p4(g.z)} · ${g.n} ${g.n === 1 ? 'factura' : 'facturas'}` : `Consumidor final · ${g.n} ${g.n === 1 ? 'factura' : 'facturas'} (falta el Reporte Z)`,
+        ex: g.ex, bg: g.bg, ivg: g.ivg, br: g.br, ivr: g.ivr, total: g.total, ret: 0, comp: '', igtf: 0, key: g.pend ? 4e8 : g.lo}));
+      rows.sort((a, b) => a.fecha.localeCompare(b.fecha) || a.key - b.key);
+      rows.forEach((r, i) => { r.op = i + 1; });
+      return rows;
+    };
+  }
+
   /* ---------------- Módulo fiscal: pendientes, Reportes Z, libro de la máquina y configuración ---------------- */
   const TIPOS_EV = {instalacion: 'Instalación', inspeccion: 'Inspección', reparacion: 'Reparación', falla: 'Falla', 'cambio de precinto': 'Cambio de precinto', otro: 'Otro'};
   const vFiscal = V.fiscal;
