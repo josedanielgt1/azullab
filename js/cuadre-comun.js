@@ -191,8 +191,8 @@
     if (error) throw error;
     ponerTasa(v, new Date().toISOString());
   }
-  // La tasa vigente hoy: la última con fecha hasta hoy (la publicada a las 5 p. m. tiene la fecha de mañana)
-  const leerTasa = () => db.from('tasas_bcv').select('fecha,tasa').lte('fecha', hoyVE()).order('fecha', {ascending: false}).limit(1);
+  // La tasa vigente: la última que publicó el BCV (la de mañana se usa desde que sale, a pedido del cliente)
+  const leerTasa = () => db.from('tasas_bcv').select('fecha,tasa').order('fecha', {ascending: false}).limit(1);
   C.alEntrar(async () => {
     const {data, error} = await leerTasa();
     const t = error ? C.leerLocal('tasa') : data && data[0];

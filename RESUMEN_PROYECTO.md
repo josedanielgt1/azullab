@@ -20,14 +20,13 @@ Actualizado el 5 de noviembre de 2026.
 - **Mientras el equipo no está registrado**, la sesión guardada abre sola, como siempre. Ya registrado, al cerrar la app y abrirla de nuevo pide el PIN.
 - **PIN:** en un equipo registrado, cada persona entra con un PIN de 4 a 6 números, con o sin internet. La guía completa está en la sección 3.
 
-### Tasa BCV automática (nuevo, ya activa en la base real)
-- **Búsqueda automática:** la base busca sola la tasa en dolarapi.com cada 5 minutos, de 9:00 a 10:55 a. m. y de 5:00 a 6:55 p. m., y cada hora entre medio, de lunes a viernes. No hace falta que nadie entre al sistema.
-- **Fecha valor:** cada tasa se guarda con el día en que vale. La que sale a las 5:20 p. m. es la de mañana y la del viernes en la tarde es la del lunes. Mientras tanto se sigue facturando con la de hoy, y a medianoche las cajas pasan solas a la nueva.
-- **Cajas abiertas:** revisan cada 5 minutos si cambió la tasa del día. Si cambió, la toman y avisan: «Tasa BCV actualizada».
-- **Tasa a mano:** si el dueño escribe la tasa en «Tasa BCV», esa manda sobre la automática.
-- **Datos malos:** no se toma un salto de más de 25 % contra la tasa anterior.
-- **Hora de Caracas:** la base usa la hora de Caracas. Antes, desde las 8 p. m., la base ya creía que era el día siguiente.
-- **Feriados bancarios:** no se calculan solos. Si el BCV publica para el día después de un feriado, el sistema puede tomarla un día antes. En ese caso el dueño corrige la tasa a mano.
+### Tasa BCV: directo del BCV, apenas se publica (activa en la base real)
+- **Cuándo publica el BCV:** según sus publicaciones de octubre y noviembre de 2026, los días hábiles entre las 4:30 y las 7:00 p. m., casi siempre entre las 4:45 y las 5:20. Publica la tasa del día hábil siguiente; la del viernes en la tarde es la del lunes. dolarapi.com se entera horas después, a la mañana siguiente.
+- **De dónde sale la tasa:** la base la lee directo de www.bcv.org.ve cada 5 minutos, de 3:00 a 7:55 p. m., y cada hora el resto del día, de lunes a viernes. La función que lo hace se llama `tasa-bcv`. dolarapi queda como respaldo, una vez por hora.
+- **Cuándo se usa:** a pedido del cliente, la tasa vigente es siempre la última publicada. La del jueves se usa desde que sale el miércoles en la tarde. Las cajas abiertas la toman en menos de 5 minutos y avisan «Tasa BCV actualizada». Las ventas sin internet y las facturas de compra con fecha pasada siguen usando la tasa de su día.
+- **Certificado del BCV:** el sitio del BCV presenta un certificado de seguridad incompleto, por eso otros programas no lo pueden leer. La función completa la cadena con el certificado oficial de Sectigo y verifica la conexión.
+- **Tasa a mano:** si el dueño la escribe en «Tasa BCV», esa manda. No se toma un salto de más de 25 %.
+- **Hora de Caracas:** la base usa la hora de Caracas.
 
 ### Respaldo de lo hecho sin internet (nuevo)
 - **Qué hay en la computadora:** casi nada. Todo el negocio (ventas, facturas, inventario, clientes, pacientes y socios) está en Supabase. Lo único que vive en la computadora son las ventas, órdenes y cobros hechos sin internet, hasta que suben.

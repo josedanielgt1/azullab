@@ -188,10 +188,10 @@ create temp table pub as select ((current_date + time '00:05') at time zone 'Ame
 select prueba.igual('el reloj guarda la tasa con su fecha valor',
   registrar_tasa_bcv(jsonb_build_object('promedio', 870, 'fechaActualizacion', (select t from pub))), fecha_valor_bcv((select t from pub)));
 select prueba.igual('y queda guardada', (select tasa from tasas_bcv where fecha = fecha_valor_bcv((select t from pub))), 870.0000::numeric);
-insert into tasas_bcv (fecha, tasa) values (current_date + 3, 999);
-select prueba.igual('una tasa con fecha futura no se usa hoy', tasa_del_dia() <> 999, true);
-select prueba.igual('ni aunque se pida una fecha futura', tasa_del_dia(current_date + 5) <> 999, true);
-delete from tasas_bcv where fecha = current_date + 3;
+insert into tasas_bcv (fecha, tasa) values (current_date + 1, 999);
+select prueba.igual('la tasa del día siguiente se usa apenas se publica', tasa_del_dia(), 999.0000::numeric);
+select prueba.igual('una venta de ayer (sin internet) sigue con la tasa de ayer', tasa_del_dia(current_date - 1), 860.0000::numeric);
+delete from tasas_bcv where fecha = current_date + 1;
 update tasas_bcv set tasa = 865, fuente = 'Dueño' where fecha = fecha_valor_bcv((select t from pub));
 select registrar_tasa_bcv(jsonb_build_object('promedio', 871, 'fechaActualizacion', (select t from pub)));
 select prueba.igual('lo que escribió el dueño manda sobre lo automático', (select tasa from tasas_bcv where fecha = fecha_valor_bcv((select t from pub))), 865.0000::numeric);
@@ -199,7 +199,7 @@ select prueba.igual('un salto de más de 25 % no se toma',
   registrar_tasa_bcv(jsonb_build_object('promedio', 2000, 'fechaActualizacion', (select t from pub) + interval '15 hours 20 minutes')) is null, true);
 select prueba.igual('lo que dolarapi publica a las 5 p. m. llega con la fecha de mañana y se guarda para mañana',
   registrar_tasa_bcv(jsonb_build_object('promedio', 872, 'fechaActualizacion', ((current_date + 1) + time '00:00') at time zone 'America/Caracas')), fecha_valor_bcv(((current_date + 1) + time '00:00') at time zone 'America/Caracas'));
-select prueba.igual('y hoy se sigue usando la de hoy', tasa_del_dia() <> 872 or fecha_valor_bcv(((current_date + 1) + time '00:00') at time zone 'America/Caracas') <= current_date, true);
+select prueba.igual('y se usa desde ya, sin esperar a mañana', tasa_del_dia(), 872.0000::numeric);
 select prueba.igual('un dato viejo no se toma', registrar_tasa_bcv(jsonb_build_object('promedio', 870, 'fechaActualizacion', now() - interval '6 days')) is null, true);
 grant select on pub to authenticated;
 set role authenticated;

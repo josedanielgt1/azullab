@@ -12,7 +12,7 @@ const { chromium } = require('playwright'); const mock = require('./mock');
     st.tasas = [{ fecha: st.tasas[0].fecha, tasa: 310.25 }]; await pg.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
     await pg.waitForFunction(() => document.body.textContent.includes('Tasa BCV actualizada'), null, { timeout: 5000 }).catch(() => {});
     ok((await txt(pg)).includes('Tasa BCV actualizada: Bs 310,25'), 'con la caja abierta, la tasa nueva del día llega sola y avisa');
-    ok(st.llamadas.some(l => l.p.startsWith('/rest/v1/tasas_bcv') && l.p.includes('fecha=lte.')), 'la pantalla toma la tasa con fecha hasta hoy (no la de mañana)');
+    ok(st.llamadas.some(l => l.p.startsWith('/rest/v1/tasas_bcv') && l.p.includes('order=fecha.desc') && !l.p.includes('fecha=lte.')), 'la pantalla toma la última tasa publicada (la de mañana, apenas sale)');
     await pg.evaluate(() => go('users')); await pg.waitForFunction(() => document.body.textContent.includes('jose@azullab.com'));
     ok((await txt(pg)).includes('Tú'), 'Usuarios: el equipo real con el dueño');
     await pg.click('[data-act="cq-nuevo"]'); await pg.fill('#cq-nom', 'Kevin Albarrán'); await pg.fill('#cq-correo', 'kevin@azullab.com'); await pg.fill('#cq-clave', 'clave1234'); await pg.selectOption('#cq-rol', 'cajero'); await pg.selectOption('#cq-caja', 'Caja 2');
