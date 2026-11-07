@@ -212,7 +212,7 @@
       const s = socBy(b.dataset.s), bd = document.querySelector('#modal .bd'); if (!s || !bd || bd.querySelector('#cfx-app')) return;
       bd.insertAdjacentHTML('beforeend', `<div id="cfx-app" style="border-top:1px solid var(--renglon);padding-top:10px;display:grid;gap:8px">${s._uid
         ? '<span class="pill ok" style="justify-self:start">Tiene acceso a la app del socio</span>'
-        : `<b>App del socio</b><div class="grid g2" style="gap:8px"><input id="cfx-ac" class="input" type="email" placeholder="Correo del socio"><input id="cfx-ak" class="input" placeholder="Clave inicial (mínimo 8)"></div>
+        : `<b>App del socio</b><div class="grid g2" style="gap:8px"><input id="cfx-ac" class="input" type="email" placeholder="Correo del socio"><input id="cfx-ak" class="input" placeholder="Clave inicial (${C.REGLA_CLAVE})"></div>
            <button class="btn" data-act="cfx-dar" data-s="${s.id}" style="justify-self:start">${ic('plus')}Dar acceso a la app</button>`}</div>`);
     }, 0);
   });
@@ -220,7 +220,8 @@
     const b = e.target.closest('[data-act="cfx-dar"]'); if (!b) return;
     e.stopImmediatePropagation();
     const s = socBy(b.dataset.s), correo = (document.getElementById('cfx-ac').value || '').trim(), clave = document.getElementById('cfx-ak').value || '';
-    if (!correo || clave.length < 8) { avisar('Escribe el correo y una clave de al menos 8 caracteres'); return; }
+    if (!correo) { avisar('Escribe el correo del socio'); return; }
+    if (C.claveDebil(clave)) { avisar(C.claveDebil(clave)); return; }
     try { await C.llamarUsuarios({accion: 'crear', empresa_id: EMP(), nombre: s.n, correo, clave, rol: 'socio', socio_id: s._id});
       s._uid = true; closeModal(); avisar(`${s.n} ya puede entrar a la app con su correo`); }
     catch (x) { avisar(C.msg(x)); }

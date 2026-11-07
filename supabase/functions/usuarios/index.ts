@@ -38,6 +38,8 @@ Deno.serve(async (req) => {
   const { data: puede, error: e1 } = await comoUsuario.rpc("puedo_crear_usuarios", { p_empresa: b.empresa_id, p_rol: rol });
   if (e1 || !puede) return responder({ error: "Solo el dueño o el gerente manejan usuarios" }, 403);
   if (!b.clave || b.clave.length < 8) return responder({ error: "La clave debe tener al menos 8 caracteres" }, 400);
+  if (!/[a-z]/.test(b.clave) || !/[A-Z]/.test(b.clave) || !/[0-9]/.test(b.clave))
+    return responder({ error: "La clave debe tener al menos una mayúscula, una minúscula y un número (ejemplo: Azullab2026)" }, 400);
 
   if (b.accion === "crear") {
     const correo = (b.correo ?? "").trim().toLowerCase();

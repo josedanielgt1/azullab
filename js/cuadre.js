@@ -59,7 +59,22 @@ window.Cuadre = (() => {
     'Email not confirmed': 'Ese correo todavía no está confirmado',
     'Failed to fetch': 'No hay conexión con el servidor. Revisa el internet'
   };
-  const msg = e => ERR[e && e.message] || (e && e.message) || 'No se pudo entrar';
+  /* Regla de clave del proyecto en Supabase (Auth → Password requirements): 8 o más, con minúscula, mayúscula y número */
+  const REGLA_CLAVE = 'mínimo 8, con mayúscula, minúscula y número';
+  const claveDebil = c => {
+    c = String(c || '');
+    if (c.length < 8) return 'La clave debe tener al menos 8 caracteres';
+    if (!/[a-z]/.test(c) || !/[A-Z]/.test(c) || !/[0-9]/.test(c)) return 'La clave debe tener al menos una mayúscula, una minúscula y un número (ejemplo: Azullab2026)';
+    return '';
+  };
+  const msg = e => {
+    const m = e && e.message;
+    if (ERR[m]) return ERR[m];
+    if (/Password should contain/i.test(m || '')) return 'La clave debe tener al menos una mayúscula, una minúscula y un número (ejemplo: Azullab2026)';
+    if (/Password should be at least/i.test(m || '')) return 'La clave debe tener al menos 8 caracteres';
+    if (/weak|pwned|leaked/i.test(m || '')) return 'Esa clave es muy común o apareció en filtraciones: escoge otra';
+    return m || 'No se pudo entrar';
+  };
   const cache = t => 'cuadre.acceso.' + t;
   /* Equipo registrado y PIN (js/cuadre-equipo.js) */
   const EQ = () => window.CuadreEquipo || null;
@@ -83,7 +98,7 @@ window.Cuadre = (() => {
 
   const ganchos = [];
   const api = {
-    listo, db, destino: '', acceso: null, ROLES, msg, esc, neutro,
+    listo, db, destino: '', acceso: null, ROLES, msg, esc, neutro, claveDebil, REGLA_CLAVE,
     modoClave: false, quien: null, pidePin: null, pinErr: '',
     get instalar() { return window.__cuadreInstalar || null; },
     /* Lo que se carga de la base al entrar, antes de abrir la primera pantalla */
@@ -328,8 +343,9 @@ window.Cuadre = (() => {
         // Supabase renovó la sesión: si es de quien entró con PIN, se guarda la nueva (cifrada)
         if ((ev === 'TOKEN_REFRESHED' || ev === 'SIGNED_IN') && ses && EQ()) { EQ().guardarSesion(ses).catch(() => {}); return; }
         if (ev !== 'PASSWORD_RECOVERY') return;
-        const nueva = prompt('Escribe tu clave nueva (mínimo 8 caracteres)');
-        if (!nueva || nueva.length < 8) { alert('La clave no se cambió.'); return; }
+        const nueva = prompt('Escribe tu clave nueva (' + REGLA_CLAVE + ')');
+        if (!nueva) { alert('La clave no se cambió.'); return; }
+        if (claveDebil(nueva)) { alert(claveDebil(nueva) + '. La clave no se cambió: vuelve a pedir el correo con «Olvidé mi clave».'); return; }
         const {error} = await db.auth.updateUser({password: nueva});
         alert(error ? msg(error) : 'Listo, tu clave quedó cambiada.');
       });

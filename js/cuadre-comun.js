@@ -574,7 +574,7 @@
   const modalNuevo = () => hoja('Nuevo usuario', `<form class="bd" id="cq-nuevo-f" style="display:grid;gap:10px">
       <div class="field"><label for="cq-nom">Nombre y apellido</label><input id="cq-nom" class="input" required></div>
       <div class="field"><label for="cq-correo">Correo</label><input id="cq-correo" class="input" type="email" autocomplete="off" required></div>
-      <div class="field"><label for="cq-clave">Clave inicial (mínimo 8)</label><input id="cq-clave" class="input" type="text" minlength="8" autocomplete="off" required></div>
+      <div class="field"><label for="cq-clave">Clave inicial (${C.REGLA_CLAVE})</label><input id="cq-clave" class="input" type="text" minlength="8" autocomplete="off" required></div>
       <div class="grid g2" style="gap:10px"><div class="field"><label for="cq-rol">Rol</label><select id="cq-rol" class="input">${opciones(rolesOfrecidos(), DEL_SISTEMA[A().tipo][1], r => RTXT[r])}</select></div>${campoCaja()}</div>
       <p class="small muted" style="margin:0">Entrégale el correo y la clave. Puede cambiar la clave con «Olvidé mi clave».</p>${pie('Crear usuario')}</form>`);
   const modalAcceso = () => hoja('Dar acceso con un usuario que ya existe', `<form class="bd" id="cq-acceso-f" style="display:grid;gap:10px">
@@ -585,7 +585,7 @@
       <div class="field"><label for="cq-nom">Nombre y apellido</label><input id="cq-nom" class="input" value="${esc(u.nombre)}" required></div>
       <div class="grid g2" style="gap:10px"><div class="field"><label for="cq-rol">Rol</label><select id="cq-rol" class="input">${opciones([...new Set(rolesOfrecidos().concat(u.rol))], u.rol, r => RTXT[r])}</select></div>${campoCaja(u.caja)}</div>
       <label class="row" style="gap:8px"><input type="checkbox" id="cq-activo" ${u.activo ? 'checked' : ''}><span>Tiene acceso a este negocio</span></label>
-      <div class="field"><label for="cq-clave">Clave nueva (déjala vacía para no cambiarla)</label><input id="cq-clave" class="input" type="text" minlength="8" autocomplete="off"></div>
+      <div class="field"><label for="cq-clave">Clave nueva (${C.REGLA_CLAVE}; déjala vacía para no cambiarla)</label><input id="cq-clave" class="input" type="text" minlength="8" autocomplete="off"></div>
       <p class="small muted" style="margin:0">${esc(u.correo)}</p>${pie('Guardar')}</form>`); };
 
   C.llamarUsuarios = cuerpo => llamarUsuarios(cuerpo);
@@ -613,7 +613,9 @@
     const id = e.target.id; if (!/^cq-(nuevo|acceso|editar)-f$/.test(id)) return;
     e.preventDefault(); e.stopImmediatePropagation();
     const val = k => { const x = document.getElementById(k); return x ? (x.type === 'checkbox' ? x.checked : x.value.trim()) : null; };
-    const b = e.target.querySelector('[type=submit]'); b.disabled = true; errModal('');
+    const b = e.target.querySelector('[type=submit]'); errModal('');
+    const clave = val('cq-clave'); if (clave && C.claveDebil(clave)) { errModal(C.claveDebil(clave)); return; }
+    b.disabled = true;
     try {
       if (id === 'cq-nuevo-f') {
         await llamarUsuarios({accion: 'crear', empresa_id: A().empresa_id, nombre: val('cq-nom'), correo: val('cq-correo'), clave: val('cq-clave'), rol: val('cq-rol'), caja: val('cq-caja')});
