@@ -133,7 +133,8 @@ window.Cuadre = (() => {
       return `${aviso}${nota}<form id="loginForm">
       <div><h2 style="font-size:1.4rem">Iniciar sesión</h2><p class="muted" style="margin-top:4px">${esc(subtitulo)}</p></div>
       <div class="field"><label for="lu">Correo</label><input id="lu" class="input" type="email" autocomplete="username" required></div>
-      <div class="field"><label for="lp">Clave</label><input id="lp" class="input" type="password" autocomplete="current-password" required></div>
+      <div class="field" style="position:relative"><label for="lp">Clave</label><input id="lp" class="input" type="password" autocomplete="current-password" required style="padding-right:44px">
+        <button type="button" data-act="cuadre-ver-clave" aria-label="Mostrar la clave" aria-pressed="false" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);width:44px;height:44px;border:0;background:none;color:var(--tinta-3);display:grid;place-items:center;cursor:pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
       <p id="login-err" class="small" role="alert" style="color:var(--bad,#b3261e);margin:0" hidden></p>
       <button class="btn primary big" type="submit">Entrar</button>
       <button type="button" class="btn sm" data-act="cuadre-olvide" style="justify-self:start">Olvidé mi clave</button>
@@ -317,6 +318,13 @@ window.Cuadre = (() => {
           const p = api.salir(op.tipo); if (typeof go === 'function') go('login'); else repintar(); await p;
         }
       });
+
+      document.addEventListener('click', e => {
+        const b = e.target.closest('[data-act="cuadre-ver-clave"]'); if (!b) return;
+        const i = document.getElementById('lp'), ver = i.type === 'password';
+        i.type = ver ? 'text' : 'password'; b.setAttribute('aria-pressed', ver); b.setAttribute('aria-label', ver ? 'Ocultar la clave' : 'Mostrar la clave');
+        b.style.color = ver ? 'var(--acento-tinta)' : 'var(--tinta-3)'; i.focus();
+      }, true);
 
       document.addEventListener('click', async e => {
         if (!e.target.closest('[data-act="cuadre-olvide"]')) return;
