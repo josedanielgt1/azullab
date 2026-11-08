@@ -26,12 +26,12 @@ Las pantallas de `farmacia.html`, `laboratorio.html` y `crossfit.html` son las m
 | Laboratorio y CrossFit: libro de compras | «Registrar factura de compra» en Libros y declaración: proveedor, RIF, número, control, exento, base gravable y retención de ISLR; entra al Libro de Compras y al comprobante de retención | ✅ |
 | Los tres: declaración de IVA | En Datos fiscales, el excedente de crédito fiscal del mes anterior y la última declaración (los da el contador) | ✅ |
 | Laboratorio y CrossFit: sin internet | La orden del laboratorio y el cobro de membresía se hacen con el talonario de contingencia, quedan en el equipo (también el paciente o socio nuevo) y suben solos al volver | ✅ |
-| CrossFit: app del socio | El dueño le da acceso desde la ficha del socio (correo y clave); el socio ve la pizarra, reserva su clase y anota su resultado; no ve facturas, cobros, otros socios ni al equipo, y no factura | ✅ (necesita la función `usuarios`) |
+| CrossFit: app del socio | El dueño le da acceso desde la ficha del socio (correo y clave); el socio ve la pizarra, reserva su clase y anota su resultado; no ve facturas, cobros, otros socios, al equipo, ni la lista de clientes y proveedores (migración 0025), y no factura | ✅ (necesita la función `usuarios`) |
 | Los tres: app instalable y PIN | Se instala en la computadora («Instalar Azullab…»), abre sin internet; en un equipo registrado cada persona entra con su PIN, con o sin internet (5 errores bloquean, 7 días sin conexión vencen) | ✅ (necesita GitHub Pages: https) |
 | Los tres: respaldo sin internet | Franja de aviso mientras haya algo sin subir; copia en una carpeta del equipo; «Recuperar desde un archivo de respaldo» sin repetir nada | ✅ |
 | Los tres: panel del grupo | El dueño ve las ventas reales del mes de los tres negocios | ✅ |
 
-Pruebas: **279 de base de datos** (`supabase/tests/correr.sh`) y **245 de navegador** (`tests/navegador/correr.sh`), incluidas las de ataque (`tests/navegador/seguridad.test.js`) y la que recorre todas las pantallas con cada rol buscando textos o nombres de la maqueta (`tests/navegador/textos.test.js`).
+Pruebas: **365 de base de datos** (`supabase/tests/correr.sh`) y **287 de navegador** (`tests/navegador/correr.sh`), incluidas las de ataque (`tests/navegador/seguridad.test.js`) y la que recorre todas las pantallas con cada rol buscando textos o nombres de la maqueta (`tests/navegador/textos.test.js`).
 
 ## Qué todavía muestra datos de muestra
 
@@ -53,8 +53,8 @@ Guía para instalar y revisar: `INSTALACION.md`.
 
 ## Lo que hace falta de ti
 
-1. **Pegar en el SQL Editor** `supabase/pendiente_sql_editor.sql` (migraciones 0018 y 0019: seguridad e IGTF). Una sola vez, completo, y Run.
-2. **Volver a subir la función `usuarios`** (cambió por seguridad): Supabase → Edge Functions → `usuarios` → Code, pegar `supabase/functions/usuarios/index.ts` y Deploy.
+1. **Pegar en el SQL Editor** `supabase/pendiente_sql_editor.sql` (migración 0025: el socio del CrossFit deja de ver clientes y proveedores). Una sola vez, completo, y Run. En producción están hasta la 0024.
+2. **Volver a subir la función `usuarios`** (7 nov: al cambiar una clave también cuentan los accesos desactivados en otros negocios): Supabase → Edge Functions → `usuarios` → Code, pegar `supabase/functions/usuarios/index.ts` y Deploy.
 3. **Activar la protección de claves filtradas**: Supabase → Authentication → Sign In / Providers → Email → «Prevent use of leaked passwords».
 4. **GitHub Pages** (para «Olvidé mi clave» y para entrar desde cualquier equipo): Settings → Pages → rama `main`, carpeta raíz. En Supabase → Authentication → URL Configuration: Site URL `https://josedanielgt1.github.io/azullab/` y en Redirect URLs `https://josedanielgt1.github.io/azullab/**`.
 5. **Talonario de contingencia**: en Configuración → Datos fiscales, el rango del talonario (desde y hasta). Sin eso, la farmacia no puede vender sin internet.
