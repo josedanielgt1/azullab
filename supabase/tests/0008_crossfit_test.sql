@@ -119,4 +119,18 @@ select prueba.igual('corregirlo no lo duplica', (select jsonb_array_length(resul
 select prueba.debe_fallar('tiempo con formato', $$ select anotar_resultado((select x from ids), 'rápido', true) $$, 'Escribe el tiempo');
 select prueba.como('00000000-0000-0000-0000-0000000000e2');
 select prueba.igual('el otro socio no ve la ficha de Andrea', (select count(*) from socios where nombre = 'Andrea Peña'), 0::bigint);
+\echo '--- El socio no ve clientes ni proveedores (0025)'
+reset role;
+insert into clientes (empresa_id, cedula_rif, nombre, telefono) values ((select x from ids), 'V-9.999.999', 'Cliente del box', '0416');
+insert into proveedores (empresa_id, nombre) values ((select x from ids), 'Distribuidora de agua');
+set role authenticated;
+select prueba.como('00000000-0000-0000-0000-0000000000e1');
+select prueba.igual('el socio no ve los clientes', (select count(*) from clientes), 0::bigint);
+select prueba.debe_fallar('ni crea clientes', $$ insert into clientes (empresa_id, cedula_rif, nombre) values ((select x from ids), 'V-12345678', 'Falso') $$, 'row-level security');
+select prueba.debe_fallar('ni los cambia', $$ do $x$ begin update clientes set telefono = '0'; if not found then raise exception 'sin filas'; end if; end $x$ $$, 'sin filas');
+select prueba.igual('ni ve los proveedores', (select count(*) from proveedores), 0::bigint);
+select prueba.igual('pero sí ve los planes', (select count(*) > 0 from planes), true);
+select prueba.como('00000000-0000-0000-0000-0000000000c1');
+select prueba.igual('el coach sí ve los clientes', (select count(*) > 0 from clientes), true);
+select prueba.igual('y los proveedores', (select count(*) from proveedores), 1::bigint);
 \echo '--- Todas las pruebas pasaron'

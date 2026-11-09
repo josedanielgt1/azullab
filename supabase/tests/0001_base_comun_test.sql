@@ -185,6 +185,10 @@ select prueba.igual('lo publicado a las 9:20 a. m. vale para ese día', fecha_va
 select prueba.igual('lo publicado a las 5:20 p. m. vale para el día siguiente', fecha_valor_bcv('2026-11-05 17:20-04'), '2026-11-06'::date);
 select prueba.igual('lo del viernes en la tarde vale para el lunes', fecha_valor_bcv('2026-11-06 17:20-04'), '2026-11-09'::date);
 create temp table pub as select ((current_date + time '00:05') at time zone 'America/Caracas') t;
+-- Estas pruebas leen el reloj de verdad y suponen día hábil: en fin de semana la tasa
+-- guardada ya es la del lunes. El sábado y el domingo se saltan (la fecha valor se prueba arriba).
+select extract(isodow from (now() at time zone 'America/Caracas')) <= 5 as dia_habil \gset
+\if :dia_habil
 select prueba.igual('el reloj guarda la tasa con su fecha valor',
   registrar_tasa_bcv(jsonb_build_object('promedio', 870, 'fechaActualizacion', (select t from pub))), fecha_valor_bcv((select t from pub)));
 select prueba.igual('y queda guardada', (select tasa from tasas_bcv where fecha = fecha_valor_bcv((select t from pub))), 870.0000::numeric);
@@ -201,6 +205,9 @@ select prueba.igual('lo que dolarapi publica a las 5 p. m. llega con la fecha de
   registrar_tasa_bcv(jsonb_build_object('promedio', 872, 'fechaActualizacion', ((current_date + 1) + time '00:00') at time zone 'America/Caracas')), fecha_valor_bcv(((current_date + 1) + time '00:00') at time zone 'America/Caracas'));
 select prueba.igual('y se usa desde ya, sin esperar a mañana', tasa_del_dia(), 872.0000::numeric);
 select prueba.igual('un dato viejo no se toma', registrar_tasa_bcv(jsonb_build_object('promedio', 870, 'fechaActualizacion', now() - interval '6 days')) is null, true);
+\else
+\echo '  (fin de semana: se saltan las pruebas de la tasa que dependen del día de hoy)'
+\endif
 grant select on pub to authenticated;
 set role authenticated;
 select prueba.como('00000000-0000-0000-0000-0000000000c1');

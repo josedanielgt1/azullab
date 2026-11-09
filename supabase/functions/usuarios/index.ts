@@ -63,7 +63,8 @@ Deno.serve(async (req) => {
     if (!pd) return responder({ error: "Solo el dueño cambia la clave de otro dueño" }, 403);
     // Si esa persona tiene más poder en otro negocio (por ejemplo, es dueña del laboratorio),
     // quien cambia la clave tiene que poder hacerlo allá también: si no, se quedaría con ese negocio.
-    const { data: otros } = await admin.from("miembros").select("empresa_id, rol").eq("user_id", b.user_id).neq("empresa_id", b.empresa_id).eq("activo", true);
+    // Cuentan también los accesos desactivados: si alguien los reactiva, la clave ya no sería del dueño.
+    const { data: otros } = await admin.from("miembros").select("empresa_id, rol").eq("user_id", b.user_id).neq("empresa_id", b.empresa_id);
     for (const o of otros ?? []) {
       const { data: ok } = await comoUsuario.rpc("puedo_crear_usuarios", { p_empresa: o.empresa_id, p_rol: o.rol });
       if (!ok) return responder({ error: "Esa persona también trabaja en otro negocio del grupo: su clave la cambia el dueño" }, 403);
