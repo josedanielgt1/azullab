@@ -1,23 +1,29 @@
 # Grupo Azullab · sistemas Cuadre
 
-Maquetas navegables (HTML, solo visual, con datos de muestra) de los sistemas para el Grupo Empresarial Azullab, en La Azulita, Mérida. Están hechas con el diseño **Papel Fiscal** de Cuadre.
+Sistemas de la **farmacia**, el **laboratorio clínico** y el **CrossFit** del Grupo Empresarial Azullab (La Azulita, Mérida), con el diseño **Papel Fiscal** de Cuadre. Guardan en **Supabase** (proyecto `azullab`): se entra con correo y clave (o PIN en un equipo registrado), cada quien ve lo de su rol y la base hace cumplir las reglas fiscales y de inventario.
 
-Abre `index.html` en el navegador para escoger entre los tres sistemas.
+**Un RIF por negocio.** Los tres son contribuyentes distintos: cada uno factura con su propio correlativo, sus libros de compras y ventas y sus datos fiscales. El medio de facturación se escoge por negocio (`empresas.medio_factura`): la farmacia factura por **máquina fiscal**; el laboratorio y el CrossFit quedan con imprenta digital.
 
-**Un RIF por negocio.** La farmacia, el laboratorio y el CrossFit son tres contribuyentes distintos. Cada sistema tiene, con su propio RIF: datos fiscales en Configuración, factura por imprenta digital (número de control, QR, equivalencia en divisas), notas de crédito y de débito, talonario de contingencia, Libro de Ventas, Libro de Compras, retenciones de ISLR, borrador de la forma 30, calendario fiscal, checklist del SENIAT y exportación a Excel. El tablero del dueño muestra el Grupo Azullab junto, solo para gerencia. El código fiscal es el mismo en los tres archivos (bloque `FX:INICIO`); lo propio de cada negocio va en `FX_SYS`. Detalle en `seniat/06 - Un RIF por negocio (Grupo Azullab).md`.
-
-| Archivo | Qué es |
+| Qué | Dónde |
 | --- | --- |
-| `farmacia.html` | Azullab Farmacia: caja con factura por imprenta digital, cotizaciones y comprobante no fiscal, productos con precio por % de ganancia y varios códigos de barras, inventario por lote y vencimiento con salidas por motivo, compras con opciones cuando cambia el costo, clientes, fiscal, ganancias y gastos, bancos, sin conexión, usuarios y permisos editables, configuración, fase 2, el módulo de nómina aparte y versión de teléfono |
-| `laboratorio.html` | Azullab Laboratorio Clínico: atención sin cita, ficha completa del paciente, datos de la visita, toma de muestras con etiquetas, carga y validación de resultados, informe firmado con QR, reactivos, caja y fase 2 |
-| `crossfit.html` | Azullab CrossFit (regalo para el grupo): pizarra del día que escribe el coach con ejemplo visual de cada movimiento, app del socio en el teléfono (ve la rutina, reserva clase, anota su resultado), registro de socios, membresías con aviso de vencimiento, cobros con factura e IVA de 16 %, notas de crédito, libros y checklist del SENIAT con su propio RIF, y entrada con cédula. Abre `crossfit.html#socio` para entrar directo a la vista del socio |
-| `papel-fiscal/` | Sistema de diseño de Cuadre: tokens (colores, letras) y componentes CSS |
-| `seniat/` | Guías fiscales (SENIAT, imprenta digital, retenciones, trabajo sin internet, un RIF por negocio) y libros de compras, ventas e inventario en Excel |
-| `recipes/` | Base de datos de récipes (documento y SQL para Supabase) |
-| `nomina/` | Módulo de nómina: horas extra, bono nocturno, liquidaciones, aumentos, archivo TXT para el banco y parámetros de ley |
-| `capturas/movil/` | Capturas de la farmacia en el teléfono (390 px), antes y después de la versión móvil |
-| `propuesta/` | Propuesta económica de la farmacia: precios, mensualidad, forma de pago y condiciones del servicio |
+| Pantallas | `index.html` (portada), `farmacia.html`, `laboratorio.html`, `crossfit.html` (`crossfit.html#socio` es la app del socio) |
+| Lógica con la base | `js/` (`cuadre-comun.js`, `cuadre-equipo.js`, `farmacia-real.js`, `maquina-fiscal.js`, `laboratorio-real.js`, `crossfit-real.js`, `config.js`) |
+| Sin internet | `sw.js` y los `manifest-*.webmanifest`: la app se instala y abre sin conexión |
+| Base de datos | `supabase/migrations` (una migración numerada por cambio), `supabase/tests`, `supabase/functions` (`usuarios`, `tasa-bcv`) |
+| Pruebas de pantallas | `tests/navegador` (Chromium con un Supabase simulado) |
+| Máquina fiscal | `docs/agente-maquina-fiscal.md` (protocolo del agente de la caja) |
+| Diseño | `papel-fiscal/` |
+| Maqueta vieja de la farmacia, para mostrarla | `maqueta/` |
 
-Cada HTML es un solo archivo: estilos, datos de muestra y lógica van adentro. No necesita servidor; solo hace falta internet para cargar las letras.
+Qué es real y qué falta: `PLAN.md`. Instalar y revisar: `INSTALACION.md`.
 
-Ningún dato de pacientes, clientes o ventas es real.
+## Cómo se trabaja
+
+- Todo cambio va en una rama desde `main`, con su PR. Commits en español.
+- Cada cambio de base es una migración nueva, con sus pruebas. En producción se aplica pegando `supabase/pendiente_sql_editor.sql` en el SQL Editor.
+- Antes de dar algo por listo:
+
+```bash
+PGHOST=/tmp/pg PGPORT=5433 PGUSER=postgres supabase/tests/correr.sh
+tests/navegador/correr.sh
+```

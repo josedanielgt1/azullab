@@ -53,12 +53,12 @@ Guía para instalar y revisar: `INSTALACION.md`.
 
 ## Lo que hace falta de ti
 
-1. **Pegar en el SQL Editor** `supabase/pendiente_sql_editor.sql` (migración 0025: el socio del CrossFit deja de ver clientes y proveedores). Una sola vez, completo, y Run. En producción están hasta la 0024.
-2. **Volver a subir la función `usuarios`** (7 nov: al cambiar una clave también cuentan los accesos desactivados en otros negocios): Supabase → Edge Functions → `usuarios` → Code, pegar `supabase/functions/usuarios/index.ts` y Deploy.
-3. **Activar la protección de claves filtradas**: Supabase → Authentication → Sign In / Providers → Email → «Prevent use of leaked passwords».
-4. **GitHub Pages** (para «Olvidé mi clave» y para entrar desde cualquier equipo): Settings → Pages → rama `main`, carpeta raíz. En Supabase → Authentication → URL Configuration: Site URL `https://josedanielgt1.github.io/azullab/` y en Redirect URLs `https://josedanielgt1.github.io/azullab/**`.
-5. **Talonario de contingencia**: en Configuración → Datos fiscales, el rango del talonario (desde y hasta). Sin eso, la farmacia no puede vender sin internet.
-6. **Imprenta digital**: cuando la escojan, se conecta para el número de control.
+Al 9 nov: en producción están todas las migraciones (hasta la 0025) y la función `usuarios` al día.
+
+1. **Protección de claves filtradas**: solo existe en el plan Pro de Supabase (Authentication → Sign In / Providers → Email → «Prevent use of leaked passwords»). En el plan gratis queda el mínimo de 8 caracteres con mayúsculas, minúsculas y números. Activarla solo si pasan a Pro.
+2. **GitHub Pages** (para «Olvidé mi clave» y para entrar desde cualquier equipo): Settings → Pages → rama `main`, carpeta raíz. En Supabase → Authentication → URL Configuration: Site URL `https://josedanielgt1.github.io/azullab/` y en Redirect URLs `https://josedanielgt1.github.io/azullab/**`.
+3. **Talonario de contingencia**: en Configuración → Datos fiscales, el rango del talonario (desde y hasta). Sin eso, la farmacia no puede vender sin internet.
+4. **Imprenta digital**: cuando la escojan, se conecta para el número de control.
 
 ## Decisiones tomadas
 
