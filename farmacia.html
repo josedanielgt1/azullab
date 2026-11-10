@@ -251,6 +251,7 @@ tbody tr:hover td{background:var(--acento-suave)}
 .prods .alt-h{grid-column:1/-1;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px;color:var(--tinta-2);padding:10px 2px 0;border-top:1px dashed var(--renglon);margin-top:2px}
 .prods .alt-h b{color:var(--tinta)}
 .prod.agotado{border-style:dashed;background:var(--hoja-alt)}
+.prod[disabled]{opacity:.55;cursor:not-allowed}
 .prod.alt{border-color:var(--acento-tinta)}
 .chip.alerta{background:var(--sello-rojo-suave);border-color:var(--sello-rojo);color:var(--sello-rojo);font-weight:700;cursor:pointer}
 .secs{display:flex;flex-wrap:wrap;gap:6px}
@@ -909,6 +910,9 @@ const shortName = n => String(n).replace(/^Lcda?\.\s*/,'').toUpperCase().normali
 const DAYS = [{d:'Mar 20',v:968.40},{d:'Mié 21',v:1104.20},{d:'Jue 22',v:1032.75},{d:'Vie 23',v:1210.10},{d:'Sáb 24',v:1388.60},{d:'Dom 25',v:612.30}];
 
 const daysTo = e => Math.round((new Date(e+'T00:00:00') - TODAY)/86400000);
+const hoyISO = () => new Intl.DateTimeFormat('en-CA', {timeZone:'America/Caracas'}).format(new Date());
+/* Un vencimiento escrito completo: año de cuatro cifras entre 2000 y 2100 */
+const fechaLote = e => /^(20\d\d|2100)-\d{2}-\d{2}$/.test(String(e||''));
 const fmtDate = e => { const [y,m,d] = e.split('-'); return `${d}/${m}/${y}`; };
 const lotState = e => { const d = daysTo(e); return d < 0 ? ['bad','Vencido'] : d <= CFG.venc ? ['warn',`Vence en ${d} días`] : ['ok','Vigente']; };
 const todayUSD = () => S.sales.reduce((a,s)=>a+s.usd,0);
@@ -1130,6 +1134,8 @@ V.myShift = () => {
 
 /* --- Caja --- */
 const lotsFEFO = p => p.lots.filter(l => daysTo(l.e)>=0 && l.q>0).sort((a,b)=>a.e.localeCompare(b.e));
+/* Lo que se puede vender: la existencia sin los lotes vencidos */
+const vendible = p => lotsFEFO(p).reduce((t,l)=>t+l.q,0);
 /* Divide una cantidad por lotes: con precio por lote, cada lote cobra su precio y la línea se parte. */
 function segs(p, q){
   const ls = lotsFEFO(p);
@@ -1164,12 +1170,12 @@ const norm = x => String(x).toLowerCase().normalize('NFD').replace(/[\u0300-\u03
 const IVA_T = {E:'(E) Exento', G:'(G) 16%', R:'(R) 8%'};
 const equivs = p => p.act && p.act!=='—' ? P.filter(x=>x.act===p.act && x.id!==p.id) : [];
 function prodCard(p, alt){
-  const out = p.stock<=0;
-  return `<button class="prod${out?' agotado':''}${alt?' alt':''}" data-act="add" data-id="${p.id}">
-    <span class="tags"><span class="iva" title="${IVA_T[p.iva]}">(${p.iva})</span>${p.ctrl?'<span class="pill bad">Controlado</span>':p.rx?'<span class="pill info">Récipe</span>':''}${out?'<span class="pill bad">Agotado</span>':p.stock<p.min?'<span class="pill warn">Poco stock</span>':''}${alt?'<span class="pill ok">Equivalente</span>':''}</span>
+  const v = vendible(p), venc = Math.max(0, p.stock - v), out = v<=0, soloVenc = out && venc>0;
+  return `<button class="prod${out?' agotado':''}${alt?' alt':''}" data-act="add" data-id="${p.id}" ${soloVenc?'disabled aria-disabled="true" title="Vencido: fuera de venta"':''}>
+    <span class="tags"><span class="iva" title="${IVA_T[p.iva]}">(${p.iva})</span>${p.ctrl?'<span class="pill bad">Controlado</span>':p.rx?'<span class="pill info">Récipe</span>':''}${soloVenc?'<span class="pill bad">Vencido · fuera de venta</span>':out?'<span class="pill bad">Agotado</span>':v<p.min?'<span class="pill warn">Poco stock</span>':''}${alt?'<span class="pill ok">Equivalente</span>':''}</span>
     <span class="nm">${p.name}</span><span class="meta">${p.act!=='—'?p.act+' · ':''}${p.pres} · ${p.lab}</span>
     <span class="pr"><b>${usd(p.price)}</b><span>${bs(p.price*S.rate)}</span></span>${nextPrice(p)!=null?`<span class="luego">Luego ${usd(nextPrice(p))}: lote nuevo</span>`:''}
-    <span class="meta num">Existencia ${p.stock}</span></button>`;
+    <span class="meta num">Existencia ${v}${venc?` · ${venc} ${venc===1?'vencida':'vencidas'} (no se ${venc===1?'vende':'venden'})`:''}</span></button>`;
 }
 function prodGrid(){
   const q = norm(S.q.trim());
@@ -1466,11 +1472,11 @@ V.inventory = () => {
   <div class="row acts">${can('fiscal')?`<button class="btn" data-act="go177">${ic('doc')}Registro art. 177</button>`:''}${sal?`<button class="btn primary fixm" data-act="salida">${ic('box')}Salida de inventario</button>`:''}</div></div>
   <p class="small muted">La caja vende siempre del lote que vence primero. Los lotes vencidos quedan bloqueados y no se pueden facturar.</p>
   <section class="panel"><div class="bd flush tbl-wrap"><table><thead><tr><th>Producto</th><th>Lote</th><th>Vence</th><th>Estado</th><th class="r">Cantidad</th><th class="r">Costo del lote</th><th class="r">Existencia total</th><th class="r">Mínimo</th><th></th></tr></thead>
-  <tbody>${vis.map(({p,l,d})=>{const [c,t]=lotState(l.e);return `<tr><td class="tt"><b>${p.name}</b><div class="small muted">${p.lab}</div></td><td class="num">${l.l}</td><td class="num">${fmtDate(l.e)}</td><td><span class="pill ${c}">${t}</span></td><td class="r">${l.q}</td><td class="r">${nf(l.c ?? p.cost)}${l.pv!=null?`<div class="small muted">vende a ${nf(l.pv)}</div>`:''}</td><td class="r">${p.stock}</td><td class="r">${p.min}</td>
+  <tbody>${vis.map(({p,l,d})=>{const [c,t]=lotState(l.e);return `<tr><td class="tt"><b>${p.name}</b><div class="small muted">${p.lab}</div></td><td class="num">${l.l}</td><td class="num">${fmtDate(l.e)}${typeof loteVencBtn==='function'?loteVencBtn(p,l):''}</td><td><span class="pill ${c}">${t}</span></td><td class="r">${l.q}</td><td class="r">${nf(l.c ?? p.cost)}${l.pv!=null?`<div class="small muted">vende a ${nf(l.pv)}</div>`:''}</td><td class="r">${p.stock}</td><td class="r">${p.min}</td>
   <td>${sal&&l.q>0?(d<0?`<button class="btn sm" data-act="salida" data-id="${p.id}" data-l="${l.l}" data-mot="Devolución a droguería">${ic('truck')}Devolver</button>`:`<button class="btn sm" data-act="salida" data-id="${p.id}" data-l="${l.l}">Salida</button>`):''}</td></tr>`}).join('')||'<tr><td colspan="9" class="muted">Nada en este filtro.</td></tr>'}</tbody></table></div></section>
-  <section class="panel"><div class="hd"><h2>Movimientos de inventario</h2><span class="muted small">Salidas que no son venta, con motivo, usuario y fecha</span></div>
+  <section class="panel"><div class="hd"><h2>Movimientos de inventario</h2><span class="muted small">Salidas que no son venta y correcciones, con motivo, usuario y fecha</span></div>
   <div class="bd flush tbl-wrap"><table><thead><tr><th>Fecha</th><th>Producto</th><th>Lote</th><th class="r">Cantidad</th><th>Motivo</th><th>Nota</th><th>Usuario</th></tr></thead>
-  <tbody>${S.movs.map(m=>{ const p = pById(m.id); return `<tr><td class="num">${m.f} ${m.h}</td><td class="tt"><b>${p?p.name:'—'}</b>${p&&p.ctrl?'<div><span class="pill bad">Controlado</span></div>':''}</td><td class="num">${m.l}</td><td class="r">-${m.q}</td><td><span class="pill ${/Merma|Vencido/.test(m.mot)?'warn':'info'}">${m.mot}</span></td><td class="small">${m.nota||'—'}</td><td class="small">${m.u}</td></tr>`; }).join('') || '<tr><td colspan="7" class="muted">Sin salidas este mes.</td></tr>'}</tbody></table></div>
+  <tbody>${S.movs.map(m=>{ const p = pById(m.id); return `<tr><td class="num">${m.f} ${m.h}</td><td class="tt"><b>${p?p.name:'—'}</b>${p&&p.ctrl?'<div><span class="pill bad">Controlado</span></div>':''}</td><td class="num">${m.l}</td><td class="r">${m.q?'-'+m.q:'—'}</td><td><span class="pill ${/Merma|Vencido/.test(m.mot)?'warn':'info'}">${m.mot}</span></td><td class="small">${m.nota||'—'}</td><td class="small">${m.u}</td></tr>`; }).join('') || '<tr><td colspan="7" class="muted">Sin salidas este mes.</td></tr>'}</tbody></table></div>
   <p class="base-legal">Cada salida baja el lote y la existencia, y pasa sola al registro de inventario del art. 177 (columna de retiros y autoconsumo). Los controlados solo los saca la regente y quedan también en el libro de controlados.</p></section>`;
 };
 function saLots(p, sel){ return p.lots.filter(l=>l.q>0).sort((a,b)=>a.e.localeCompare(b.e)).map(l=>`<option value="${l.l}" ${l.l===sel?'selected':''}>${l.l} · vence ${fmtDate(l.e)} · ${l.q} u.${daysTo(l.e)<0?' · vencido':''}</option>`).join(''); }
@@ -1585,7 +1591,7 @@ V.purchases = () => {
       <tbody>${RECV.map((r,i)=>{const p=P.find(x=>x.id===r.id), m = recvM(r,p), pv = precioDe(r.c, m), cambia = p.stock>0 && Math.abs(r.c-p.cost)>=0.005;
         return `<tr><td class="tt"><b>${p.name}</b><div class="small muted">${p.pres} · existencia ${p.stock}</div>${cambia?`<span class="pill warn">Cambia el costo: ${nf(p.cost)} → ${nf(r.c)}</span>`:''}</td>
         <td><input class="cell-in ${r.l?'':'miss'}" data-recv="${i}" data-f="l" value="${r.l}" placeholder="Lote" aria-label="Lote de ${p.name}" style="min-width:100px"></td>
-        <td><input class="cell-in ${r.e?'':'miss'}" type="date" data-recv="${i}" data-f="e" value="${r.e}" aria-label="Vencimiento de ${p.name}" style="min-width:140px"></td>
+        <td><input class="cell-in ${r.e?'':'miss'}" type="date" min="${hoyISO()}" max="2100-12-31" data-recv="${i}" data-f="e" value="${r.e}" aria-label="Vencimiento de ${p.name}" style="min-width:140px"></td>
         <td class="r"><input class="cell-in num" data-recv="${i}" data-f="q" value="${r.q}" inputmode="numeric" aria-label="Cantidad de ${p.name}" style="width:70px;text-align:right"></td>
         <td class="r"><input class="cell-in num" data-recv="${i}" data-f="c" value="${nf(r.c)}" inputmode="decimal" aria-label="Costo de ${p.name}" style="width:80px;text-align:right"></td>
         <td class="r">${own?`<input class="cell-in num" data-recv="${i}" data-f="m" value="${dd(m)}" inputmode="decimal" aria-label="Ganancia de ${p.name}" style="width:64px;text-align:right">`:`${dd(m)} %`}${m>30?'<div class="small warn-t">Pasa del 30 %</div>':''}</td>
@@ -2722,8 +2728,10 @@ document.addEventListener('click', e => {
       render(); break;
     case 'cat': S.cat = b.dataset.c; rerenderPOS(); document.querySelectorAll('.cats button').forEach(x=>x.classList.toggle('on', x.dataset.c===S.cat)); break;
     case 'add': { const p = P.find(x=>x.id===id); const c = S.cart.find(x=>x.id===id); const q = c?c.q:0;
-      if (p.stock<=0) { const eq = equivs(p).find(x=>x.stock>0); toast(eq ? `${p.name} está agotado. Con ${p.act} hay ${eq.name} a ${usd(eq.price)}` : `${p.name} está agotado: anótalo como falla`); break; }
-      if (q >= p.stock) { toast('No hay más existencia de este producto'); break; }
+      const hay = vendible(p);
+      if (hay<=0 && p.stock>0) { toast(`${p.name} está vencido: no se vende. Retíralo en Inventario y lotes`); break; }
+      if (hay<=0) { const eq = equivs(p).find(x=>vendible(x)>0); toast(eq ? `${p.name} está agotado. Con ${p.act} hay ${eq.name} a ${usd(eq.price)}` : `${p.name} está agotado: anótalo como falla`); break; }
+      if (q >= hay) { toast(p.stock>hay ? 'No hay más existencia vigente: lo que queda está vencido' : 'No hay más existencia de este producto'); break; }
       if (p.ctrl && S.role==='Cajero') { toast('Controlado: lo despacha la regente con el récipe especial'); break; }
       c ? c.q++ : S.cart.push({id, q:1});
       const alr = S.client && ALERTAS[S.client.ci] && ALERTAS[S.client.ci].acts.map(a=>String(a).toLowerCase()).includes(String(p.act).toLowerCase());
@@ -2731,7 +2739,7 @@ document.addEventListener('click', e => {
       else if (p.ctrl && !c) toast(`${p.name}: controlado. Registra el récipe especial; la salida va al libro de controlados`);
       else if (p.rx && !c) toast(`${p.name}: pide el récipe al cliente`);
       rerenderPOS(); break; }
-    case 'inc': { const c = S.cart.find(x=>x.id===id); const p = P.find(x=>x.id===id); if (c.q < p.stock) c.q++; rerenderPOS(); break; }
+    case 'inc': { const c = S.cart.find(x=>x.id===id); const p = P.find(x=>x.id===id); if (c.q < vendible(p)) c.q++; rerenderPOS(); break; }
     case 'dec': { const c = S.cart.find(x=>x.id===id); c.q--; if (!c.q) S.cart = S.cart.filter(x=>x.id!==id); rerenderPOS(); break; }
     case 'rm': S.cart = S.cart.filter(x=>x.id!==id); rerenderPOS(); break;
     case 'client': { const raw = ($('#ci').value||'').trim().toUpperCase(); const v = raw.replace(/[^0-9JVEG]/g,'');
@@ -2781,6 +2789,9 @@ document.addEventListener('click', e => {
     case 'repz': if (S.zDone) { toast(`El Reporte Z de hoy ya se hizo: ${S.zDone}`); break; } openModal(`<div class="sheet" style="max-width:440px"><div class="hd"><h2>Cierre del día</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div><div class="bd"><p>El Reporte Z cierra la jornada en la memoria fiscal de la impresora. Después de hacerlo, las ventas siguientes cuentan para mañana.</p><div class="row"><button class="btn" style="flex:1" data-act="close">Cancelar</button><button class="btn primary" style="flex:1" data-act="dozz">Hacer Reporte Z</button></div></div></div>`); break;
     case 'dozz': openModal(`<div class="sheet" style="max-width:440px"><div class="hd"><h2>Reporte Z #00${S.z} impreso</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div><div class="bd"><div class="printer"></div><div class="tkwrap"><pre class="ticket printing">${zText('Z')}</pre><span class="sello tk-sello estampar">Cierre fiscal<small>Z #00${S.z} · 20:01</small></span></div><button class="btn" data-act="close">Listo</button></div></div>`); S.zDone = `#00${S.z} a las 20:01, por ${S.user}`; S.z++; break;
     case 'receive': { const miss = RECV.filter(r=>!r.l||!r.e).length; if (miss) { toast(`Completa lote y vencimiento en ${miss} ${miss===1?'producto':'productos'} antes de cargar`); break; }
+      { const mala = RECV.find(r=>!fechaLote(r.e)), venc = RECV.find(r=>fechaLote(r.e) && r.e < hoyISO());
+        if (mala) { toast(`Revisa el vencimiento del lote ${mala.l}: escribe el año completo (por ejemplo 2027)`); break; }
+        if (venc) { toast(`El lote ${venc.l} ya está vencido: no se recibe mercancía vencida`); break; } }
       const bad = RECV.find(r=>r.q<=0 || r.c<=0); if (bad) { toast(`Revisa cantidad y costo de ${P.find(x=>x.id===bad.id).name}`); break; }
       const pend = recvPend(); if (pend.length && canPrice()) { openModal(costModal(pend)); break; }
       doReceive({}); break; }
@@ -2857,7 +2868,7 @@ document.addEventListener('click', e => {
     case 'cotver': openModal(cotModal(S.cots.find(x=>x.n===b.dataset.n))); break;
     case 'cotload': { const x = S.cots.find(z=>z.n===b.dataset.n), falta = [];
       S.cart = []; const agg = {}; x.it.forEach(([id,q]) => { const p = pById(id); if (p) agg[p.id] = (agg[p.id]||0) + q; });
-      Object.keys(agg).forEach(k => { const p = P.find(z=>z.id===+k), q = Math.min(agg[k], p.stock); if (q<agg[k]) falta.push(`${p.name} (hay ${p.stock})`); if (q>0) S.cart.push({id:p.id, q}); });
+      Object.keys(agg).forEach(k => { const p = P.find(z=>z.id===+k), q = Math.min(agg[k], vendible(p)); if (q<agg[k]) falta.push(`${p.name} (hay ${vendible(p)})`); if (q>0) S.cart.push({id:p.id, q}); });
       S.client = x.client; S.newClient = null; x.est = 'Pasada a la caja'; closeModal(); S.cartOpen = false;
       if (S.view!=='pos') go('pos'); else rerenderPOS();
       toast(falta.length ? `${x.n} pasó al carrito, pero falta existencia: ${falta.join(', ')}` : `${x.n} pasó al carrito: se cobra con factura y con los precios de hoy`); break; }
@@ -2930,7 +2941,9 @@ document.addEventListener('change', e => {
   if (e.target.id==='rx-tipo'){ const h = $('#rx-hint'); if (h) h.textContent = {medico:'El original se archiva; la copia del paciente sale con la etiqueta de despacho.', antibiotico:'Antibiótico: siempre con récipe. El original se archiva en la farmacia.', especial:'Récipe especial: lo despacha la regente, el número no se puede repetir y la salida se anota sola en el libro de controlados.'}[e.target.value];
     if (e.target.value==='especial'){ $('#rx-prod').value = 'Clonazepam 0,5 mg'; $('#rx-rec').value = '30'; $('#rx-desp').value = '30'; } }
   if (e.target.dataset.recv!==undefined){ const r = RECV[+e.target.dataset.recv], fld = e.target.dataset.f, v = e.target.value.trim();
-    r[fld] = fld==='q' ? (parseInt(v)||0) : fld==='c' ? parseVE(v) : fld==='m' ? parseVE(v) : v.toUpperCase().replace(/^(\d{4}-\d{2}-\d{2})$/i, m=>m.toLowerCase()); render(); }
+    r[fld] = fld==='q' ? (parseInt(v)||0) : fld==='c' ? parseVE(v) : fld==='m' ? parseVE(v) : v.toUpperCase().replace(/^(\d{4}-\d{2}-\d{2})$/i, m=>m.toLowerCase());
+    // La fecha avisa «cambió» con cada tecla del año: si se repinta ahí, el año queda en un solo dígito (0002)
+    if (fld==='e' || fld==='l') e.target.classList.toggle('miss', fld==='e' ? !fechaLote(r.e) : !r.l); else render(); }   // lote y fecha: sin repintar, para seguir con Tab
   if (e.target.id==='p-sec' && !S.editId && !S.margTouched && canPrice()) { $('#p-marg').value = dd(margenNuevo(e.target.value)); precioHint(); }
   if (e.target.id==='sa-p') { const p = P.find(x=>x.id===+e.target.value); $('#sa-l').innerHTML = saLots(p); saHint(); }
   if (['sa-l','sa-m'].includes(e.target.id)) saHint();

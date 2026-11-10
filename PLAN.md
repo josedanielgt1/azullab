@@ -17,6 +17,7 @@ Las pantallas de `farmacia.html`, `laboratorio.html` y `crossfit.html` son las m
 | **Laboratorio** | Catálogo vacío con opción de cargar el catálogo base, pacientes, médicos, orden con su factura (L-0001), toma, resultados, validación solo del bioanalista, entrega, anulación con nota de crédito | ✅ |
 | **CrossFit** | Planes, productos y horario que arma el dueño, socios, cobro con IVA 16 % que corre el vencimiento, entrada con cédula, reservas, pizarra del día | ✅ |
 | Farmacia: carga inicial | Lo que ya está en los anaqueles entra sin factura (migración 0026): desde una hoja de Excel o CSV o a mano, por lote; no va al Libro de Compras ni deja deuda, y en el registro del art. 177 sale como existencia inicial. El dueño la cierra al terminar | ✅ (falta aplicar la 0026 en producción) |
+| Farmacia: vencimientos | El año se escribe completo en Compras; no se recibe mercancía vencida; en la caja lo vencido sale «fuera de venta» y no se selecciona; el dueño, gerente, regente o almacén corrigen un vencimiento mal escrito desde Inventario y lotes, con motivo y rastro (migración 0027) | ✅ (falta aplicar la 0027 en producción) |
 | Farmacia: administración | Droguerías con RIF, factura de compra (número y control), Libro de Compras, cuentas por pagar y pagos, gastos, cuentas bancarias, configuración, fallas, cotizaciones, nómina (empleados y novedades), Ganancias y gastos con cifras reales, tablero con las ventas reales | ✅ |
 | Farmacia: récipes y controlados | Récipes con número interno, médicos con MPPS, récipe especial sin repetir; la base no deja vender un controlado sin el récipe del paciente ni más de lo autorizado; el libro de controlados se llena solo con cada movimiento y cuadra con el inventario | ✅ |
 | Farmacia: bancos, puntos y alertas | Cuentas y bancos con lo cobrado hoy, deuda con droguerías y Cashea guardado; Azul Puntos con los clientes reales; libro de ventas del módulo fiscal con las facturas; alertas de alergias que registra la regente y la caja frena sin ver el motivo | ✅ |
@@ -32,7 +33,7 @@ Las pantallas de `farmacia.html`, `laboratorio.html` y `crossfit.html` son las m
 | Los tres: respaldo sin internet | Franja de aviso mientras haya algo sin subir; copia en una carpeta del equipo; «Recuperar desde un archivo de respaldo» sin repetir nada | ✅ |
 | Los tres: panel del grupo | El dueño ve las ventas reales del mes de los tres negocios | ✅ |
 
-Pruebas: **418 de base de datos** (`supabase/tests/correr.sh`) y **325 de navegador** (`tests/navegador/correr.sh`), incluidas las de ataque (`tests/navegador/seguridad.test.js`) y la que recorre todas las pantallas con cada rol buscando textos o nombres de la maqueta (`tests/navegador/textos.test.js`).
+Pruebas: **442 de base de datos** (`supabase/tests/correr.sh`) y **345 de navegador** (`tests/navegador/correr.sh`), incluidas las de ataque (`tests/navegador/seguridad.test.js`) y la que recorre todas las pantallas con cada rol buscando textos o nombres de la maqueta (`tests/navegador/textos.test.js`).
 
 ## Qué todavía muestra datos de muestra
 
@@ -54,7 +55,7 @@ Guía para instalar y revisar: `INSTALACION.md`.
 
 ## Lo que hace falta de ti
 
-Al 10 nov: en producción están las migraciones hasta la 0025 y la función `usuarios` al día. **Falta aplicar la 0026** (carga inicial): pegar `supabase/pendiente_sql_editor.sql` en el SQL Editor.
+Al 10 nov: en producción están las migraciones hasta la 0025 y la función `usuarios` al día. **Faltan la 0026** (carga inicial) **y la 0027** (vencimientos): pegar `supabase/pendiente_sql_editor.sql` en el SQL Editor.
 
 1. **Protección de claves filtradas**: solo existe en el plan Pro de Supabase (Authentication → Sign In / Providers → Email → «Prevent use of leaked passwords»). En el plan gratis queda el mínimo de 8 caracteres con mayúsculas, minúsculas y números. Activarla solo si pasan a Pro.
 2. **GitHub Pages** (para «Olvidé mi clave» y para entrar desde cualquier equipo): Settings → Pages → rama `main`, carpeta raíz. En Supabase → Authentication → URL Configuration: Site URL `https://josedanielgt1.github.io/azullab/` y en Redirect URLs `https://josedanielgt1.github.io/azullab/**`.

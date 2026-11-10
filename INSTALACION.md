@@ -9,7 +9,7 @@ Pasos para dejar los tres sistemas funcionando con la base real (Supabase, proye
 3. Luego pega `supabase/pendiente_sql_editor.sql` completo y dale **Run** (debe decir «Listo: migraciones aplicadas»).
 4. Para comprobar: **Table Editor** debe mostrar, entre otras, `productos`, `ordenes`, `socios`, `recipes`, `libro_controlados`.
 
-En producción ya están todas hasta la 0025 (9 nov 2026); **falta aplicar la 0026** (carga inicial del inventario). Cada vez que haya migraciones nuevas, se arma el archivo con:
+En producción ya están todas hasta la 0025 (9 nov 2026); **faltan la 0026** (carga inicial del inventario) **y la 0027** (vencimientos); van juntas en `supabase/pendiente_sql_editor.sql`. Cada vez que haya migraciones nuevas, se arma el archivo con:
 
 ```bash
 supabase/armar_sql_editor.sh 0026 > supabase/pendiente_sql_editor.sql   # el número es la primera migración que falta en producción
@@ -44,6 +44,7 @@ supabase/armar_sql_editor.sh 0026 > supabase/pendiente_sql_editor.sql   # el nú
 Farmacia
 - [ ] Carga inicial: subir la plantilla con dos productos y cargar uno a mano; la existencia sube, el Libro de Compras sigue vacío y en el registro de inventario sale como inicial.
 - [ ] Crear un producto, recibir una compra con número y control de factura, verlo en el Libro de Compras.
+- [ ] Vencimientos: en Compras el año se escribe completo a mano; un lote vencido no se recibe; en la caja lo vencido sale «fuera de venta»; en Inventario y lotes, «Corregir» cambia un vencimiento mal escrito y queda en los movimientos.
 - [ ] Vender con factura por la máquina fiscal: queda pendiente hasta que la impresora devuelve su número; la existencia baja del lote que vence primero; aparece en Mi turno y en el Libro de Ventas.
 - [ ] Falla de la impresora: la factura sale del talonario y queda en el libro de control.
 - [ ] Reporte Z del día: cuadra con la base.
