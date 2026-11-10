@@ -981,7 +981,7 @@
       ${INI.man.length ? `<div class="tbl-wrap"><table><thead><tr><th>Producto</th><th>Lote</th><th>Vence</th><th class="r">Cant.</th><th class="r">Costo $</th><th></th></tr></thead><tbody>
         ${INI.man.map((r, i) => { const p = P.find(x => x.id === r.id) || {name: '—', pres: '', stock: 0}; return `<tr><td class="tt"><b>${C.esc(p.name)}</b><div class="small muted">${C.esc(p.pres)} · existencia ${p.stock}</div></td>
           <td><input class="cell-in" data-ini="${i}" data-f="l" value="${C.esc(r.l)}" placeholder="${p.ctrl ? 'Lote' : 'S/L'}" aria-label="Lote de ${C.esc(p.name)}" style="min-width:100px"></td>
-          <td><input class="cell-in ${r.e ? '' : 'miss'}" type="date" data-ini="${i}" data-f="e" value="${r.e}" aria-label="Vencimiento de ${C.esc(p.name)}" style="min-width:140px"></td>
+          <td><input class="cell-in ${r.e ? '' : 'miss'}" type="date" min="2000-01-01" max="2100-12-31" data-ini="${i}" data-f="e" value="${r.e}" aria-label="Vencimiento de ${C.esc(p.name)}" style="min-width:140px"></td>
           <td class="r"><input class="cell-in num ${r.q > 0 ? '' : 'miss'}" data-ini="${i}" data-f="q" value="${r.q || ''}" inputmode="numeric" aria-label="Cantidad de ${C.esc(p.name)}" style="width:70px;text-align:right"></td>
           <td class="r"><input class="cell-in num" data-ini="${i}" data-f="c" value="${nf(r.c)}" inputmode="decimal" aria-label="Costo de ${C.esc(p.name)}" style="width:80px;text-align:right"></td>
           <td><button class="x" data-act="ini-del" data-i="${i}" aria-label="Quitar renglón">${ic('x')}</button></td></tr>`; }).join('')}</tbody></table></div>
@@ -1043,6 +1043,8 @@
     else if (act === 'ini-subir') { const h = INI.hoja; if (h && h.items.length && !h.errs.length) await iniMandar(h.items, () => { INI.hoja = null; }); }
     else if (act === 'ini-cargar') {
       const mal = INI.man.filter(r => !r.e || !(r.q > 0)).length;
+      const fmal = INI.man.find(r => r.e && !fechaLote(r.e));
+      if (fmal) { avisar('Revisa el vencimiento: escribe el año completo (por ejemplo 2027)'); return; }
       if (mal) { avisar(`Completa vencimiento y cantidad en ${mal} ${mal === 1 ? 'renglón' : 'renglones'} antes de cargar`); return; }
       const sinLote = INI.man.find(r => !r.l && (P.find(x => x.id === r.id) || {}).ctrl);
       if (sinLote) { avisar('Un controlado necesita su número de lote'); return; }
@@ -1061,6 +1063,32 @@
       if (C.empresa) C.empresa.carga_inicial_cerrada = data || new Date().toISOString();
       INI.man = []; INI.hoja = null; closeModal(); render(); avisar('Carga inicial cerrada: la mercancía ahora entra con su factura');
     }
+  }, true);
+
+  /* ---------------- Corregir el vencimiento de un lote (migración 0027) ----------------
+     Para cuando se escribió mal al recibir. Queda anotado quién lo cambió, de cuál fecha a cuál y por qué. */
+  const puedeVence = () => ['dueno', 'gerente', 'regente', 'almacen'].includes(A().rol);
+  window.loteVencBtn = (p, l) => puedeVence() && l.id && l.q > 0 ? ` <button class="btn sm linkb" data-act="lote-venc" data-id="${p.id}" data-lote="${l.id}" aria-label="Corregir el vencimiento del lote ${C.esc(l.l)}">Corregir</button>` : '';
+  document.addEventListener('click', async e => {
+    const b = e.target.closest('[data-act="lote-venc"], [data-act="lote-venc-ok"]'); if (!b || A().tipo !== 'farmacia') return;
+    e.stopImmediatePropagation();
+    if (b.dataset.act === 'lote-venc') {
+      const p = P.find(x => x.id === +b.dataset.id), l = p && p.lots.find(x => x.id === +b.dataset.lote); if (!l) return;
+      openModal(`<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="lv-t" style="max-width:460px"><div class="hd"><h2 id="lv-t">Corregir el vencimiento</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div><div class="bd">
+        <p style="margin:0"><b>${C.esc(p.name)}</b> · lote ${C.esc(l.l)} · ${l.q} unidades<br><span class="small muted">Hoy dice que vence el ${dmy(l.e)}.</span></p>
+        <div class="field"><label for="lv-f">Vencimiento correcto (como viene en la caja)</label><input id="lv-f" class="input" type="date" min="2000-01-01" max="2100-12-31" value="${fechaLote(l.e) ? l.e : ''}"></div>
+        <div class="field"><label for="lv-m">Por qué se corrige</label><input id="lv-m" class="input" maxlength="120" placeholder="Por ejemplo: se escribió mal al recibir la factura"></div>
+        <p class="small muted" style="margin:0">Queda anotado en los movimientos de inventario con tu usuario. Solo sirve para corregir un error: un lote vencido de verdad se retira con «Salida de inventario».</p>
+        <div class="row"><button class="btn" style="flex:1" data-act="close">Cancelar</button><button class="btn primary" style="flex:1" data-act="lote-venc-ok" data-id="${p.id}" data-lote="${l.id}">Guardar</button></div></div></div>`);
+      return;
+    }
+    const f = document.getElementById('lv-f').value, m = document.getElementById('lv-m').value.trim();
+    if (!fechaLote(f)) { avisar('Escribe la fecha completa, con el año de cuatro cifras'); return; }
+    if (m.length < 5) { avisar('Escribe por qué se corrige'); return; }
+    const {error} = await db.rpc('corregir_vencimiento', {p_lote: +b.dataset.lote, p_vence: f, p_motivo: m});
+    if (error) { avisar(C.msg(error)); return; }
+    closeModal(); await recargar([+b.dataset.id]); await cargarMovimientos(); const p = P.find(x => x.id === +b.dataset.id); if (p && p.ctrl) await C.recargarControlados();
+    guardarCopia(); render(); avisar('Vencimiento corregido');
   }, true);
 
   /* ---------------- Al entrar ---------------- */
