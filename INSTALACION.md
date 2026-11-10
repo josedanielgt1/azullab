@@ -1,6 +1,8 @@
 # Instalación y revisión · Grupo Azullab
 
-Pasos para dejar los tres sistemas funcionando con la base real (Supabase, proyecto `azullab`) y una lista para revisarlos antes de entregar.
+Pasos para dejar los sistemas funcionando con la base real (Supabase, proyecto `azullab`) y una lista para revisarlos antes de entregar.
+
+**Orden de instalación (decidido el 9 nov 2026):** la primera instalación, el 21 de noviembre, es **solo la farmacia**. El laboratorio y el CrossFit se instalan después, cada uno en su fecha, con estos mismos pasos del 4 y del 5.
 
 ## 1. Base de datos (una sola vez)
 
@@ -30,10 +32,13 @@ supabase/armar_sql_editor.sh 0026 > supabase/pendiente_sql_editor.sql   # el nú
 
 ## 4. Primer día en cada negocio (lo hace el dueño)
 
+Empieza por la farmacia; el laboratorio y el CrossFit, cuando les toque.
+
 1. **Configuración → Datos fiscales**: razón social, RIF, domicilio, imprenta, talonario de contingencia (primer y último número), excedente del mes anterior. Marcar «confirmados» (sin eso no se factura).
    - Farmacia (máquina fiscal): número de registro de la máquina y el agente instalado en la PC de la caja (ver `docs/agente-maquina-fiscal.md`). Mientras no esté, se practica con la impresora «simulada».
 2. **Tasa BCV**: se carga sola al entrar el dueño; si falla, «Tasa BCV» a mano.
-3. **Usuarios**: crear al equipo con su rol (cajero, regente, almacén, atención, bioanalista, toma de muestras, coach).
+3. **Usuarios**: crear al equipo con su rol (cajero, regente, almacén, atención, bioanalista, toma de muestras, coach). El acceso es por negocio: quien se crea en la farmacia solo entra a la farmacia. Al dueño real del Grupo se le crea en la farmacia y, cuando se instalen los otros, se le da acceso como dueño con «Dar acceso» en cada uno.
+   - Antes de entregar, quitar los usuarios de prueba (por ejemplo «prueba») en Supabase → Authentication → Users.
 4. **Catálogo**:
    - Farmacia: Proveedores (droguerías con RIF) y productos; la existencia entra al recibir la primera compra.
    - Laboratorio: «Cargar el catálogo base» y ajustar precios, referencias y reactivo de cada examen.
@@ -51,17 +56,17 @@ Farmacia
 - [ ] Sin internet (desconectar el wifi): vender con talonario; al volver, sube solo.
 - [ ] Cajero: no ve ganancias, compras, récipes ni usuarios.
 
-Laboratorio
+Laboratorio (en su instalación)
 - [ ] Paciente nuevo, orden con factura, toma, resultados, validación (solo el bioanalista), entrega.
 - [ ] Un resultado validado no se puede cambiar; anular solo con nota de crédito.
 - [ ] Registrar una factura de compra con retención de ISLR.
 
-CrossFit
+CrossFit (en su instalación)
 - [ ] Plan, socio nuevo (queda vencido), cobro (corre el vencimiento), entrada con cédula, pizarra publicada.
 - [ ] Dar acceso a la app a un socio y entrar como él: solo ve lo suyo (ni clientes ni proveedores).
 
 Los tres
-- [ ] Panel del grupo del dueño con las ventas reales de los tres negocios.
+- [ ] Panel del grupo del dueño con las ventas reales de los negocios instalados.
 - [ ] Recargar la página: todo sigue ahí.
 
 ## Pruebas automáticas
