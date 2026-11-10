@@ -1593,24 +1593,12 @@ V.purchases = () => {
         <td><button class="x" data-act="recvdel" data-i="${i}" aria-label="Quitar renglón">${ic('x')}</button></td></tr>`}).join('')}</tbody></table></div>`
       :`<div class="empty">${ic('search')}<b>Escanea el primer producto de la factura</b><span>Cada código leído agrega un renglón.</span></div>`}
       <div class="row"><span class="muted small" style="flex:1;min-width:220px">Cada producto llega con su % de ganancia guardado (${dd(CFG.gan)} % por defecto)${own?'; aquí lo puedes cambiar':'; solo el dueño lo cambia'}. ${pend?`<b style="color:var(--warn)">${pend===1?'Un producto llega':pend+' productos llegan'} con otro costo: al cargar ${own?'escoges qué hacer con el precio':'entra con la opción por defecto y se le avisa al dueño'}.</b> `:''}${miss?`<b style="color:var(--warn)">Falta lote o vencimiento en ${miss} ${miss===1?'producto':'productos'}.</b>`:''}</span><span class="muted">Total factura</span><b class="num" style="font-size:1.15rem">${usd(sub)}</b></div>
-      <div class="row"><button class="btn" data-act="toast" data-m="Factura de compra guardada como borrador">Guardar borrador</button><span class="spacer"></span><button class="btn primary fixm" data-act="receive" ${RECV.length?'':'disabled'}>${ic('check')}Cargar al inventario</button></div>`;
-  if (S.buyTab==='file') body = `
-      <div class="drop">${ic('doc')}<b>Arrastra aquí el archivo de la factura</b><span class="small">Excel o TXT, como lo manda la droguería por correo o lo descargas de su portal.</span><button class="btn" data-act="toast" data-m="Archivo leído: Drolanca 0194012 · 12 productos">Elegir archivo</button></div>
-      <div class="tbl-wrap"><table><thead><tr><th>Resultado de la lectura</th><th class="r">Productos</th></tr></thead><tbody>
-        <tr><td><span class="pill ok">Reconocidos</span> Ya están en el catálogo, por su código principal o un alterno</td><td class="r">10</td></tr>
-        <tr><td><span class="pill warn">Nuevos</span> Se crean con los datos del archivo; falta revisar IVA y % de ganancia</td><td class="r">2</td></tr></tbody></table></div>
-      <p class="small muted">Es la forma más rápida: no hay que escanear uno por uno. Depende de que la droguería entregue la factura en archivo; si no, se usa el escáner.</p>
-      <div class="row"><span class="spacer"></span><button class="btn primary" data-act="toast" data-m="Factura importada: 12 productos con lote y vencimiento">Revisar e importar</button></div>`;
-  if (S.buyTab==='initial') body = `
-      <p>Se hace <b>una sola vez</b>, al arrancar: todo lo que ya hay en los anaqueles entra al sistema de un golpe.</p>
-      <div class="tbl-wrap"><table><thead><tr><th>Columna de la plantilla</th><th>Ejemplo</th></tr></thead><tbody>
-        ${[['Código de barras','7591020311042'],['Códigos alternos','7591020311059; 7591020311066'],['Nombre','Losartán potásico 50 mg'],['Principio activo','Losartán'],['Laboratorio','Genven'],['Presentación','Caja x 30 tabletas'],['IVA','E (exento) o G (16%)'],['Costo $','2,10'],['% de ganancia','30'],['PMVP $ (si viene marcado)','—'],['Lote','GV25L118'],['Vencimiento','31/03/2028'],['Cantidad','30'],['Requiere récipe','Sí / No']].map(r=>`<tr><td>${r[0]}</td><td class="num muted">${r[1]}</td></tr>`).join('')}</tbody></table></div>
-      <p class="small muted">Nosotros hacemos esta carga como parte de la instalación: contamos el anaquel, llenamos la plantilla y la subimos.</p>
-      <div class="row"><button class="btn" data-act="toast" data-m="Plantilla de carga inicial: pídela a Cuadre">Ver plantilla</button><span class="spacer"></span><button class="btn primary" data-act="toast" data-m="Carga inicial: 1.240 productos importados">Subir carga inicial</button></div>`;
-  return `${steps}
+      <div class="row"><span class="spacer"></span><button class="btn primary fixm" data-act="receive" ${RECV.length?'':'disabled'}>${ic('check')}Cargar al inventario</button></div>`;
+  if (S.buyTab==='initial') body = typeof iniHtml==='function' ? iniHtml() : '';   // js/farmacia-real.js
+  return `${S.buyTab==='initial'?'':steps}
   <div class="grid">
   <section class="panel"><div class="hd"><h2>Ingresar mercancía</h2></div>
-    <div class="tabs" role="tablist">${[['scan','Escanear factura'],['file','Importar archivo'],['initial','Carga inicial']].map(([k,t])=>`<button role="tab" data-act="buytab" data-k="${k}" class="${S.buyTab===k?'on':''}" aria-selected="${S.buyTab===k}">${t}</button>`).join('')}</div>
+    <div class="tabs" role="tablist">${[['scan','Escanear factura'],['initial','Carga inicial']].map(([k,t])=>`<button role="tab" data-act="buytab" data-k="${k}" class="${S.buyTab===k?'on':''}" aria-selected="${S.buyTab===k}">${t}</button>`).join('')}</div>
     <div class="bd" style="display:grid;gap:14px">${body}</div></section>
   <section class="panel"><div class="hd"><h2>Compras recientes</h2></div><div class="bd flush list">
     ${(FIN.compras ? FIN.compras() : [])
@@ -3734,5 +3722,6 @@ FX.boot();
 </script>
 <!-- FX:FIN -->
 <script src="js/cuadre-comun.js"></script>
+<script src="js/leer-hoja.js"></script>
 <script src="js/farmacia-real.js"></script>
 <script src="js/maquina-fiscal.js"></script>

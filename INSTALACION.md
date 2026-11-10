@@ -9,7 +9,7 @@ Pasos para dejar los tres sistemas funcionando con la base real (Supabase, proye
 3. Luego pega `supabase/pendiente_sql_editor.sql` completo y dale **Run** (debe decir «Listo: migraciones aplicadas»).
 4. Para comprobar: **Table Editor** debe mostrar, entre otras, `productos`, `ordenes`, `socios`, `recipes`, `libro_controlados`.
 
-En producción ya están todas hasta la 0025 (9 nov 2026). Cada vez que haya migraciones nuevas, se arma el archivo con:
+En producción ya están todas hasta la 0025 (9 nov 2026); **falta aplicar la 0026** (carga inicial del inventario). Cada vez que haya migraciones nuevas, se arma el archivo con:
 
 ```bash
 supabase/armar_sql_editor.sh 0026 > supabase/pendiente_sql_editor.sql   # el número es la primera migración que falta en producción
@@ -35,13 +35,14 @@ supabase/armar_sql_editor.sh 0026 > supabase/pendiente_sql_editor.sql   # el nú
 2. **Tasa BCV**: se carga sola al entrar el dueño; si falla, «Tasa BCV» a mano.
 3. **Usuarios**: crear al equipo con su rol (cajero, regente, almacén, atención, bioanalista, toma de muestras, coach).
 4. **Catálogo**:
-   - Farmacia: Proveedores (droguerías con RIF) y productos; la existencia entra al recibir la primera compra.
+   - Farmacia: Proveedores (droguerías con RIF) y productos. Lo que ya está en los anaqueles entra por **Compras → Carga inicial** (dueño o gerente): desde una hoja de Excel o CSV (la plantilla se descarga ahí mismo; también sirve la hoja que tenga la farmacia, escogiendo qué columna es cada dato) o a mano, un renglón por lote. No es una compra: no lleva factura, no va al Libro de Compras y no deja deuda. Al terminar de contar, el dueño le da a «Cerrar la carga inicial» (no se vuelve a abrir desde el sistema); desde ahí la mercancía solo entra con su factura, por «Escanear factura».
    - Laboratorio: «Cargar el catálogo base» y ajustar precios, referencias y reactivo de cada examen.
    - CrossFit: Membresías y pagos → planes, productos y horario de clases.
 
 ## 5. Lista de revisión antes de entregar
 
 Farmacia
+- [ ] Carga inicial: subir la plantilla con dos productos y cargar uno a mano; la existencia sube, el Libro de Compras sigue vacío y en el registro de inventario sale como inicial.
 - [ ] Crear un producto, recibir una compra con número y control de factura, verlo en el Libro de Compras.
 - [ ] Vender con factura por la máquina fiscal: queda pendiente hasta que la impresora devuelve su número; la existencia baja del lote que vence primero; aparece en Mi turno y en el Libro de Ventas.
 - [ ] Falla de la impresora: la factura sale del talonario y queda en el libro de control.

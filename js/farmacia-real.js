@@ -830,6 +830,239 @@
       const o = P.find(r => r.id === q.id); if (o) Object.assign(o, q, {lots: o.lots, stock: o.stock}); });   // la existencia la manda la base
   };
 
+  /* ---------------- Carga inicial del inventario (migración 0026) ----------------
+     Lo que ya está en los anaqueles al arrancar no es una compra: entra con carga_inicial(),
+     sin factura, sin Libro de Compras y sin deuda. Dos caminos: una hoja de Excel o a mano. */
+  const INI = {man: [], hoja: null, ocupado: false};
+  const puedeIni = () => ['dueno', 'gerente'].includes(A().rol);
+  const iniCerrada = () => (C.empresa || {}).carga_inicial_cerrada || null;
+  const sinAcento = s => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9%$ ]+/g, ' ').replace(/\s+/g, ' ').trim();
+  // Campo, cómo se llama en pantalla y cómo suele venir en el encabezado (del más preciso al más general)
+  const INI_CAMPOS = [
+    ['codigos_alt', 'Códigos alternos', ['codigos alternos', 'codigo alterno', 'alternos']],
+    ['codigo', 'Código de barras', ['codigo de barras', 'codigo principal', 'codigo', 'barras', 'ean', 'cod']],
+    ['nombre', 'Nombre', ['nombre comercial', 'nombre', 'producto', 'descripcion', 'articulo']],
+    ['principio_activo', 'Principio activo', ['principio activo', 'componente', 'principio']],
+    ['laboratorio', 'Laboratorio', ['laboratorio', 'marca', 'fabricante']],
+    ['presentacion', 'Presentación', ['presentacion']],
+    ['seccion', 'Sección', ['seccion', 'categoria', 'departamento', 'grupo']],
+    ['iva', 'IVA', ['iva', 'impuesto']],
+    ['costo', 'Costo $', ['costo $', 'costo', 'coste']],
+    ['margen', '% de ganancia', ['% de ganancia', 'ganancia', 'margen', 'utilidad']],
+    ['pmvp', 'PMVP $', ['pmvp']],
+    ['precio', 'Precio de venta $', ['precio de venta', 'precio $', 'precio', 'pvp']],
+    ['lote', 'Lote', ['lote']],
+    ['vence', 'Vencimiento', ['fecha de vencimiento', 'vencimiento', 'vence', 'expira', 'caducidad']],
+    ['minimo', 'Existencia mínima', ['existencia minima', 'minimo']],
+    ['cantidad', 'Cantidad', ['cantidad', 'existencia', 'stock', 'unidades', 'cant']],
+    ['rx', 'Requiere récipe', ['requiere recipe', 'recipe']],
+    ['controlado', 'Controlado', ['controlado', 'psicotropico']]];
+  const iniVacio = v => v == null || String(v).trim() === '' || String(v).trim() === '—';
+  // undefined = no se entiende; null = vacío
+  const iniNum = v => {
+    if (typeof v === 'number') return Number.isFinite(v) ? v : undefined;
+    let s = String(v ?? '').replace(/[^0-9.,-]/g, ''); if (!s) return iniVacio(v) ? null : undefined;
+    if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.'); else if (/^-?\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+    const n = Number(s); return Number.isFinite(n) ? n : undefined;
+  };
+  const iso = (y, m, d) => { const f = new Date(Date.UTC(y, m - 1, d)); return y > 1999 && y < 2100 && f.getUTCFullYear() === y && f.getUTCMonth() === m - 1 && f.getUTCDate() === d ? f.toISOString().slice(0, 10) : undefined; };
+  const finDeMes = (y, m) => iso(y, m, new Date(Date.UTC(y, m, 0)).getUTCDate());
+  const iniFecha = v => {
+    if (iniVacio(v)) return null;
+    if (typeof v === 'number') return v > 20000 && v < 90000 ? new Date(Math.round((v - 25569) * 864e5)).toISOString().slice(0, 10) : undefined;   // fecha de Excel
+    const s = String(v).trim(); let m;
+    if ((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) return iso(+m[1], +m[2], +m[3]);
+    if ((m = s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4}|\d{2})$/))) return iso(m[3].length === 2 ? 2000 + +m[3] : +m[3], +m[2], +m[1]);
+    if ((m = s.match(/^(\d{1,2})[\/.\-](\d{4})$/))) return finDeMes(+m[2], +m[1]);     // como viene en la caja: 03/2028
+    if ((m = s.match(/^(\d{4})[\/.\-](\d{1,2})$/))) return finDeMes(+m[1], +m[2]);
+    return undefined;
+  };
+  const iniSi = v => /^(s|si|x|1|true|verdadero|y|yes)$/.test(sinAcento(v));
+  const iniIva = v => { const s = sinAcento(v); return !s || /^(e|exento|0|0 ?%|no)/.test(s) ? 'E' : /^(g|16|general)/.test(s) ? 'G' : /^(r|8|reducid)/.test(s) ? 'R' : undefined; };
+  const iniTexto = v => typeof v === 'number' ? String(v) : String(v ?? '').trim();
+
+  /* Encuentra la fila de encabezados y qué columna es cada campo */
+  function iniDetectar(filas) {
+    const probar = fila => {
+      const cab = fila.map(sinAcento), map = {}, usadas = new Set();
+      for (const exacto of [true, false]) for (const [k, , sin] of INI_CAMPOS) {
+        if (map[k] != null) continue;
+        for (const s of sin) { const i = cab.findIndex((h, j) => h && !usadas.has(j) && (exacto ? h === s : (' ' + h + ' ').includes(' ' + s + ' '))); if (i >= 0) { map[k] = i; usadas.add(i); break; } }
+      }
+      return map;
+    };
+    let mejor = {cab: filas.findIndex(f => f.some(x => !iniVacio(x))), map: {}, n: 0};
+    filas.slice(0, 15).forEach((f, i) => { const map = probar(f), n = Object.keys(map).length; if (n > mejor.n && n >= 2) mejor = {cab: i, map, n}; });
+    return {cab: Math.max(mejor.cab, 0), map: mejor.map};
+  }
+
+  /* De las filas de la hoja a los renglones que recibe la base, con sus errores */
+  function iniProcesar(h) {
+    const hoy = hoyVE(), items = [], errs = [], vistos = new Set(), yaEsta = new Set();
+    let conExist = 0, unidades = 0, soloCat = 0, vencidos = 0, repetidos = 0;
+    const de = (fila, k) => h.map[k] == null || h.map[k] < 0 ? '' : fila[h.map[k]];
+    const tiene = {}; P.forEach(p => (p.lots || []).forEach(l => { tiene[p.id + '|' + String(l.l).toUpperCase() + '|' + l.e] = true; }));
+    h.filas.forEach((fila, i) => {
+      if (i <= h.cab || !fila.some(x => !iniVacio(x))) return;
+      const n = i + 1, mal = t => errs.push(`Fila ${n}: ${t}`);
+      const cod = iniVacio(de(fila, 'codigo')) ? '' : iniTexto(de(fila, 'codigo')).replace(/\.0+$/, ''), nom = iniVacio(de(fila, 'nombre')) ? '' : iniTexto(de(fila, 'nombre'));
+      const p = cod ? byCode(cod) : null;
+      if (!nom && !p) { mal(cod ? `el código ${cod} no está en el catálogo y la fila no trae el nombre` : 'falta el nombre del producto'); return; }
+      if (/[<>]/.test(nom)) { mal('el nombre no puede llevar los signos < >'); return; }
+      const costo = iniNum(de(fila, 'costo')), margen = iniNum(de(fila, 'margen')), precio = iniNum(de(fila, 'precio')), pmvp = iniNum(de(fila, 'pmvp')),
+        minimo = iniNum(de(fila, 'minimo')), vence = iniFecha(de(fila, 'vence')), iva = iniIva(de(fila, 'iva'));
+      let q = iniNum(de(fila, 'cantidad'));
+      const malNum = [['el costo', costo], ['el % de ganancia', margen], ['el precio', precio], ['el PMVP', pmvp], ['la existencia mínima', minimo], ['la cantidad', q]].find(([, v]) => v === undefined || (v != null && v < 0));
+      if (malNum) { mal(`${malNum[0]} no es un número válido`); return; }
+      if (iva === undefined) { mal('el IVA debe ser E (exento), G (16 %) o R (8 %)'); return; }
+      if (vence === undefined) { mal(`no se entiende la fecha de vencimiento «${iniTexto(de(fila, 'vence'))}» (usa 31/03/2028 o 03/2028)`); return; }
+      const ctrl = iniSi(de(fila, 'controlado')), lote = iniVacio(de(fila, 'lote')) ? '' : iniTexto(de(fila, 'lote')).toUpperCase();
+      q = q || 0;
+      if (q > 0 && !vence) { if (h.sinVence) { q = 0; soloCat++; } else { mal('trae cantidad pero no la fecha de vencimiento'); return; } }
+      if (q > 0 && !lote && (ctrl || (p && p.ctrl))) { mal('un controlado necesita su número de lote'); return; }
+      const it = {};
+      if (p) it.producto_id = p.id;
+      else {
+        Object.assign(it, {nombre: nom, iva});
+        if (cod) it.codigo = cod;
+        const alt = iniVacio(de(fila, 'codigos_alt')) ? [] : iniTexto(de(fila, 'codigos_alt')).split(/[;,\/\s]+/).filter(x => x && x !== cod); if (alt.length) it.codigos_alt = alt;
+        ['principio_activo', 'laboratorio', 'presentacion', 'seccion'].forEach(k => { if (!iniVacio(de(fila, k))) it[k] = iniTexto(de(fila, k)); });
+        if (margen != null) it.margen = margen; else if (precio != null && costo > 0) it.margen = Math.min(1000, Math.max(0, r2((precio / costo - 1) * 100)));
+        if (precio != null) it.precio = r2(precio);
+        if (pmvp) it.pmvp = r2(pmvp);
+        if (minimo != null) it.minimo = Math.round(minimo);
+        if (iniSi(de(fila, 'rx'))) it.rx = true;
+        if (ctrl) it.controlado = true;
+        const clave = cod || sinAcento(nom) + '|' + sinAcento(it.presentacion || '');
+        if (!vistos.has(clave)) vistos.add(clave);
+      }
+      if (costo != null) it.costo = Math.round(costo * 10000) / 10000;
+      if (q > 0) {
+        Object.assign(it, {cantidad: q, vence}); if (lote) it.lote = lote;
+        conExist++; unidades += q; if (vence < hoy) vencidos++;
+        if (p && tiene[p.id + '|' + (lote || 'S/L') + '|' + vence]) { repetidos++; yaEsta.add(p.name); }
+      }
+      it._n = n; it._nom = p ? p.name : nom; items.push(it);
+    });
+    Object.assign(h, {items, errs, nuevos: vistos.size, conExist, unidades, soloCat, vencidos, repetidos, yaEsta: [...yaEsta]});
+    return h;
+  }
+
+  const letra = i => { let s = ''; for (i++; i > 0; i = Math.floor((i - 1) / 26)) s = String.fromCharCode(65 + (i - 1) % 26) + s; return s; };
+  function iniHojaHtml(h) {
+    const cab = h.filas[h.cab] || [], ancho = Math.max(...h.filas.slice(0, 50).map(f => f.length), 0);
+    const cols = [[-1, '— No viene —'], ...Array.from({length: ancho}, (_, i) => [i, `${letra(i)} · ${C.esc(iniTexto(cab[i]).slice(0, 40)) || 'sin título'}`])];
+    const mapa = INI_CAMPOS.map(([k, t]) => `<div class="field"><label for="im-${k}">${t}</label><select id="im-${k}" class="input" data-inimap="${k}">${fOpt(cols, h.map[k] ?? -1)}</select></div>`).join('');
+    const listo = h.items.length && !h.errs.length;
+    return `<div class="row"><b>${C.esc(h.nombre)}</b><span class="muted small">${h.filas.length - h.cab - 1} filas · encabezados en la fila ${h.cab + 1}</span><span class="spacer"></span><button class="btn sm" data-act="ini-quitar">${ic('x')}Quitar archivo</button></div>
+      <p class="small muted" style="margin:0">Revisa que cada dato salga de la columna correcta. Si la hoja no trae alguno, déjalo en «No viene».</p>
+      <div class="grid g3" style="gap:8px 12px">${mapa}</div>
+      <label class="small" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="ini-sinv" ${h.sinVence ? 'checked' : ''}><span>La hoja no trae vencimientos: cargar esos productos <b>solo al catálogo</b>, sin existencia. La existencia se carga después a mano, contando el anaquel con lote y vencimiento.</span></label>
+      <div class="row" style="gap:8px;flex-wrap:wrap"><span class="pill ${listo ? 'ok' : 'info'}">${h.items.length} renglones</span><span class="pill info">${h.nuevos} productos nuevos</span><span class="pill info">${h.conExist} con existencia · ${nf0(h.unidades)} unidades</span>
+        ${h.soloCat ? `<span class="pill warn">${h.soloCat} solo al catálogo (sin vencimiento)</span>` : ''}${h.vencidos ? `<span class="pill warn">${h.vencidos} ya vencidos: entran, pero no se venden</span>` : ''}${h.errs.length ? `<span class="pill bad">${h.errs.length} con error</span>` : ''}</div>
+      ${h.repetidos ? `<p class="small" style="color:var(--warn);margin:0"><b>Cuidado: ${h.repetidos} ${h.repetidos === 1 ? 'renglón trae un lote' : 'renglones traen lotes'} que ya están cargados</b> (${C.esc(h.yaEsta.slice(0, 3).join(', '))}${h.yaEsta.length > 3 ? '…' : ''}). Si esta hoja ya se subió, no la subas otra vez: la cantidad se sumaría.</p>` : ''}
+      ${h.errs.length ? `<div class="small" style="border:1px dashed var(--linea);border-radius:4px;padding:8px 12px"><b>Corrige esto en la hoja y vuelve a subirla</b> (no entra nada hasta que toda la hoja esté bien):<ul style="margin:6px 0 0;padding-left:18px">${h.errs.slice(0, 12).map(e => `<li>${C.esc(e)}</li>`).join('')}</ul>${h.errs.length > 12 ? `<div class="muted">…y ${h.errs.length - 12} más.</div>` : ''}</div>` : ''}
+      ${h.items.length ? `<div class="tbl-wrap"><table><thead><tr><th>Fila</th><th>Producto</th><th>Lote</th><th>Vence</th><th class="r">Cant.</th><th class="r">Costo $</th><th></th></tr></thead><tbody>
+        ${h.items.slice(0, 15).map(it => `<tr><td class="num">${it._n}</td><td class="tt"><b>${C.esc(it._nom)}</b>${it.codigo ? `<div class="small muted num">${C.esc(it.codigo)}</div>` : ''}</td><td class="num">${it.cantidad ? C.esc(it.lote || 'S/L') : '—'}</td><td class="num">${it.cantidad ? dmy(it.vence) : '—'}</td><td class="r">${it.cantidad ? nf0(it.cantidad) : '—'}</td><td class="r">${it.costo != null ? nf(it.costo) : '—'}</td>
+          <td>${it.producto_id ? '<span class="pill ok">Ya está en el catálogo</span>' : '<span class="pill info">Nuevo</span>'}</td></tr>`).join('')}</tbody></table></div>${h.items.length > 15 ? `<p class="small muted" style="margin:0">Se muestran los primeros 15 de ${h.items.length}.</p>` : ''}` : ''}
+      <div class="row"><span class="spacer"></span><button class="btn primary" data-act="ini-subir" ${listo && !INI.ocupado ? '' : 'disabled'}>${ic('check')}${INI.ocupado ? 'Cargando…' : `Cargar ${h.items.length} renglones al inventario inicial`}</button></div>`;
+  }
+  window.iniHtml = () => {
+    if (!puedeIni()) return '<div class="empty"><b>La carga inicial la hace el dueño o el gerente</b><span>La mercancía que llega con factura entra por «Escanear factura».</span></div>';
+    if (iniCerrada()) return `<div class="empty">${ic('check')}<b>La carga inicial se cerró el ${dmy(new Intl.DateTimeFormat('en-CA', {timeZone: 'America/Caracas'}).format(new Date(iniCerrada())))}</b><span>Desde entonces la mercancía solo entra con su factura, por «Escanear factura».</span></div>`;
+    const faltan = INI.man.filter(r => !r.e || !(r.q > 0)).length, uds = INI.man.reduce((t, r) => t + (r.q || 0), 0);
+    return `<p style="margin:0">Se hace <b>al arrancar</b>: entra al sistema lo que ya está en los anaqueles. No es una compra: <b>no lleva factura, no va al Libro de Compras y no deja deuda</b> con ninguna droguería. En el registro de inventario sale como existencia inicial.</p>
+      <h3 style="margin:6px 0 0">Desde una hoja de Excel</h3>
+      ${INI.hoja ? iniHojaHtml(INI.hoja) : `<p class="small muted" style="margin:0">Sirve la plantilla de Cuadre o la hoja que ya tenga la farmacia (.xlsx o .csv): al subirla escoges qué columna es cada dato. No se guarda nada hasta que revises y le des a cargar.</p>
+      <div class="row"><a class="btn" href="assets/plantilla-carga-inicial.xlsx" download>${ic('download')}Descargar la plantilla</a><label class="btn primary" style="cursor:pointer">${ic('doc')}Elegir la hoja<input type="file" id="ini-file" accept=".xlsx,.csv,.txt" hidden></label></div>`}
+      <h3 style="margin:10px 0 0">A mano, contando el anaquel</h3>
+      <p class="small muted" style="margin:0">El producto tiene que estar en el catálogo (Productos → Nuevo producto). Un renglón por lote.</p>
+      <div class="search">${ic('search')}<input id="iniscan" class="input" placeholder="Escanea el código o escribe el nombre y pulsa Enter" aria-label="Buscar producto para la carga inicial"></div>
+      ${INI.man.length ? `<div class="tbl-wrap"><table><thead><tr><th>Producto</th><th>Lote</th><th>Vence</th><th class="r">Cant.</th><th class="r">Costo $</th><th></th></tr></thead><tbody>
+        ${INI.man.map((r, i) => { const p = P.find(x => x.id === r.id) || {name: '—', pres: '', stock: 0}; return `<tr><td class="tt"><b>${C.esc(p.name)}</b><div class="small muted">${C.esc(p.pres)} · existencia ${p.stock}</div></td>
+          <td><input class="cell-in" data-ini="${i}" data-f="l" value="${C.esc(r.l)}" placeholder="${p.ctrl ? 'Lote' : 'S/L'}" aria-label="Lote de ${C.esc(p.name)}" style="min-width:100px"></td>
+          <td><input class="cell-in ${r.e ? '' : 'miss'}" type="date" data-ini="${i}" data-f="e" value="${r.e}" aria-label="Vencimiento de ${C.esc(p.name)}" style="min-width:140px"></td>
+          <td class="r"><input class="cell-in num ${r.q > 0 ? '' : 'miss'}" data-ini="${i}" data-f="q" value="${r.q || ''}" inputmode="numeric" aria-label="Cantidad de ${C.esc(p.name)}" style="width:70px;text-align:right"></td>
+          <td class="r"><input class="cell-in num" data-ini="${i}" data-f="c" value="${nf(r.c)}" inputmode="decimal" aria-label="Costo de ${C.esc(p.name)}" style="width:80px;text-align:right"></td>
+          <td><button class="x" data-act="ini-del" data-i="${i}" aria-label="Quitar renglón">${ic('x')}</button></td></tr>`; }).join('')}</tbody></table></div>
+        <div class="row"><span class="muted small" id="ini-pie" style="flex:1;min-width:200px">${INI.man.length} ${INI.man.length === 1 ? 'renglón' : 'renglones'} · ${nf0(uds)} unidades${faltan ? ` · <b style="color:var(--warn)">falta vencimiento o cantidad en ${faltan}</b>` : ''}</span>
+          <button class="btn primary" data-act="ini-cargar" ${INI.ocupado ? 'disabled' : ''}>${ic('check')}Cargar al inventario inicial</button></div>`
+      : `<div class="empty">${ic('search')}<b>Escanea el primer producto del anaquel</b><span>Cada código leído agrega un renglón.</span></div>`}
+      ${A().rol === 'dueno' ? `<div class="row" style="border-top:1px dashed var(--linea);padding-top:12px"><span class="small muted" style="flex:1;min-width:220px">Cuando termines de contar todo, cierra la carga inicial: desde ahí la mercancía solo entra con su factura.</span><button class="btn" data-act="ini-cerrar">Cerrar la carga inicial</button></div>` : ''}`;
+  };
+
+  async function iniMandar(items, alListo) {
+    if (INI.ocupado) return;
+    if (!navigator.onLine) { avisar('La carga inicial necesita internet'); return; }
+    INI.ocupado = true; render();
+    try {
+      await sincronizar();   // por si hay un producto recién creado sin número de la base
+      const {data, error} = await db.rpc('carga_inicial', {p_empresa: EMP(), p_items: items.map(({_n, _nom, ...it}) => it)});
+      if (error) { avisar(C.msg(error)); return; }
+      alListo();
+      await cargarCatalogo(); guardarCopia(); actualizarInv(); await C.recargarControlados();
+      avisar(`Carga inicial lista: ${data.productos_nuevos} productos nuevos y ${nf0(+data.unidades)} unidades en ${data.lotes} lotes`);
+    } catch (x) { avisar(C.msg(x)); }
+    finally { INI.ocupado = false; render(); }
+  }
+  function iniAgregar() {
+    const el = document.getElementById('iniscan'), raw = (el.value || '').trim(), v = raw.toLowerCase(); if (!v) return;
+    const p = byCode(raw) || (/^\d{6,}$/.test(raw) ? null : P.find(x => x.name.toLowerCase().includes(v) || x.act.toLowerCase().includes(v)));
+    if (!p) { avisar('No está en el catálogo: créalo primero en Productos → Nuevo producto'); el.select(); return; }
+    INI.man.push({id: p.id, l: '', e: '', q: 0, c: p.cost});
+    render(); const f = document.querySelector(`[data-ini="${INI.man.length - 1}"][data-f="l"]`); f && f.focus();
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'iniscan' && A().tipo === 'farmacia') { e.preventDefault(); iniAgregar(); } });
+  document.addEventListener('change', async e => {
+    const t = e.target; if (A().tipo !== 'farmacia') return;
+    if (t.id === 'ini-file') {
+      const f = t.files[0]; if (!f) return;
+      try {
+        const filas = await C.leerHoja(f);
+        if (filas.length < 2) throw new Error('La hoja no trae productos');
+        if (filas.length > 5001) throw new Error('La hoja pasa de 5.000 filas: súbela en partes');
+        INI.hoja = iniProcesar({nombre: f.name, filas, sinVence: false, ...iniDetectar(filas)});
+        if (INI.hoja.map.nombre == null) avisar('No se reconocieron los encabezados: escoge qué columna es cada dato');
+      } catch (x) { INI.hoja = null; avisar(x.message || 'No se pudo leer el archivo'); }
+      render(); return;
+    }
+    if (t.dataset.inimap && INI.hoja) { INI.hoja.map[t.dataset.inimap] = +t.value; iniProcesar(INI.hoja); render(); return; }
+    if (t.id === 'ini-sinv' && INI.hoja) { INI.hoja.sinVence = t.checked; iniProcesar(INI.hoja); render(); return; }
+    if (t.dataset.ini !== undefined) {
+      const r = INI.man[+t.dataset.ini], k = t.dataset.f, v = t.value.trim(); if (!r) return;
+      r[k] = k === 'q' ? Math.max(0, parseInt(v) || 0) : k === 'c' ? Math.max(0, parseVE(v)) : k === 'l' ? v.toUpperCase() : v;
+      if (k === 'e' || k === 'q') t.classList.toggle('miss', k === 'e' ? !r.e : !(r.q > 0));   // sin volver a pintar: no se pierde el cursor
+    }
+  });
+  document.addEventListener('click', async e => {
+    const b = e.target.closest('[data-act^="ini-"]'); if (!b || A().tipo !== 'farmacia') return;
+    e.stopImmediatePropagation();
+    const act = b.dataset.act;
+    if (act === 'ini-quitar') { INI.hoja = null; render(); }
+    else if (act === 'ini-del') { INI.man.splice(+b.dataset.i, 1); render(); }
+    else if (act === 'ini-subir') { const h = INI.hoja; if (h && h.items.length && !h.errs.length) await iniMandar(h.items, () => { INI.hoja = null; }); }
+    else if (act === 'ini-cargar') {
+      const mal = INI.man.filter(r => !r.e || !(r.q > 0)).length;
+      if (mal) { avisar(`Completa vencimiento y cantidad en ${mal} ${mal === 1 ? 'renglón' : 'renglones'} antes de cargar`); return; }
+      const sinLote = INI.man.find(r => !r.l && (P.find(x => x.id === r.id) || {}).ctrl);
+      if (sinLote) { avisar('Un controlado necesita su número de lote'); return; }
+      await iniMandar(INI.man.map(r => ({producto_id: r.id, lote: r.l || null, vence: r.e, cantidad: r.q, costo: r.c})), () => { INI.man = []; });
+    }
+    else if (act === 'ini-cerrar') {
+      const pend = INI.man.length + (INI.hoja ? INI.hoja.items.length : 0);
+      openModal(`<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ini-t" style="max-width:460px"><div class="hd"><h2 id="ini-t">Cerrar la carga inicial</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div><div class="bd">
+        <p style="margin:0">Después de cerrarla <b>no se puede volver a abrir</b> desde el sistema: la mercancía solo entrará por Compras, con la factura de la droguería. Ciérrala cuando ya esté contado todo el anaquel.</p>
+        ${pend ? `<p class="small" style="color:var(--warn);margin:0">Tienes ${pend} renglones en pantalla sin cargar: no entrarán.</p>` : ''}
+        <div class="row"><button class="btn" style="flex:1" data-act="close">Todavía no</button><button class="btn primary" style="flex:1" data-act="ini-cerrar-ok">Cerrar la carga inicial</button></div></div></div>`);
+    }
+    else if (act === 'ini-cerrar-ok') {
+      const {data, error} = await db.rpc('cerrar_carga_inicial', {p_empresa: EMP()});
+      if (error) { avisar(C.msg(error)); return; }
+      if (C.empresa) C.empresa.carga_inicial_cerrada = data || new Date().toISOString();
+      INI.man = []; INI.hoja = null; closeModal(); render(); avisar('Carga inicial cerrada: la mercancía ahora entra con su factura');
+    }
+  }, true);
+
   /* ---------------- Al entrar ---------------- */
   C.alEntrar(async a => {
     if (a.tipo !== 'farmacia') return;
@@ -850,6 +1083,7 @@
       paso('alertas', cargarAlertas),
       paso('talonario', siguienteTalonario)]);
     RECV = []; S.cart = []; S.precioAvisos.length = 0;
+    INI.man = []; INI.hoja = null;
     ventasDeHoy();
     DIF.length = 0;   // el diferencial cambiario necesita los saldos del banco: sin datos de muestra
     // Contribuyente especial (IGTF en divisas): lo dice la base, igual que lo cobra la factura

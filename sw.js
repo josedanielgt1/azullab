@@ -1,9 +1,9 @@
 /* Cuadre · Guarda los archivos del sistema en el equipo para que abra sin internet.
    Primero intenta la red (para tener siempre la última versión); si no hay, usa la copia. */
-const CACHE = 'cuadre-v4';
+const CACHE = 'cuadre-v5';
 const ARCHIVOS = ['./', 'index.html', 'farmacia.html', 'laboratorio.html', 'crossfit.html',
-  'js/config.js', 'js/cuadre-equipo.js', 'js/cuadre.js', 'js/cuadre-comun.js', 'js/farmacia-real.js', 'js/maquina-fiscal.js', 'js/laboratorio-real.js', 'js/crossfit-real.js',
-  'js/vendor/supabase-2.118.0.js', 'assets/logo-azullab.png',
+  'js/config.js', 'js/cuadre-equipo.js', 'js/cuadre.js', 'js/cuadre-comun.js', 'js/farmacia-real.js', 'js/leer-hoja.js', 'js/maquina-fiscal.js', 'js/laboratorio-real.js', 'js/crossfit-real.js',
+  'js/vendor/supabase-2.118.0.js', 'assets/logo-azullab.png', 'assets/plantilla-carga-inicial.xlsx',
   'manifest-farmacia.webmanifest', 'manifest-laboratorio.webmanifest', 'manifest-crossfit.webmanifest',
   'assets/iconos/icono-192.png', 'assets/iconos/icono-512.png', 'assets/iconos/icono-192-maskable.png', 'assets/iconos/icono-512-maskable.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARCHIVOS)).then(() => self.skipWaiting())); });
