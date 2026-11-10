@@ -71,6 +71,18 @@ Los tres
 - [ ] Panel del grupo del dueño con las ventas reales de los negocios instalados.
 - [ ] Recargar la página: todo sigue ahí.
 
+## Borrar la práctica antes de arrancar de verdad (farmacia)
+
+Si se practicó en la base real (productos, compras, ventas y facturas de ejemplo), se limpia **una sola vez**, después de la última práctica y de la revisión con el dueño, y antes de la primera factura real:
+
+1. Supabase → SQL Editor → pegar `supabase/reiniciar_farmacia.sql` completo.
+2. En la línea de `set_config`, cambiar el texto por el RIF que la farmacia tiene en ese momento en Datos fiscales. Run.
+3. Debe responder «Farmacia … reiniciada» con las filas borradas. Si el RIF no coincide o ya hay facturas de una máquina fiscal de verdad, no borra nada.
+4. En cada equipo donde se practicó: borrar los datos del sitio en el navegador (ahí viven la impresora «simulada» y la copia sin conexión).
+5. Seguir con el «Primer día»: los datos fiscales de la farmacia quedan sin confirmar.
+
+Borra solo lo de la farmacia (catálogo, lotes, facturas, compras, droguerías, clientes, récipes, gastos, reportes Z, configuración guardada en pantalla) y los números vuelven a 1. No toca usuarios, tasas, el laboratorio ni el CrossFit. No se corre nunca con el negocio ya facturando.
+
 ## Pruebas automáticas
 
 ```bash
