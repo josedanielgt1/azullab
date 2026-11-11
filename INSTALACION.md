@@ -48,7 +48,7 @@ Empieza por la farmacia; el laboratorio y el CrossFit, cuando les toque.
 
 Farmacia
 - [ ] Carga inicial: subir la plantilla con dos productos y cargar uno a mano; la existencia sube, el Libro de Compras sigue vacío y en el registro de inventario sale como inicial.
-- [ ] Crear un producto, recibir una compra con número y control de factura, verlo en el Libro de Compras.
+- [ ] Crear un producto, recibir una compra con número y control de factura y con la tasa que trae impresa; verla en el Libro de Compras con los mismos bolívares del papel.
 - [ ] Vencimientos: en Compras el año se escribe completo a mano; un lote vencido no se recibe; en la caja lo vencido sale «fuera de venta»; en Inventario y lotes, «Corregir» cambia un vencimiento mal escrito y queda en los movimientos.
 - [ ] Vender con factura por la máquina fiscal: queda pendiente hasta que la impresora devuelve su número; la existencia baja del lote que vence primero; aparece en Mi turno y en el Libro de Ventas.
 - [ ] Falla de la impresora: la factura sale del talonario y queda en el libro de control.

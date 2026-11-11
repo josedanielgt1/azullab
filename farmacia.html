@@ -1585,7 +1585,9 @@ V.purchases = () => {
         <div class="field"><label for="fn">N° de factura</label><input id="fn" class="input num" value="${(S.fac||{}).fn||''}"></div>
         <div class="field"><label for="fc">N° de control</label><input id="fc" class="input num" placeholder="00-000000" value="${(S.fac||{}).fc||''}"></div>
         <div class="field"><label for="fd">Fecha de la factura</label><input id="fd" class="input" type="date" value="${(S.fac||{}).fd||new Intl.DateTimeFormat('en-CA', {timeZone:'America/Caracas'}).format(new Date())}"></div>
+        <div class="field"><label for="ft">Tasa de la factura (Bs por $)</label><input id="ft" class="input num" inputmode="decimal" placeholder="La que trae impresa" value="${(S.fac||{}).ft||''}"></div>
       </div>
+      <p class="small muted" id="ft-tot" style="margin:0">${facTotal()}</p>
       <div class="search">${ic('search')}<input id="scan" class="input" placeholder="Escanea el código o escribe el nombre y pulsa Enter" aria-label="Escanear producto"></div>
       ${RECV.length?`<div class="tbl-wrap"><table><thead><tr><th>Producto</th><th>Lote</th><th>Vence</th><th class="r">Cant.</th><th class="r">Costo $</th><th class="r">Ganancia %</th><th class="r">Precio de venta</th><th></th></tr></thead>
       <tbody>${RECV.map((r,i)=>{const p=P.find(x=>x.id===r.id), m = recvM(r,p), pv = precioDe(r.c, m), cambia = p.stock>0 && Math.abs(r.c-p.cost)>=0.005;
@@ -1714,6 +1716,13 @@ function inv177(){
   return P.map(p => { const sal = Math.max(2, Math.round(p.min*1.6)), ret = (p.id===7?3:(p.id===12?2:0)) + S.movs.filter(m=>m.id===p.id).reduce((a,m)=>a+m.q,0), ent = p.id%3===0?0:p.min*2;
     const ini = Math.max(0, p.stock + sal + ret - ent), entF = p.stock + sal + ret - ini, c = p.cost*S.rate;
     return {p, ini, ent:entF, sal, ret, fin:p.stock, c}; });
+}
+/* Compras: el total de la factura en dólares y en bolívares a la tasa que trae el papel (va así al Libro de Compras) */
+function facTotal(){
+  const usdT = RECV.reduce((t,r)=>{ const p = P.find(x=>x.id===r.id)||{}; return t + (r.q||0)*(r.c||0)*(p.iva==='G'?1.16:1); }, 0);
+  const t = parseVE(String((S.fac||{}).ft||''));
+  if (!(t>0)) return `Escribe la tasa que trae impresa la factura (puede ser la del día anterior o la del euro). Si la dejas vacía, va con la BCV del día de la factura.${usdT?` Total: <b>${usd(usdT)}</b>.`:''}`;
+  return `Total de la factura: <b>${usd(usdT)}</b> · <b>Bs ${nf(usdT*t)}</b> a la tasa ${nf(t)}. Compáralo con el total en bolívares del papel: así va al Libro de Compras.`;
 }
 function librosPanel(){
   const R = S.rate, sum = (a,i) => a.reduce((t,r)=>t+r[i],0);

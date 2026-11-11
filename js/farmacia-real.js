@@ -218,6 +218,7 @@
       const fac = factura();
       if (!fac.proveedor_id) { avisar(DROG.length ? 'Escoge la droguería' : 'Primero agrega la droguería en Proveedores y pagos'); return; }
       if (!fac.numero) { avisar('Escribe el número de la factura del proveedor'); const x = document.getElementById('fn'); x && x.focus(); return; }
+      if ('tasa' in fac && !(fac.tasa > 0)) { avisar('Revisa la tasa de la factura: escribe solo el número, por ejemplo 365,20'); const x = document.getElementById('ft'); x && x.focus(); return; }
       const {error} = await db.rpc('recibir_factura', {p_empresa: EMP(), p_factura: fac, p_items: items});
       if (error) { avisar(/duplicate/i.test(error.message) ? `La factura ${fac.numero} de esa droguería ya está registrada` : C.msg(error)); return; }
       const ids = items.map(i => i.producto_id);
@@ -291,12 +292,14 @@
     prov: c.proveedor, ex: r2(c.exento_usd * c.tasa), bg: r2(c.gravable_usd * c.tasa)}));
   // Lo escrito en la factura del proveedor se recuerda aunque la pantalla se redibuje
   S.fac = {};
-  document.addEventListener('input', e => { if (['dr', 'fn', 'fc', 'fd'].includes(e.target.id)) S.fac[e.target.id] = e.target.value; });
+  document.addEventListener('input', e => { if (['dr', 'fn', 'fc', 'fd', 'ft'].includes(e.target.id)) S.fac[e.target.id] = e.target.value;
+    if (e.target.id === 'ft') { const x = document.getElementById('ft-tot'); if (x) x.innerHTML = facTotal(); } });
   document.addEventListener('change', e => { if (e.target.id === 'dr') S.fac.dr = e.target.value; });
   const factura = () => {
     const v = id => ((document.getElementById(id) || {}).value || S.fac[id] || '').trim();
     const d = DROG.find(x => x.n === v('dr')) || (DROG.length === 1 ? DROG[0] : null);
-    return {proveedor_id: d && d._id, numero: v('fn'), control: v('fc'), fecha: v('fd') || hoyVE()};
+    const t = parseVE(v('ft'));   // la tasa impresa en la factura; vacía = la BCV del día de la factura
+    return {proveedor_id: d && d._id, numero: v('fn'), control: v('fc'), fecha: v('fd') || hoyVE(), ...(v('ft') ? {tasa: t} : {})};
   };
   const diasA = (f, n) => { const d = new Date(f + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
   V.suppliers = () => {
@@ -355,6 +358,7 @@
         <div class="field"><label for="ncp-n">Número de la nota</label><input id="ncp-n" class="input num" value="${C.esc(x.numero || '')}"></div>
         <div class="field"><label for="ncp-c">Número de control</label><input id="ncp-c" class="input num" value="${C.esc(x.control || '')}"></div>
         <div class="field"><label for="ncp-d">Fecha</label><input id="ncp-d" type="date" class="input" value="${x.fecha || hoyVE()}"></div>
+        <div class="field"><label for="ncp-t">Tasa de la nota (Bs por $)</label><input id="ncp-t" class="input num" inputmode="decimal" value="${C.esc(x.tasa || '')}" placeholder="La que trae impresa"></div>
         <div class="field"><label for="ncp-m">Motivo</label><select id="ncp-m" class="input">${['Devolución de mercancía', 'Descuento', 'Error en el precio', 'Otro'].map(m => `<option ${(x.motivo || 'Devolución de mercancía') === m ? 'selected' : ''}>${m}</option>`).join('')}</select></div>
         <div class="field"><label for="ncp-e">Monto exento $</label><input id="ncp-e" class="input num" inputmode="decimal" value="${C.esc(x.ex || '')}" placeholder="0,00"></div>
         <div class="field"><label for="ncp-g">Base gravable $ (sin IVA)</label><input id="ncp-g" class="input num" inputmode="decimal" value="${C.esc(x.gr || '')}" placeholder="0,00"></div></div>
@@ -367,7 +371,7 @@
   };
   const leerNcp = () => { const v = id => (document.getElementById(id) || {}).value; const x = S.ncp;
     if (!document.getElementById('ncp-f')) return x;
-    Object.assign(x, {fac: v('ncp-f'), numero: v('ncp-n'), control: v('ncp-c'), fecha: v('ncp-d'), motivo: v('ncp-m'), ex: v('ncp-e'), gr: v('ncp-g')}); return x; };
+    Object.assign(x, {fac: v('ncp-f'), numero: v('ncp-n'), control: v('ncp-c'), fecha: v('ncp-d'), motivo: v('ncp-m'), ex: v('ncp-e'), gr: v('ncp-g'), tasa: v('ncp-t')}); return x; };
   document.addEventListener('click', e => {
     const b = e.target.closest('[data-act="fr-ncp"],[data-act="ncp-agregar"],[data-act="ncp-quitar"]'); if (!b || A().tipo !== 'farmacia') return;
     e.preventDefault(); e.stopImmediatePropagation();
@@ -385,6 +389,7 @@
     const x = leerNcp(), dev = /devoluci/i.test(x.motivo);
     const nota = {numero: (x.numero || '').trim(), control: (x.control || '').trim(), fecha: x.fecha || hoyVE(), motivo: x.motivo,
       exento_usd: parseVE(x.ex || '0') || 0, gravable_usd: parseVE(x.gr || '0') || 0};
+    if ((x.tasa || '').trim()) { nota.tasa = parseVE(x.tasa); if (!(nota.tasa > 0)) { avisar('Revisa la tasa de la nota: escribe solo el número, por ejemplo 365,20'); return; } }
     if (!nota.numero) { avisar('Escribe el número de la nota de crédito'); return; }
     if (!(nota.exento_usd + nota.gravable_usd > 0)) { avisar('Escribe el monto de la nota'); return; }
     const btn = e.target.querySelector('[type=submit]'); btn.disabled = true;
