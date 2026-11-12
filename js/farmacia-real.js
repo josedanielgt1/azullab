@@ -437,7 +437,9 @@
     ['equipo_cashea', () => S.cashea, v => { S.cashea.length = 0; S.cashea.push(...v); }, []],
     ['equipo_cierres', () => S.cierres || [], v => { S.cierres = v; }, []],
     // Nómina: datos de los empleados y novedades del período (solo dueño y gerente)
-    ['privado_nomina_empleados', () => EMPLEADOS(), v => { EMPLEADOS().length = 0; EMPLEADOS().push(...v); }, []],
+    // Antes el primer empleado quedaba sin número (id null): se le da uno al cargar
+    ['privado_nomina_empleados', () => EMPLEADOS(), v => { EMPLEADOS().length = 0; EMPLEADOS().push(...v);
+      let n = Math.max(0, ...v.map(e => +e.id || 0)); EMPLEADOS().forEach(e => { if (!(+e.id > 0)) e.id = ++n; }); }, []],
     ['privado_nomina_novedades', () => S.nov, v => { Object.keys(S.nov).forEach(k => delete S.nov[k]); Object.assign(S.nov, v); }, {}],
     // Cada quincena pagada: quién cobró y cuánto (la quincena de hoy queda «pagada» si ya está aquí)
     ['privado_nomina_pagos', () => S.nomPagos || [], v => { S.nomPagos = v; S.nomEstado = v.some(x => x.periodo === QUIN.id) ? 'pagada' : ''; }, []]];

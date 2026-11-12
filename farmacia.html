@@ -2031,11 +2031,21 @@ function ariPct(e){ if (e.ari!=null) return e.ari/100; const ut = e.sal*12/UT, b
   const [,r,sus] = TARIFA1.find(([l])=>base<=l); return Math.max(0, base*r - sus - 10 - 10*e.cargas)/ut; }
 const pctTxt = v => (v*100).toFixed(2).replace('.',',') + ' %';
 const initials = n => n.replace(/^Lcda?\.\s*/,'').split(' ').slice(0,2).map(x=>x[0]).join('');
-const mesesDesde = d => { const a = new Date(d+'T00:00:00'); return (TODAY.getFullYear()-a.getFullYear())*12 + TODAY.getMonth()-a.getMonth() - (TODAY.getDate()<a.getDate()?1:0); };
+/* Hoy en Venezuela (la nómina no usa la fecha fija de la maqueta) */
+const hoyNomIso = () => new Intl.DateTimeFormat('en-CA', {timeZone:'America/Caracas'}).format(new Date());
+const hoyNom = () => fmtDate(hoyNomIso());
+const mesesDesde = d => { const a = new Date(d+'T00:00:00'), h = new Date(hoyNomIso()+'T00:00:00'); return Math.max(0, (h.getFullYear()-a.getFullYear())*12 + h.getMonth()-a.getMonth() - (h.getDate()<a.getDate()?1:0)); };
+/* WhatsApp: 0414-1234567 → 584141234567 */
+const waNum = t => { const d = String(t||'').replace(/\D/g,''); return d.length===11 && d[0]==='0' ? '58'+d.slice(1) : d.length===12 && d.startsWith('58') ? d : ''; };
+function abrirWa(tel, txt){ const n = waNum(tel); if (!n) return false; window.open(`https://wa.me/${n}?text=${encodeURIComponent(txt)}`, '_blank', 'noopener'); return true; }
+const fechaLarga = iso => { const [y,m,d] = iso.split('-').map(Number); return `${d} de ${new Date(y, m-1, 1).toLocaleDateString('es-VE', {month:'long'})} de ${y}`; };
 const mesesEntre = (a, b) => { const x = new Date(a+'T00:00:00'), y = new Date(b+'T00:00:00'); y.setDate(y.getDate()+1); return Math.max(0, (y.getFullYear()-x.getFullYear())*12 + y.getMonth()-x.getMonth() - (y.getDate()<x.getDate()?1:0)); };
 const aniv = e => fmtDate(e.ing.replace(/^(\d{4})/, y=>String(+y+1)));
 /* El próximo aniversario de ingreso desde hoy (cuando le tocan las vacaciones) */
 const proxAniv = e => { const h = new Intl.DateTimeFormat('en-CA', {timeZone:'America/Caracas'}).format(new Date()), md = e.ing.slice(4); let y = Math.max(+h.slice(0,4), +e.ing.slice(0,4) + 1); if (y + md < h) y++; return y + md; };
+/* Los aumentos programados entran solos el día que les toca */
+function aplicarProg(){ const h = hoyNomIso(); EMP.forEach(e => { const toca = (e.prog||[]).filter(p=>p.desde<=h); if (!toca.length) return;
+  toca.forEach(p => { e[p.q] = p.n; e.hist.unshift({f:fmtDate(p.desde), t:p.txt, m:'Aumento programado que entró', u:'Cuadre'}); }); e.prog = e.prog.filter(p=>p.desde>h); }); }
 const conProg = (e, hasta) => (e.prog||[]).filter(p=>p.desde<=hasta).reduce((x,p)=>({...x, [p.q]:p.n}), e);
 
 /* Novedades de la quincena: horas extra, horas de noche, feriados, descansos, faltas y adelantos */
@@ -2082,27 +2092,38 @@ function liquidacion(e, mot, fEg){
   return {m, sd, si, rows, total: rows.reduce((s,r)=>s+r[1],0)};
 }
 /* Archivo de pago para el banco (formato general; el definitivo sale del manual del banco) */
+/* La cuenta de la farmacia que paga la nómina: la que dice «nómina» en su uso, o la primera */
+const ctaNomina = () => CUENTAS.find(c=>/n[oó]mina/i.test(c.uso||'')) || CUENTAS[0];
 function txtNomina(){
-  const R = S.rate, cta = CUENTAS[0], p = (s,n) => String(s).padEnd(n).slice(0,n), z = (s,n) => String(s).padStart(n,'0').slice(-n), cen = x => Math.round(x*100);
+  const R = S.rate, cta = ctaNomina() || {b:'el banco', n:''}, p = (s,n) => String(s).padEnd(n).slice(0,n), z = (s,n) => String(s).padStart(n,'0').slice(-n), cen = x => Math.round(x*100);
   const emp = activos().filter(e=>e.pago==='Transferencia');
-  const L = emp.map(e => { const bsA = quincena(e).netoUSD*R; return {e, bsA, l:'D' + p(e.ci.replace(/[-.]/g,''),10) + z(e.cta.replace(/\D/g,''),20) + z(cen(bsA),15) + p(UPN(e.n.replace(/^Lcda?\.\s*/,'')),30) + p('NOMINA 2Q OCT 2026',20)}; });
+  const L = emp.map(e => { const bsA = quincena(e).netoUSD*R; return {e, bsA, l:'D' + p(e.ci.replace(/[-.]/g,''),10) + z(e.cta.replace(/\D/g,''),20) + z(cen(bsA),15) + p(UPN(e.n.replace(/^Lcda?\.\s*/,'')),30) + p('NOMINA '+QUIN.corto,20)}; });
   const tot = L.reduce((a,x)=>a+x.bsA,0);
-  const head = 'H' + p(EMPRESA.rif.replace(/-/g,''),10) + z(cta.n.replace(/\D/g,''),20) + '30102026' + z(1,8) + z(L.length,5) + z(cen(tot),15);
-  return {txt:[head, ...L.map(x=>x.l)].join('\n'), n:L.length, tot, cta, otros: emp.filter(e=>e.banco!==cta.b), file:`nomina_${UPN(cta.b).toLowerCase().replace(/\s+/g,'_')}_30102026.txt`};
+  const head = 'H' + p(datosEmp().rif.replace(/-/g,''),10) + z(cta.n.replace(/\D/g,''),20) + QUIN.pago.replace(/\//g,'') + z(1,8) + z(L.length,5) + z(cen(tot),15);
+  return {txt:[head, ...L.map(x=>x.l)].join('\n'), n:L.length, tot, cta, otros: emp.filter(e=>e.banco!==cta.b), file:`nomina_${UPN(cta.b).toLowerCase().replace(/\s+/g,'_')}_${QUIN.pago.replace(/\//g,'')}.txt`};
 }
+/* El pago de la quincena de hoy (guardado en privado_nomina_pagos) y sus recibos enviados */
+const pagoAct = () => (S.nomPagos||[]).find(x=>x.periodo===QUIN.id);
+const pagadaEl = (completa) => { const p = pagoAct(), f = p && p.fecha ? fmtDate(new Intl.DateTimeFormat('en-CA', {timeZone:'America/Caracas'}).format(new Date(p.fecha))) : QUIN.pago; return completa ? f : f.slice(0,5); };
+const recEnv = () => (pagoAct()||{}).env || [];
+const recListos = () => activos().length > 0 && activos().every(e => recEnv().includes(e.id));
+function marcarRecibo(id){ const p = pagoAct(); if (!p) return; p.env = [...new Set([...(p.env||[]), id])]; }
+function pmTexto(){ const R = S.rate; return activos().filter(e=>e.pago==='Pago móvil').map(e=>{ const q = quincena(e); return `${e.n.replace(/^Lcda?\.\s*/,'')}\nBanco: ${e.banco}${BANCO_COD[e.banco]?' ('+BANCO_COD[e.banco]+')':''}\nTeléfono: ${e.tel}\nCédula: ${e.ci}\nMonto: Bs ${nf(q.netoUSD*R)}`; }).join('\n\n'); }
 function pagoModal(){
-  const R = S.rate, Q = activos().map(e=>({e, ...quincena(e)})), tot = Q.reduce((a,x)=>a+x.netoUSD,0), cta = CUENTAS[0];
-  const tr = Q.filter(x=>x.e.pago==='Transferencia'), pm = Q.filter(x=>x.e.pago==='Pago móvil'), ef = Q.filter(x=>x.e.pago==='Efectivo en dólares'), otros = tr.filter(x=>x.e.banco!==cta.b);
+  const R = S.rate, Q = activos().map(e=>({e, ...quincena(e)})), tot = Q.reduce((a,x)=>a+x.netoUSD,0), cta = ctaNomina();
+  const tr = Q.filter(x=>x.e.pago==='Transferencia'), pm = Q.filter(x=>x.e.pago==='Pago móvil'), ef = Q.filter(x=>x.e.pago==='Efectivo en dólares'), otros = cta ? tr.filter(x=>x.e.banco!==cta.b) : [];
   const row = (x, extra) => { const cash = x.e.pago==='Efectivo en dólares'; return `<div class="it"><span class="av">${initials(x.e.n)}</span><div class="t"><b>${x.e.n}</b><span class="small muted num">${extra}</span></div><div style="text-align:right"><div class="num" style="font-weight:700">${cash?usd(x.netoUSD):bs(x.netoUSD*R)}</div><span class="small muted num">${cash?bs(x.netoUSD*R):usd(x.netoUSD)}</span></div></div>`; };
   const grp = (icn, t, arr, inner) => arr.length ? `<section class="paygrp"><div class="row"><b class="row" style="gap:6px">${ic(icn)}${t}</b><span class="spacer"></span><span class="pill info">${arr.length}</span></div>${inner}</section>` : '';
   return `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="pgt"><div class="hd"><h2 id="pgt">Pagar la quincena · ${usd(tot)}</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div>
   <div class="bd">
     <p class="small muted" style="margin:0">Cada empleado cobra por donde dice su ficha. Lo que va en bolívares se paga a la tasa BCV del día, ${nf(R)}.</p>
     ${grp('bank','Transferencia con archivo para el banco', tr, `<div class="list">${tr.map(x=>row(x, `${x.e.banco} ${cuentaCorta(x.e.cta)}`)).join('')}</div>
-      <p class="small muted">Cuadre arma un archivo TXT con todos los pagos. El dueño lo sube en la banca en línea de empresas de ${cta.b} y lo aprueba con su token. El banco paga a todos de una vez, y se puede programar para el día de pago.${otros.length?` ${otros.length===1?'Una cuenta es':otros.length+' cuentas son'} de otro banco: para pagarlas en el mismo archivo, la farmacia debe estar afiliada al pago a proveedores.`:''}</p>
-      <button class="btn" data-act="nomtxt">${ic('doc')}Generar archivo TXT para ${cta.b}</button>`)}
+      ${cta ? `<p class="small muted">Cuadre arma un archivo TXT con todos los pagos. El dueño lo sube en la banca en línea de empresas de ${cta.b} y lo aprueba con su token. El banco paga a todos de una vez, y se puede programar para el día de pago.${otros.length?` ${otros.length===1?'Una cuenta es':otros.length+' cuentas son'} de otro banco: para pagarlas en el mismo archivo, la farmacia debe estar afiliada al pago a proveedores.`:''}</p>
+      <button class="btn" data-act="nomtxt">${ic('doc')}Generar archivo TXT para ${cta.b}</button>`
+      : `<p class="small muted">Para armar el archivo del banco falta la cuenta de la farmacia que paga la nómina. Agrégala en Configuración, en «Cuentas de la farmacia».</p>
+      <button class="btn" data-act="nav" data-v="config">${ic('gear')}Agregar la cuenta</button>`}`)}
     ${grp('phone','Pago móvil, uno por uno', pm, `<div class="list">${pm.map(x=>row(x, `${x.e.banco} · ${x.e.tel} · ${x.e.ci}`)).join('')}</div>
-      <button class="btn" data-act="toast" data-m="Datos del pago móvil copiados: teléfono, cédula, banco y monto">Copiar datos del pago móvil</button>`)}
+      <button class="btn" data-act="pmcopy">Copiar datos del pago móvil</button>`)}
     ${grp('coins','Efectivo en dólares', ef, `<div class="list">${ef.map(x=>row(x, 'Firma el recibo al cobrar')).join('')}</div>`)}
     <p class="base-legal" style="margin:0;padding:10px 0 0">¿Y pagar directo con la API del banco? Hoy los bancos venezolanos abren sus API sobre todo para cobrar y para verificar pagos móviles. Para pagar nómina por API hace falta un convenio especial con el banco. Si la farmacia lo consigue, Cuadre se conecta y el archivo ya no hace falta.</p>
     <div class="row"><button class="btn" style="flex:1" data-act="close">Cancelar</button><button class="btn primary" style="flex:1" data-act="nomconfirm">${ic('check')}Marcar como pagada</button></div>
@@ -2123,7 +2144,7 @@ function txtModal(){
 }
 const fOpt = (arr, v) => arr.map(x => { const [val,txt] = Array.isArray(x) ? x : [x,x]; return `<option value="${val}" ${String(val)===String(v)?'selected':''}>${txt}</option>`; }).join('');
 function empModal(e){
-  const nuevo = !e; e = e || {n:'', ci:'', cargo:'', jor:'Diurna', est:'Activo', ing:'2026-11-01', sal:4409.40, bono:345, cesta:LEY.cesta, cargas:0, ari:null, pago:'Transferencia', banco:'Banesco', cta:'', tel:''};
+  const nuevo = !e; e = e || {n:'', ci:'', cargo:'', jor:'Diurna', est:'Activo', ing:hoyNomIso(), sal:4409.40, bono:345, cesta:LEY.cesta, cargas:0, ari:null, pago:'Transferencia', banco:'Banesco', cta:'', tel:''};
   const u = nuevo ? null : userOf(e);
   return `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="emt"><div class="hd"><h2 id="emt">${nuevo?'Nuevo empleado':'Editar ficha'}</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div>
   <form class="bd" id="empForm" data-id="${nuevo?'':e.id}">
@@ -2134,7 +2155,7 @@ function empModal(e){
     </div>
     <div class="grid g2" style="gap:10px">
       <div class="field"><label for="em-cargo">Cargo</label><input id="em-cargo" class="input" value="${e.cargo}" placeholder="Ej.: Cajero · Caja 1"></div>
-      <div class="field"><label for="em-rol">Acceso al sistema</label><select id="em-rol" class="input">${fOpt([['','Sin usuario'],['Farmacéutico','Farmacéutico regente'],['Cajero','Cajero'],['Almacén','Almacén']], u?u.rol:'')}</select></div>
+      <div class="field"><span class="small muted" style="align-self:end">Para que entre al sistema, créale su usuario en Usuarios y permisos.</span></div>
     </div>
     <div class="grid g3" style="gap:10px">
       <div class="field"><label for="em-ing">Fecha de ingreso</label><input id="em-ing" class="input" type="date" value="${e.ing}"></div>
@@ -2158,7 +2179,7 @@ function empModal(e){
       <div class="field"><label for="em-tel">Teléfono del pago móvil</label><input id="em-tel" class="input num" value="${e.tel}" placeholder="0414-0000000"></div>
     </div>
     <div class="field"><label for="em-cta">Número de cuenta, 20 dígitos</label><input id="em-cta" class="input num" value="${e.cta}" placeholder="0134-0000-00-0000000000" inputmode="numeric"></div>
-    <p class="small muted" id="em-hint" aria-live="polite" style="margin:0">${nuevo?'Entra en la próxima quincena. Si le das acceso al sistema, se le crea su usuario y su PIN le llega por WhatsApp.':'Cada cambio queda en el historial de la ficha, con la fecha y quién lo hizo.'}</p>
+    <p class="small muted" id="em-hint" aria-live="polite" style="margin:0">${nuevo?'Entra en la próxima quincena.':'Cada cambio queda en el historial de la ficha, con la fecha y quién lo hizo.'}</p>
     ${nuevo?'':`<div class="field"><label for="em-mot">Motivo del cambio</label><input id="em-mot" class="input" placeholder="Ej.: ascenso, aumento por decreto, cambió de banco"></div>`}
     <button class="btn primary big" type="submit">${ic('check')}${nuevo?'Guardar empleado':'Guardar cambios'}</button>
   </form></div>`;
@@ -2191,7 +2212,7 @@ function aumModal(){
       <div class="field"><label for="au-val">Cuánto</label><input id="au-val" class="input num" inputmode="decimal" placeholder="Ej.: 20"></div>
     </div>
     <div class="grid g2" style="gap:10px">
-      <div class="field"><label for="au-desde">Desde</label><input id="au-desde" class="input" type="date" value="2026-11-01"></div>
+      <div class="field"><label for="au-desde">Desde</label><input id="au-desde" class="input" type="date" value="${hoyNomIso()}"></div>
       <div class="field"><label for="au-mot">Motivo</label><select id="au-mot" class="input">${fOpt(['Decreto de aumento','Ajuste por inflación','Mérito o ascenso','Acuerdo con el trabajador'],'')}</select></div>
     </div>
     <fieldset class="aupick"><legend>A quién</legend>${activos().map(e=>`<label><input type="checkbox" class="au-emp" value="${e.id}" checked><span>${e.n} <span class="small muted">· ${e.cargo}</span></span></label>`).join('')}</fieldset>
@@ -2237,11 +2258,13 @@ const QUIN = (() => {
   return {id: `${y}-${String(m).padStart(2,'0')}-${primera ? 1 : 2}`, nombre: `${primera ? 'Primera' : 'Segunda'} quincena de ${mesN(m - 1)}`, rango: primera ? 'del 1 al 15' : `del 16 al ${ult}`,
     pago: dd(diaPago, m, y), pagoCorto: dd(diaPago, m, y).slice(0, 5), dias: diaPago - d, mes: mesN(m - 1), finMes: dd(ult, m, y), mesSig: mesN((m) % 12),
     hoyIso: `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`,
+    desde: dd(primera ? 1 : 16, m, y), corto: `${primera ? 1 : 2}Q ${UPN(mesN(m - 1)).slice(0, 3)} ${y}`,
     sig: primera ? {nombre: `Segunda quincena de ${mesN(m - 1)}`, pago: dd(ult, m, y), iso: `${y}-${String(m).padStart(2,'0')}-${ult}`, dias: ult - d} : {nombre: `Primera quincena de ${mesN(sigMes)}`, pago: dd(15, sigMes + 1, sigY), iso: `${sigY}-${String(sigMes + 1).padStart(2,'0')}-15`, dias: (ult - d) + 15}};
 })();
 V.employees = () => {
+  aplicarProg();
   if (!EMP.length) return `<div class="row"><p class="lead">Todavía no hay empleados. Agrega a cada persona con su cargo, salario y datos del banco: la nómina, los recibos y el archivo para el banco salen de aquí.</p><span class="spacer"></span><button class="btn primary" data-act="empnew">${ic('plus')}Nuevo empleado</button></div>`;
-  const A = activos(), sel = EMP.find(e=>e.id===S.empSel) || EMP[1], c = costoMes(sel), m = mesesDesde(sel.ing), u = userOf(sel), eg = EMP.length - A.length;
+  const A = activos(), sel = EMP.find(e=>e.id===S.empSel) || EMP[0], c = costoMes(sel), m = mesesDesde(sel.ing), u = userOf(sel), eg = EMP.length - A.length;
   const tot = A.reduce((a,e)=>a+e.sal/S.rate+e.bono+e.cesta,0), real = A.reduce((a,e)=>a+costoMes(e).total,0);
   const tags = e => [e.est==='Activo'?'':`<span class="pill ${e.est==='Egresado'?'bad':'warn'}">${e.est}</span>`, (e.prog||[]).length?`<span class="pill info">Aumento el ${fmtDate(e.prog[0].desde).slice(0,5)}</span>`:''].join('');
   return `<div class="row"><p class="lead">La ficha de cada empleado: cargo, salario, bonos, cargas familiares, AR-I, cómo cobra y cuánto le cuesta de verdad a la farmacia. Todo se puede editar y cada cambio queda en su historial.</p><span class="spacer"></span><div class="row" style="gap:8px"><button class="btn" data-act="aumento">${ic('up')}Aumento de sueldo</button><button class="btn primary" data-act="empnew">${ic('plus')}Nuevo empleado</button></div></div>
@@ -2261,7 +2284,7 @@ V.employees = () => {
       <div class="stat"><span class="muted">Cédula</span><span class="num">${sel.ci}</span></div>
       <div class="stat"><span class="muted">Ingreso · antigüedad</span><span class="num">${fmtDate(sel.ing)} · ${m} meses</span></div>
       <div class="stat"><span class="muted">Jornada · estado</span><span>${sel.jor} · ${sel.est}</span></div>
-      <div class="stat"><span class="muted">Acceso al sistema</span><span>${u?`${ROL_TXT[u.rol]} · ${u.caja}${u.est!=='Activo'?' · '+u.est:''}`:'Sin usuario'}</span></div>
+      <div class="stat"><span class="muted">Acceso al sistema</span><span>${u?`${ROL_TXT[u.rol]} · ${u.caja}${u.est!=='Activo'?' · '+u.est:''}`:'<button class="btn sm" data-act="nav" data-v="users">Se da en Usuarios</button>'}</span></div>
       <div class="stat"><span class="muted">Cargas familiares</span><span class="num">${sel.cargas}</span></div>
       <div class="stat"><span class="muted">Cobra por</span><span>${pagoTxt(sel)}${sel.pago==='Transferencia'?` <span class="num muted">${cuentaCorta(sel.cta)}</span>`:sel.pago==='Pago móvil'?` <span class="num muted">${sel.tel}</span>`:''}</span></div>
       <div class="stat"><span class="muted">AR-I (retención de ISLR)</span><span class="num">${pctTxt(ariPct(sel))}</span></div>
@@ -2274,7 +2297,7 @@ V.employees = () => {
       <div class="stat"><span>Seguro social, paro forzoso y FAOV</span><span class="num">${usd(c.patronal)}</span></div>
       <div class="stat"><span>Prestaciones, vacaciones y utilidades</span><span class="num">${usd(c.prov)}</span></div>
       <div class="stat"><b>Costo real</b><b class="num">${usd(c.total)}</b></div>
-      <div class="row" style="margin-top:12px"><button class="btn sm" data-act="toast" data-m="Constancia de trabajo de ${sel.n} lista en PDF">${ic('doc')}Constancia de trabajo</button><button class="btn sm" data-act="toast" data-m="AR-I de ${sel.n} listo para firmar">AR-I</button><button class="btn sm" data-act="liqde" data-id="${sel.id}">Calcular liquidación</button></div>
+      <div class="row" style="margin-top:12px"><button class="btn sm" data-act="empconst" data-id="${sel.id}">${ic('doc')}Constancia de trabajo</button><button class="btn sm" data-act="empari" data-id="${sel.id}">AR-I</button><button class="btn sm" data-act="liqde" data-id="${sel.id}">Calcular liquidación</button></div>
       <h3 style="margin:16px 0 6px">Historial de cambios</h3>
       ${sel.hist.length?`<div class="hist">${sel.hist.map(h=>`<div class="hi"><span class="num small muted">${h.f}</span><span><b style="font-weight:600">${h.t}</b><span class="small muted">${h.m?' · '+h.m:''} · ${h.u}</span></span></div>`).join('')}</div>`:'<p class="small muted" style="margin:0">Sin cambios desde que entró.</p>'}
     </div></section>
@@ -2283,9 +2306,85 @@ V.employees = () => {
     ${A.length ? A.map(e=>({e, f:proxAniv(e)})).sort((a,b)=>a.f.localeCompare(b.f)).map(({e,f})=>`<div class="it"><span class="av">${initials(e.n)}</span><div class="t"><b>${e.n}</b><span class="small muted">${e.cargo}</span></div><span class="pill ghost">${fmtDate(f)}</span></div>`).join('') : '<p class="small muted" style="margin:12px 16px">Sin empleados activos.</p>'}
   </div></section>`;
 };
+/* Los datos fiscales reales de la farmacia (los de la base, no los de la maqueta) */
+const datosEmp = () => { const f = (typeof FX==='object' && FX.F) || {}; return {razon: f.razon || EMPRESA.razon, rif: f.rif || EMPRESA.rif, dom: f.dom || [EMPRESA.dir, EMPRESA.mun].filter(Boolean).join(', ')}; };
+/* Documentos de la nómina para imprimir o guardar en PDF: constancia, AR-I, finiquito y recibo */
+const DOC_CSS = `.docnom{background:#fff;color:#1a2440;font-family:Georgia,'Times New Roman',serif;font-size:14px;line-height:1.6;padding:28px 32px;border:1px solid #d6dbe6;border-radius:6px}
+.docnom .dhd{text-align:center;display:grid;gap:2px;border-bottom:2px solid #1a2440;padding-bottom:10px}.docnom .dhd b{font-size:16px;letter-spacing:.04em}.docnom .dhd span{font-size:12.5px}
+.docnom h3{text-align:center;letter-spacing:.08em;font-size:15px;margin:22px 0 16px}.docnom p{margin:0 0 12px;text-align:justify}
+.docnom table{width:100%;border-collapse:collapse;margin:8px 0 14px;font-size:13px}.docnom th,.docnom td{border-bottom:1px solid #d6dbe6;padding:5px 6px;text-align:left;vertical-align:top}.docnom .r{text-align:right;white-space:nowrap}.docnom tfoot td{font-weight:700;border-top:2px solid #1a2440;border-bottom:0}
+.docnom .nota{font-size:11.5px;color:#4a5570}.docnom .firmas{display:grid;grid-template-columns:1fr 1fr;gap:48px;margin-top:64px;text-align:center;font-size:12.5px}.docnom .firmas div{border-top:1px solid #1a2440;padding-top:6px}
+.docnom pre{font-family:'Courier New',monospace;font-size:12px;line-height:1.45;margin:0 auto;width:max-content}
+@media print{.docnom{border:0;padding:0}}`;
+const docHead = () => { const de = datosEmp(); return `<div class="dhd"><b>${UPN(de.razon)}</b><span>RIF ${de.rif}</span><span>${de.dom}</span></div>`; };
+const nomLimpio = e => e.n;
+function docModal(titulo, html){
+  S.docNom = {titulo, html};
+  return `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="dnt" style="max-width:760px"><div class="hd"><h2 id="dnt">${titulo}</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div>
+  <div class="bd"><style>${DOC_CSS}</style><article class="docnom">${html}</article>
+    <p class="small muted" style="margin:0">Se imprime o se guarda en PDF desde la ventana de impresión (destino «Guardar como PDF»).</p>
+    <div class="row"><button class="btn" style="flex:1" data-act="close">Cerrar</button><button class="btn primary" style="flex:1" data-act="nomprint">${ic('doc')}Imprimir o guardar PDF</button></div></div></div>`;
+}
+function imprimirDoc(titulo, html){
+  const f = document.createElement('iframe'); f.setAttribute('aria-hidden','true'); f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0'; document.body.appendChild(f);
+  const d = f.contentDocument; d.open(); d.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${titulo}</title><style>@page{margin:18mm}body{margin:0}${DOC_CSS}</style></head><body><article class="docnom">${html}</article></body></html>`); d.close();
+  setTimeout(() => { try { f.contentWindow.focus(); f.contentWindow.print(); } catch(err){ toast('No se pudo abrir la impresión en este equipo'); } setTimeout(() => f.remove(), 60000); }, 300);
+}
+function constanciaHtml(e){
+  const de = datosEmp(), eg = e.est==='Egresado', hoy = hoyNomIso(), ing = fechaLarga(e.ing);
+  const tiempo = eg ? `prestó sus servicios en esta empresa desde el ${ing} hasta el ${e.egreso ? fechaLarga(e.egreso) : '______'}` : `presta sus servicios en esta empresa desde el ${ing}`;
+  return `${docHead()}<h3>CONSTANCIA DE TRABAJO</h3>
+  <p>Quien suscribe, en representación de <b>${de.razon}</b>, RIF ${de.rif}, hace constar por medio de la presente que el(la) ciudadano(a) <b>${nomLimpio(e)}</b>, titular de la cédula de identidad N° <b>${e.ci||'______'}</b>, ${tiempo}, desempeñando el cargo de <b>${e.cargo}</b>${eg?'':`, con un salario mensual de <b>${bs(e.sal)}</b>${e.bono+e.cesta?` y bonos no salariales y cestaticket por <b>${usd(e.bono+e.cesta)}</b> al mes`:''}`}.</p>
+  <p>Constancia que se expide a petición de la parte interesada, a los ${fechaLarga(hoy).replace(/^(\d+) de/, '$1 días del mes de')}.</p>
+  <div class="firmas"><div>Por ${de.razon}<br>Nombre, cargo y firma</div><div>Sello de la empresa</div></div>`;
+}
+function ariHtml(e){
+  const sal = e.sal*12, ut = sal/UT, base = ut - 774, reb = 10 + 10*e.cargas, de = datosEmp();
+  const tr = base > 0 ? TARIFA1.find(([l])=>base<=l) : null, imp = tr ? Math.max(0, base*tr[1] - tr[2]) : 0, neto = Math.max(0, imp - reb), pct = ut <= 1000 || base <= 0 ? 0 : neto/ut;
+  const fila = (a, b, c='') => `<tr><td>${a}</td><td class="r">${b}</td><td class="r">${c}</td></tr>`, u = x => dd(Math.round(x*100)/100);
+  return `${docHead()}<h3>CÁLCULO DE LA RETENCIÓN DE ISLR SOBRE SUELDOS (AR-I)</h3>
+  <p>Trabajador: <b>${nomLimpio(e)}</b> · C.I. ${e.ci||'______'} · Cargo: ${e.cargo} · Cargas familiares: ${e.cargas}. Año ${hoyNomIso().slice(0,4)}. Unidad tributaria: ${bs(UT)}.</p>
+  <table><thead><tr><th>Concepto</th><th class="r">Bs</th><th class="r">UT</th></tr></thead><tbody>
+  ${fila('Remuneración estimada del año (salario normal × 12)', nf(sal), u(ut))}
+  ${fila('Desgravamen único', '', '774')}
+  ${fila('Renta gravable', base>0?nf(base*UT):'0,00', base>0?u(base):'0')}
+  ${fila(`Impuesto según la tarifa 1${tr?` (${dd(tr[1]*100)} % menos ${tr[2]} UT)`:''}`, nf(imp*UT), u(imp))}
+  ${fila(`Rebajas: personal (10 UT) y ${e.cargas} ${e.cargas===1?'carga familiar':'cargas familiares'} (10 UT c/u)`, '', u(reb))}
+  ${fila('Impuesto estimado del año', nf(neto*UT), u(neto))}</tbody>
+  <tfoot><tr><td>Porcentaje de retención en cada pago</td><td class="r">${pctTxt(pct)}</td><td></td></tr></tfoot></table>
+  ${ut <= 1000 ? `<p>La remuneración estimada no pasa de 1.000 UT al año: no corresponde retener ISLR.</p>` : ''}
+  ${e.ari!=null ? `<p>El trabajador declaró en su AR-I un porcentaje de <b>${pcT(e.ari)}</b>, que es el que se le retiene.</p>` : ''}
+  <p class="nota">Cálculo de apoyo con desgravamen único y salario normal (sin bonos no salariales), según la ficha del trabajador. El formulario AR-I lo llena y firma el trabajador; si elige desgravámenes detallados o estima otros ingresos, el porcentaje cambia. Revísalo con el contador de ${de.razon}.</p>
+  <div class="firmas"><div>${nomLimpio(e)}<br>Trabajador</div><div>Por ${de.razon}<br>Agente de retención</div></div>`;
+}
+function finiquitoHtml(e, mot, f){
+  const r = liquidacion(e, mot, f), R = S.rate, de = datosEmp();
+  return `${docHead()}<h3>FINIQUITO DE PRESTACIONES SOCIALES</h3>
+  <p>Trabajador: <b>${nomLimpio(e)}</b> · C.I. ${e.ci||'______'} · Cargo: ${e.cargo}<br>Ingreso: ${fmtDate(e.ing)} · Egreso: ${fmtDate(f)} · Motivo: ${mot} · Tiempo de servicio: ${r.m} meses<br>Salario diario: ${bs(r.sd)} · Salario integral diario: ${bs(r.si)} · Tasa BCV: ${nf(R)}</p>
+  <table><thead><tr><th>Concepto</th><th>Cómo sale</th><th class="r">Bs</th><th class="r">$</th></tr></thead>
+  <tbody>${r.rows.map(x=>`<tr><td>${x[0]} <span class="nota">(${x[3]} LOTTT)</span></td><td>${x[2]}</td><td class="r">${nf(x[1])}</td><td class="r">${nf(x[1]/R)}</td></tr>`).join('')}</tbody>
+  <tfoot><tr><td colspan="2">Total a pagar</td><td class="r">${nf(r.total)}</td><td class="r">${nf(r.total/R)}</td></tr></tfoot></table>
+  <p>Recibo de ${de.razon} la cantidad de <b>${bs(r.total)}</b> por los conceptos indicados, con motivo de la terminación de la relación de trabajo.</p>
+  <p class="nota">Cálculo hecho con los parámetros de ley cargados en Cuadre. Debe revisarlo el contador antes de pagar.</p>
+  <div class="firmas"><div>${nomLimpio(e)}<br>C.I. ${e.ci||'______'} · Recibí conforme</div><div>Por ${de.razon}</div></div>`;
+}
+function reciboModal(e){
+  const pg = S.nomEstado==='pagada', env = recEnv().includes(e.id), tel = waNum(e.tel);
+  return `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="rbt" style="max-width:440px"><div class="hd"><h2 id="rbt">Recibo de pago</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div><div class="bd"><div class="printer"></div><div class="tkwrap"><pre class="ticket printing">${reciboText(e)}</pre><span class="sello ${pg?'verde':'ambar'} tk-sello estampar">${pg?'Pagado':'Por pagar'}<small>${pg?pagadaEl(true).replace(/\//g,'-'):'Quincena del '+QUIN.pagoCorto}</small></span></div>
+  <div class="row"><button class="btn" style="flex:1" data-act="recwa" data-id="${e.id}" ${tel?'':'disabled title="Falta el teléfono en la ficha"'}>${ic('wa')}${!tel?'Sin teléfono':env?'Enviar otra vez':'WhatsApp'}</button><button class="btn" style="flex:1" data-act="recprint" data-id="${e.id}">${ic('doc')}Imprimir</button><button class="btn" style="flex:1" data-act="close">Listo</button></div></div></div>`;
+}
+function recibosModal(){
+  const A = activos(), env = recEnv();
+  return `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="rst" style="max-width:520px" id="recList"><div class="hd"><h2 id="rst">Recibos por WhatsApp · ${env.filter(id=>A.some(e=>e.id===id)).length} de ${A.length}</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div>
+  <div class="bd"><p class="small muted" style="margin:0">Toca «Enviar» en cada uno: se abre WhatsApp con el recibo ya escrito para ese empleado y solo le das enviar. WhatsApp no deja mandar varios de una vez desde una página.</p>
+  <div class="list">${A.map(e=>{ const ok = env.includes(e.id), tel = waNum(e.tel); return `<div class="it"><span class="av">${initials(e.n)}</span><div class="t"><b>${e.n}</b><span class="small muted num">${e.tel||'Sin teléfono en la ficha'}</span></div><div class="row" style="gap:6px">${ok?'<span class="pill ok">Enviado</span>':''}${tel?`<button class="btn sm" data-act="recwa" data-id="${e.id}">${ic('wa')}${ok?'Otra vez':'Enviar'}</button>`:`<button class="btn sm" data-act="recprint" data-id="${e.id}">${ic('doc')}Imprimir</button>`}</div></div>`; }).join('')}</div>
+  ${A.some(e=>!waNum(e.tel))?'<p class="small muted" style="margin:0">A quien no tiene teléfono en su ficha, imprímele el recibo para que lo firme, o agrega el teléfono con «Editar ficha».</p>':''}
+  <button class="btn primary big" data-act="close">Listo</button></div></div>`;
+}
 function reciboText(e){
   const q = quincena(e), r = S.rate, v = q.v, up = UPN, ln = (c, l, x, u='Bs ') => c ? [pad(l, u+nf(x))] : [];
-  return [ctr(UPN(EMPRESA.razon)), ctr('RIF '+EMPRESA.rif), '', ctr('RECIBO DE PAGO'), ctr('2DA QUINCENA OCTUBRE 2026'), ctr('DEL 16-10-2026 AL 31-10-2026'), '',
+  const de = datosEmp();
+  return [ctr(UPN(de.razon).slice(0,32)), ctr('RIF '+de.rif), '', ctr('RECIBO DE PAGO'), ctr(UPN(QUIN.nombre).slice(0,32)), ctr(`DEL ${QUIN.desde.replace(/\//g,'-')} AL ${QUIN.pago.replace(/\//g,'-')}`), '',
     'TRABAJADOR: '+up(e.n.replace(/^Lcda?\.\s*/,'')), 'C.I.: '+e.ci.replace(/\./g,''), 'CARGO: '+up(e.cargo).slice(0,25), '-'.repeat(32),
     'ASIGNACIONES', pad('SALARIO 15 DIAS', 'Bs '+nf(q.sal)), ...ln(v.hed,'H. EXTRA DIURNAS',v.hed), ...ln(v.hen,'H. EXTRA NOCTURNAS',v.hen), ...ln(v.noc,'BONO NOCTURNO',v.noc), ...ln(v.fer,'FERIADO/DESCANSO',v.fer),
     pad('BONO (NO SALARIAL)', '$ '+nf(q.bonos)), pad('CESTATICKET', '$ '+nf(q.cesta)), '-'.repeat(32),
@@ -2293,6 +2392,7 @@ function reciboText(e){
     pad('NETO SALARIO', 'Bs '+nf(q.netoBs)), pad('NETO TOTAL', '$ '+nf(q.netoUSD)), pad('TASA BCV', nf(r)), pad('PAGO', UPN(e.pago==='Transferencia' ? 'Transf. '+e.banco : e.pago==='Pago móvil' ? 'P. móvil '+e.banco : 'Efectivo $').slice(0,27)), '', 'RECIBI CONFORME: ____________', '', '', '', '', '', ''].join('\n');
 }
 V.payroll = () => {
+  aplicarProg();
   const tab = S.nomTab || 'quincena', R = S.rate, pagada = S.nomEstado==='pagada', A = activos();
   const tabs = [['quincena','Quincena','Quincena'],['nov','Horas extra','Horas extra y novedades'],['aportes','Aportes','Aportes y retenciones'],['prest','Prestaciones','Prestaciones y vacaciones'],['liq','Liquidación','Liquidación'],['cal','Calendario','Calendario de pagos'],['param','Parámetros de ley','Parámetros de ley']];
   const Q = A.map(e=>({e, ...quincena(e)})), T = k => Q.reduce((a,x)=>a+x[k],0);
@@ -2300,12 +2400,12 @@ V.payroll = () => {
   const ivssM = A.reduce((a,e)=>a+Math.min(e.sal,5*LEY.sm),0)*(0.04+LEY.ivssPat/100), rpeM = A.reduce((a,e)=>a+Math.min(e.sal,10*LEY.sm),0)*0.025, faovM = salT*0.03, ince = A.length>=5 ? salT*0.02 : null;
   let body = '';
   if (tab==='quincena'){
-    const st = [['Novedades',true],['Revisar',true],['Pagar',pagada],['Recibos',!!S.recibos]], now = st.findIndex(x=>!x[1]);
+    const st = [['Novedades',true],['Revisar',true],['Pagar',pagada],['Recibos',pagada && recListos()]], now = st.findIndex(x=>!x[1]);
     body = `<div class="bd" style="display:grid;gap:12px"><div class="steps">${st.map(([t,d],i)=>`<span class="step ${d?'done':i===now?'now':''}"><b>${d?'✓':i+1}</b>${t}</span>`).join('')}</div></div>
     <div class="bd flush tbl-wrap"><table><thead><tr><th>Empleado</th><th class="r">Salario 15 días</th><th class="r">Horas extra y otros</th><th class="r">Deducciones</th><th class="r">Neto Bs</th><th class="r">Bonos y cesta $</th><th class="r">Adelantos $</th><th class="r">Total $</th><th></th></tr></thead>
     <tbody>${Q.map(x=>`<tr><td style="min-width:200px"><div class="emp"><span class="av">${initials(x.e.n)}</span><div><b style="font-weight:600">${x.e.n}</b><div class="small muted">${pagoTxt(x.e)}</div></div></div></td><td class="r">${nf(x.sal)}</td><td class="r" style="min-width:170px">${x.v.tot?`${x.v.tot>0?'+':''}${nf(x.v.tot)}<div class="small muted" style="white-space:normal">${novTxt(x.e)}</div>`:'-'}</td><td class="r">(${nf(x.ded)})</td><td class="r">${nf(x.netoBs)}</td><td class="r">${nf(x.bonos+x.cesta)}</td><td class="r">${x.adel?'('+nf(x.adel)+')':'-'}</td><td class="r"><b>${nf(x.netoUSD)}</b></td><td><button class="btn sm" data-act="recibo" data-id="${x.e.id}">Recibo</button></td></tr>`).join('')}</tbody>
     <tfoot><tr><td>Total de la quincena</td><td class="r"><span>${nf(T('sal'))}</span></td><td class="r"><span>${nf(Q.reduce((a,x)=>a+x.v.tot,0))}</span></td><td class="r"><span>(${nf(T('ded'))})</span></td><td class="r"><span>${nf(T('netoBs'))}</span></td><td class="r"><span>${nf(T('bonos')+T('cesta'))}</span></td><td class="r"><span>${nf(T('adel'))}</span></td><td class="r"><span>${nf(T('netoUSD'))}</span></td><td></td></tr></tfoot></table></div>
-    <div class="bd" style="border-top:1px solid var(--renglon)"><div class="row">${pagada?`<span class="pill ok">${ic('check')}Pagada el 30/10 · ${usd(T('netoUSD'))}</span><span class="spacer"></span><button class="btn primary fixm" data-act="nomrecibos" ${S.recibos?'disabled':''}>${ic('wa')}${S.recibos?'Recibos enviados':'Enviar recibos por WhatsApp'}</button>`
+    <div class="bd" style="border-top:1px solid var(--renglon)"><div class="row">${pagada?`<span class="pill ok">${ic('check')}Pagada el ${pagadaEl()} · ${usd(T('netoUSD'))}</span><span class="spacer"></span><button class="btn primary fixm" data-act="nomrecibos">${ic('wa')}${recListos()?'Recibos enviados':recEnv().length?`Enviar recibos (${recEnv().length} de ${A.length})`:'Enviar recibos por WhatsApp'}</button>`
       :`<button class="btn" data-act="nomtab" data-k="nov">${ic('edit')}Editar horas extra y novedades</button><span class="spacer"></span><button class="btn primary fixm" data-act="nompagar">${ic('check')}Aprobar y pagar ${usd(T('netoUSD'))}</button>`}</div></div>
     <p class="base-legal">Al trabajador se le descuenta: seguro social 4 % (tope de 5 salarios mínimos), paro forzoso 0,5 % (tope de 10), FAOV 1 % e ISLR según su AR-I, sobre el salario más las horas extra, el bono nocturno y los feriados. Los bonos y el cestaticket se pagan en dólares o en bolívares a la tasa BCV del día; el adelanto se descuenta de ahí.</p>`;
   } else if (tab==='nov'){
@@ -2351,7 +2451,7 @@ V.payroll = () => {
     <div class="bd flush tbl-wrap"><table><thead><tr><th>Concepto</th><th>Cómo sale</th><th class="r">Monto Bs</th><th class="r">En $</th><th>Base legal</th></tr></thead>
     <tbody>${r.rows.map(x=>`<tr><td style="min-width:180px"><b style="font-weight:600">${x[0]}</b></td><td class="small" style="min-width:200px">${x[2]}</td><td class="r">${nf(x[1])}</td><td class="r">${nf(x[1]/R)}</td><td class="small">${x[3]}</td></tr>`).join('')}</tbody>
     <tfoot><tr><td>Total a pagar</td><td></td><td class="r"><span>${nf(r.total)}</span></td><td class="r"><span>${nf(r.total/R)}</span></td><td></td></tr></tfoot></table></div>
-    <div class="bd" style="border-top:1px solid var(--renglon);display:grid;gap:10px"><p class="small" style="margin:0">Ojo: la liquidación sale sobre el salario en bolívares, que hoy es bajo, porque los bonos no cuentan. Por eso da ${usd(r.total/R)}. Si el contador define que parte del bono es salario, aquí se ve cuánto sube.</p><div class="row"><span class="small muted">${r.m} meses de servicio · salario diario ${bs(r.sd)} · salario integral ${bs(r.si)}</span><span class="spacer"></span><button class="btn" data-act="toast" data-m="Finiquito de ${e.n} listo en PDF para firmar">${ic('doc')}Finiquito en PDF</button>${e.est==='Egresado'?'<span class="pill bad">Ya egresó</span>':`<button class="btn primary" data-act="egreso" data-id="${e.id}">Registrar egreso</button>`}</div></div>
+    <div class="bd" style="border-top:1px solid var(--renglon);display:grid;gap:10px"><p class="small" style="margin:0">Ojo: la liquidación sale sobre el salario en bolívares, que hoy es bajo, porque los bonos no cuentan. Por eso da ${usd(r.total/R)}. Si el contador define que parte del bono es salario, aquí se ve cuánto sube.</p><div class="row"><span class="small muted">${r.m} meses de servicio · salario diario ${bs(r.sd)} · salario integral ${bs(r.si)}</span><span class="spacer"></span><button class="btn" data-act="finiq" data-id="${e.id}">${ic('doc')}Finiquito en PDF</button>${e.est==='Egresado'?'<span class="pill bad">Ya egresó</span>':`<button class="btn primary" data-act="egreso" data-id="${e.id}">Registrar egreso</button>`}</div></div>
     <p class="base-legal">LOTTT: prestaciones por la garantía trimestral o por el cálculo final de 30 días por año, lo que sea mayor (art. 142), con sus intereses (art. 143); vacaciones y bono vacacional fraccionados (art. 196); utilidades fraccionadas (art. 131); y si el despido es injustificado, una indemnización igual a las prestaciones (art. 92). Se usa el salario integral: salario más la parte de utilidades y de bono vacacional. Los bonos no salariales no entran. El contador lo revisa antes de pagar.</p>`;
   } else if (tab==='cal'){
     const nov = A.reduce((a,e)=>{ const x = conProg(e,QUIN.sig.iso); return a + x.bono/2 + x.sal/2/R; },0);
@@ -2378,7 +2478,7 @@ V.payroll = () => {
   }
   return `<div class="row"><p class="lead">La nómina en un solo lugar: se anotan las horas extra y novedades, se calcula sola, se aprueba, se paga por archivo del banco o pago móvil y cada empleado recibe su recibo por WhatsApp. También lleva los aportes, las prestaciones, las liquidaciones y las fechas de pago.</p></div>
   <div class="kpis">
-    <div class="kpi hero"><span class="l">Esta quincena</span><span class="v">${usd(T('netoUSD'))}</span><span class="s">${pagada?'Pagada el 30/10':'Por pagar el 30/10'}</span></div>
+    <div class="kpi hero"><span class="l">Esta quincena</span><span class="v">${usd(T('netoUSD'))}</span><span class="s">${pagada?'Pagada el '+pagadaEl():'Por pagar el '+QUIN.pagoCorto}</span></div>
     <div class="kpi"><span class="l">Horas extra y otros</span><span class="v">${bs(Q.reduce((a,x)=>a+x.v.tot,0))}</span><span class="s">${dd(Q.reduce((a,x)=>a+x.v.horasX,0))} h extra en la quincena</span></div>
     <div class="kpi"><span class="l">Aportes y pensiones del mes</span><span class="v">${usd((ivssM + rpeM + faovM)/R + pens)}</span><span class="s">Seguro social, FAOV y pensiones</span></div>
     <div class="kpi"><span class="l">Prestaciones acumuladas</span><span class="v">${bs(A.reduce((a,e)=>a+15*Math.floor(mesesDesde(e.ing)/3)*e.sal/30,0))}</span><span class="s">Garantía de 15 días por trimestre</span></div>
@@ -2725,7 +2825,7 @@ document.addEventListener('click', e => {
   const a = b.dataset.act, id = +b.dataset.id;
   if (b.tagName==='A') e.preventDefault();
   switch(a){
-    case 'nav': go(b.dataset.v); break;
+    case 'nav': closeModal(); go(b.dataset.v); break;
     case 'role': S.role = b.dataset.r; S.user = ROLES[S.role].user; render(); break;
     case 'logout': Cuadre.salir('farmacia'); go('login'); break;
     case 'menu': S.sidebar = !S.sidebar; S.cartOpen = false; render(); break;
@@ -2818,7 +2918,21 @@ document.addEventListener('click', e => {
     case 'rxpac': S.rxPac = ($('#rx-pci').value||'').trim(); render(); break;
     case 'empsel': S.empSel = id; render(); break;
     case 'nomtab': S.nomTab = b.dataset.k; render(); break;
-    case 'recibo': { const e = EMP.find(x=>x.id===id); openModal(`<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="rbt" style="max-width:440px"><div class="hd"><h2 id="rbt">Recibo de pago</h2><button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></div><div class="bd"><div class="printer"></div><div class="tkwrap"><pre class="ticket printing">${reciboText(e)}</pre><span class="sello ${S.nomEstado==='pagada'?'verde':'ambar'} tk-sello estampar">${S.nomEstado==='pagada'?'Pagado':'Por pagar'}<small>${S.nomEstado==='pagada'?'30-10-2026':'Quincena del 30/10'}</small></span></div><div class="row"><button class="btn" style="flex:1" data-act="toast" data-m="Recibo enviado por WhatsApp a ${e.n}">${ic('wa')}WhatsApp</button><button class="btn" style="flex:1" data-act="close">Listo</button></div></div></div>`); break; }
+    case 'recibo': { const e = EMP.find(x=>x.id===id); if (e) openModal(reciboModal(e)); break; }
+    case 'recwa': { const e = EMP.find(x=>x.id===id); if (!e) break;
+      if (!abrirWa(e.tel, `Recibo de pago · ${QUIN.nombre}\n\`\`\`\n${reciboText(e).replace(/\s+$/,'')}\n\`\`\``)) { toast(`${e.n} no tiene un teléfono válido en su ficha (0414-0000000)`); break; }
+      if (S.nomEstado==='pagada') marcarRecibo(e.id);
+      render(); if ($('#recList')) openModal(recibosModal()); else if ($('#rbt')) openModal(reciboModal(e));
+      toast(`Se abrió WhatsApp con el recibo de ${e.n}: dale enviar`); break; }
+    case 'recprint': { const e = EMP.find(x=>x.id===id); if (e) imprimirDoc(`Recibo ${e.n} ${QUIN.corto}`, `<pre>${reciboText(e).replace(/\s+$/,'')}</pre>`); break; }
+    case 'nomprint': if (S.docNom) imprimirDoc(S.docNom.titulo, S.docNom.html); break;
+    case 'pmcopy': { const t = pmTexto(); if (!t) break;
+      const hecho = () => toast('Datos del pago móvil copiados: pégalos en la app de tu banco');
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(hecho).catch(() => toast('No se pudo copiar aquí: los datos se ven en la lista'));
+      else toast('No se pudo copiar aquí: los datos se ven en la lista'); break; }
+    case 'empconst': { const e = EMP.find(x=>x.id===id); if (e) openModal(docModal(`Constancia de trabajo · ${e.n}`, constanciaHtml(e))); break; }
+    case 'empari': { const e = EMP.find(x=>x.id===id); if (e) openModal(docModal(`AR-I · ${e.n}`, ariHtml(e))); break; }
+    case 'finiq': { const e = EMP.find(x=>x.id===id), L = S.liq && S.liq.id===id ? S.liq : {m:'Renuncia', f:QUIN.hoyIso}; if (e) openModal(docModal(`Finiquito · ${e.n}`, finiquitoHtml(e, L.m, L.f))); break; }
     case 'nompagar': openModal(pagoModal()); break;
     case 'nomtxt': openModal(txtModal()); break;
     case 'txtdl': { const t = txtNomina(), data = t.txt.replace(/\n/g,'\r\n'), ok = () => toast(`${t.file} guardado: súbelo en la banca en línea de ${t.cta.b} y apruébalo con tu token`);
@@ -2829,15 +2943,15 @@ document.addEventListener('click', e => {
       S.gastos.push({f:new Intl.DateTimeFormat('es-VE', {day:'2-digit', month:'2-digit', year:'numeric', timeZone:'America/Caracas'}).format(new Date()), cat:'Nómina', desc:`${QUIN.nombre} (${A.length} personas)`, cta:(CUENTAS[0]||{}).b||'Banco', usd:+tot.toFixed(2), fijo:false});
       S.nomPagos = S.nomPagos || []; S.nomPagos.push({periodo:QUIN.id, nombre:QUIN.nombre, fecha:new Date().toISOString(), total:+tot.toFixed(2), personas:A.map(e=>({id:e.id, n:e.n, neto:+quincena(e).netoUSD.toFixed(2)}))});
       closeModal(); render(); toast(`Quincena pagada: ${usd(tot)}. Quedó registrada como gasto en Ganancias y gastos`); break; }
-    case 'nomrecibos': S.recibos = true; render(); toast(`${activos().length} recibos enviados por WhatsApp, cada uno con su detalle`); break;
+    case 'nomrecibos': openModal(recibosModal()); break;
     case 'nomparam': S.nomTab = 'param'; go('payroll'); break;
     case 'empnew': openModal(empModal()); break;
     case 'empedit': openModal(empModal(EMP.find(x=>x.id===id))); empHint(); break;
     case 'aumento': openModal(aumModal()); break;
     case 'liqde': S.liq = {id, m:'Renuncia', f:QUIN.hoyIso}; S.nomTab = 'liq'; go('payroll'); break;
-    case 'egreso': { const em = EMP.find(x=>x.id===id), L = S.liq || {m:'Renuncia', f:QUIN.hoyIso}; em.est = 'Egresado'; const us = userOf(em); if (us) us.est = 'Bloqueado';
-      em.hist.unshift({f:'26/10/2026', t:`Egreso por ${L.m.toLowerCase()} el ${fmtDate(L.f)}`, m:'', u:S.user}); render();
-      toast(`${em.n} egresó: sale de la nómina y su usuario quedó bloqueado. Para deshacerlo, cambia su estado en la ficha`); break; }
+    case 'egreso': { const em = EMP.find(x=>x.id===id), L = S.liq || {m:'Renuncia', f:QUIN.hoyIso}; em.est = 'Egresado'; em.egreso = L.f; const us = userOf(em); if (us) us.est = 'Bloqueado';
+      em.hist.unshift({f:hoyNom(), t:`Egreso por ${L.m.toLowerCase()} el ${fmtDate(L.f)}`, m:'', u:S.user}); render();
+      toast(`${em.n} egresó y sale de la nómina. Si tenía usuario, desactívalo en Usuarios y permisos. Para deshacerlo, cambia su estado en la ficha`); break; }
     case 'usernew': openModal(userModal()); break;
     case 'useredit': openModal(userModal(USERS.find(x=>x.id===id))); break;
     case 'perm': { const i = +b.dataset.i, j = +b.dataset.j; PERMS[i][j] = PERMS[i][j] ? 0 : 1; render();
@@ -2938,7 +3052,7 @@ document.addEventListener('change', e => {
   if (e.target.dataset.pay!==undefined) openModal(payModal());
   if (e.target.dataset.nov!==undefined){ const nid = +e.target.dataset.nov, f = e.target.dataset.f; S.nov[nid] = S.nov[nid] || {}; S.nov[nid][f] = Math.max(0, parseVE(e.target.value));
     setTimeout(()=>{ const ae = document.activeElement, k = ae && ae.dataset && ae.dataset.nov!==undefined ? `[data-nov="${ae.dataset.nov}"][data-f="${ae.dataset.f}"]` : null; render(); if (k){ const nx = document.querySelector(k); if (nx){ nx.focus(); nx.select && nx.select(); } } }, 0); }
-  if (['lq-e','lq-m','lq-f'].includes(e.target.id)){ S.liq = {id:+$('#lq-e').value, m:$('#lq-m').value, f:$('#lq-f').value || '2026-10-31'}; render(); }
+  if (['lq-e','lq-m','lq-f'].includes(e.target.id)){ S.liq = {id:+$('#lq-e').value, m:$('#lq-m').value, f:$('#lq-f').value || QUIN.hoyIso}; render(); }
   if (['au-que','au-tipo'].includes(e.target.id) || e.target.classList.contains('au-emp')){ const pv = $('#au-prev'); if (pv) pv.innerHTML = aumPrev(); }
   if (e.target.id==='em-banco') empHint();
   if (e.target.dataset.meth!==undefined){ const k = e.target.dataset.meth; CFG.mOff = e.target.checked ? CFG.mOff.filter(x=>x!==k) : [...CFG.mOff, k]; toast(`${k} ${e.target.checked?'vuelve a salir':'ya no sale'} en la caja`); }
@@ -3058,22 +3172,22 @@ document.addEventListener('submit', e => {
     const pg = $('#em-pago').value, cta = ($('#em-cta').value||'').trim(), tel = ($('#em-tel').value||'').trim();
     if (pg==='Transferencia' && cta.replace(/\D/g,'').length!==20) { toast('Para pagarle por transferencia, la cuenta debe tener 20 dígitos'); $('#em-cta').focus(); return; }
     if (pg==='Pago móvil' && !tel) { toast('Escribe el teléfono del pago móvil'); $('#em-tel').focus(); return; }
-    const ariV = ($('#em-ari').value||'').trim(), rol = $('#em-rol').value;
+    const ariV = ($('#em-ari').value||'').trim(), uo = old && userOf(old), rol = uo ? uo.rol : '';
     const nv = {n:nm, ci:($('#em-ci').value||'').trim(), cargo:($('#em-cargo').value||'').trim()||'—', jor:$('#em-jor').value, est:$('#em-est').value, ing:$('#em-ing').value||'2026-11-01', sal, bono:parseVE($('#em-bono').value), cesta:parseVE($('#em-cesta').value), cargas:parseInt($('#em-cargas').value)||0, ari:ariV===''?null:parseVE(ariV), pago:pg, banco:$('#em-banco').value, cta, tel};
     if (old){ const ch = empDiff(old, nv, rol), mot = ($('#em-mot').value||'').trim();
       if (!ch.length) { closeModal(); toast('No hubo cambios'); return; }
-      Object.assign(old, nv); syncUser(old, rol); ch.forEach(t => old.hist.unshift({f:'26/10/2026', t, m:mot, u:S.user}));
+      Object.assign(old, nv); if (uo) { uo.n = old.n; if (old.est==='Egresado') uo.est = 'Bloqueado'; } ch.forEach(t => old.hist.unshift({f:hoyNom(), t, m:mot, u:S.user}));
       closeModal(); render(); toast(`Ficha de ${old.n}: ${ch.length} ${ch.length===1?'cambio guardado':'cambios guardados'}. ${ch.some(t=>/^(Salario|Bono|Cestaticket|Cargas|AR-I)/.test(t))?'La quincena ya sale con lo nuevo':'Quedó en su historial'}`); return; }
-    const nid = Math.max(...EMP.map(x=>x.id))+1, ne = {id:nid, ...nv, hx:0, hist:[{f:'26/10/2026', t:'Entró a la nómina', m:nv.cargo, u:S.user}]};
-    EMP.push(ne); syncUser(ne, rol); S.empSel = nid; S.nov[nid] = {};
-    closeModal(); render(); toast(`${nm} quedó en la nómina${rol?` y con su usuario de ${ROL_TXT[rol]}`:''}. Recuerda inscribirlo en el IVSS y el FAOV`); return; }
+    const nid = Math.max(0, ...EMP.map(x=>+x.id||0))+1, ne = {id:nid, ...nv, hx:0, hist:[{f:hoyNom(), t:'Entró a la nómina', m:nv.cargo, u:S.user}]};
+    EMP.push(ne); S.empSel = nid; S.nov[nid] = {};
+    closeModal(); render(); toast(`${nm} quedó en la nómina. Recuerda inscribirlo en el IVSS y el FAOV; si debe entrar al sistema, créale su usuario en Usuarios`); return; }
   if (e.target.id==='aumForm'){ e.preventDefault(); const c = aumCalc();
     if (!c.v) { toast('Escribe cuánto sube'); $('#au-val').focus(); return; }
     if (!c.ids.length) { toast('Marca al menos un empleado'); return; }
-    const desde = $('#au-desde').value || '2026-11-01', mot = $('#au-mot').value, L = {sal:'Salario',bono:'Bono',cesta:'Cestaticket'}[c.q], fm = c.q==='sal' ? bs : usd, ya = desde <= '2026-10-26';
+    const desde = $('#au-desde').value || hoyNomIso(), mot = $('#au-mot').value, L = {sal:'Salario',bono:'Bono',cesta:'Cestaticket'}[c.q], fm = c.q==='sal' ? bs : usd, ya = desde <= hoyNomIso();
     c.ids.forEach(i => { const em = EMP.find(x=>x.id===i), n = Math.round(c.nuevo(em[c.q])*100)/100, txt = `${L}: ${fm(em[c.q])} → ${fm(n)}`;
       if (ya) em[c.q] = n; else { em.prog = (em.prog||[]).filter(p=>p.q!==c.q); em.prog.push({q:c.q, n, desde, txt}); }
-      em.hist.unshift({f:'26/10/2026', t: ya ? txt : `Aumento programado para el ${fmtDate(desde)}: ${txt}`, m:mot, u:S.user}); });
+      em.hist.unshift({f:hoyNom(), t: ya ? txt : `Aumento programado para el ${fmtDate(desde)}: ${txt}`, m:mot, u:S.user}); });
     closeModal(); render(); const k = c.ids.length, q = `${k} ${k===1?'empleado':'empleados'}`;
     toast(ya ? `Aumento aplicado a ${q}: la quincena ya sale con el monto nuevo` : `Aumento programado para el ${fmtDate(desde)}: ese día entra solo en la nómina de ${q}`); return; }
   if (e.target.id==='leyForm'){ e.preventDefault(); const g = id => parseVE($('#'+id).value);
@@ -3088,7 +3202,7 @@ document.addEventListener('submit', e => {
     if (ut!==UT) ch.push(`Unidad tributaria: ${bs(UT)} → ${bs(ut)}`);
     if (!ch.length) { toast('No hubo cambios'); return; }
     if (n.cesta!==LEY.cesta) EMP.forEach(x=>{ if (x.cesta===LEY.cesta) x.cesta = n.cesta; });
-    Object.assign(LEY, n); UT = ut; ch.forEach(t=>LEY_HIST.unshift({f:'26/10/2026', t, u:S.user}));
+    Object.assign(LEY, n); UT = ut; ch.forEach(t=>LEY_HIST.unshift({f:hoyNom(), t, u:S.user}));
     render(); toast(`${ch.length} ${ch.length===1?'parámetro cambiado':'parámetros cambiados'}: la nómina, los aportes y las prestaciones ya se recalcularon`); return; }
   if (e.target.id==='userForm'){ e.preventDefault(); const uid = e.target.dataset.id, rol = $('#us-rol').value, caja = rol==='Almacén' ? 'Almacén' : $('#us-caja').value, est = $('#us-est').value;
     if (uid===''){ const nm = ($('#us-n').value||'').trim(); if (!nm) { toast('Escribe el nombre'); $('#us-n').focus(); return; }
