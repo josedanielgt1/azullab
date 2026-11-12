@@ -1,313 +1,141 @@
 -- Cuadre · Para pegar en el SQL Editor de Supabase (proyecto azullab) y darle Run una vez.
--- Migraciones desde la 0026. Generado por supabase/armar_sql_editor.sh; no editar a mano.
+-- Migraciones desde la 0028. Generado por supabase/armar_sql_editor.sh; no editar a mano.
 
--- >>>>> migrations/0026_carga_inicial.sql
+-- >>>>> migrations/0028_tasa_factura.sql
 -- =====================================================================
--- Cuadre · Migración 0026: carga inicial del inventario
+-- Cuadre · Migración 0028: la tasa de la factura de compra
 --
--- Lo que ya está en los anaqueles el día que el negocio arranca con Cuadre
--- NO es una compra: no lleva factura de droguería, no va al Libro de
--- Compras y no deja deuda. Antes la única entrada era recibir_factura(),
--- así que cargar el anaquel obligaba a inventar una factura.
+-- La factura de la droguería trae impresa su propia tasa (la del día
+-- anterior, la del euro...). Esa es la que vale para el Libro de Compras:
+-- los bolívares del libro tienen que ser los del papel. Antes la base le
+-- ponía siempre la tasa BCV del día de la factura y no dejaba escribir otra.
 --
---   1. Movimiento «inicial»: entra a los lotes como inventario inicial.
---   2. carga_inicial(): crea los productos que falten y sus lotes, todo
---      junto (si un renglón está mal, no entra nada). Sirve para la carga
---      a mano y para la que viene de una hoja de Excel.
---   3. cerrar_carga_inicial(): el dueño la cierra cuando termina de
---      contar. Después de eso la mercancía solo entra con su factura.
---   4. registro_inventario() (art. 177): la carga inicial sale en la
---      columna «inicial», no en «compras».
---   5. Libro de controlados: la carga queda como «Inventario inicial».
+--   1. tasa_de_factura(): la que viene escrita o, si no, la BCV de ese día.
+--      Frena un error de dedo (una tasa muy lejos de la BCV).
+--   2. recibir_factura(), registrar_compra() y nota_compra() aceptan "tasa".
+--      Si no es la BCV, la BCV de ese día queda guardada al lado (datos.tasa_bcv).
 -- =====================================================================
 
--- ---------- 1. El movimiento «inicial» ----------
-alter table movimientos drop constraint if exists movimientos_tipo_check;
-alter table movimientos add constraint movimientos_tipo_check
-  check (tipo in ('compra','venta','devolucion','salida','ajuste','inicial'));
-
-alter table empresas add column if not exists carga_inicial_cerrada timestamptz;
-
--- Una vez cerrada, un usuario no la vuelve a abrir (ni la cierra por fuera de la función)
-create or replace function empresas_carga_inicial() returns trigger
-language plpgsql as $$
-begin
-  if new.carga_inicial_cerrada is distinct from old.carga_inicial_cerrada
-     and auth.uid() is not null and current_setting('cuadre.carga_inicial', true) is distinct from 'si' then
-    raise exception 'La carga inicial se cierra con su botón y no se vuelve a abrir. Si hace falta, avisa a Cuadre';
-  end if;
-  return new;
-end $$;
-drop trigger if exists empresas_carga_inicial on empresas;
-create trigger empresas_carga_inicial before update on empresas
-  for each row execute function empresas_carga_inicial();
-
--- ---------- 2. Carga inicial ----------
--- p_items: [{"producto_id"}  o  {"codigo","codigos_alt":[...],"nombre","principio_activo","laboratorio",
---            "presentacion","seccion","iva","costo","margen","precio","pmvp","minimo","rx","controlado"},
---           más  "lote","vence","cantidad","costo"]
---   * Con producto_id, el renglón va a ese producto.
---   * Sin él, se busca por código (principal o alterno); si no trae código, por nombre y presentación.
---     Si no existe, se crea con los datos del renglón.
---   * Sin cantidad, el renglón solo crea el producto (catálogo sin existencia).
---   * Sin lote, queda como «S/L» (los controlados sí lo exigen). El vencimiento es obligatorio.
-create or replace function carga_inicial(p_empresa uuid, p_items jsonb)
-returns jsonb
-language plpgsql security definer set search_path = public as $$
-declare
-  it jsonb; n int := 0; pr productos; lt lotes; e empresas;
-  cod text; nom text; q numeric; c numeric; mg numeric; pv numeric; lote_txt text; iv text;
-  nuevos int := 0; lotes_n int := 0; unidades numeric := 0; ids bigint[] := '{}';
-begin
-  if not tiene_rol(p_empresa, '{dueno,gerente}') then raise exception 'Solo el dueño o el gerente hacen la carga inicial'; end if;
-  select * into e from empresas where id = p_empresa;
-  if e.tipo <> 'farmacia' then raise exception 'La carga inicial de inventario es de la farmacia'; end if;
-  if e.carga_inicial_cerrada is not null then
-    raise exception 'La carga inicial ya se cerró el %. La mercancía nueva entra por Compras, con su factura',
-      to_char(e.carga_inicial_cerrada at time zone 'America/Caracas', 'DD/MM/YYYY');
-  end if;
-  if jsonb_typeof(p_items) is distinct from 'array' or jsonb_array_length(p_items) = 0 then raise exception 'La carga no trae renglones'; end if;
-  if jsonb_array_length(p_items) > 5000 then raise exception 'Sube la carga en partes de hasta 5.000 renglones'; end if;
-
-  perform set_config('cuadre.inventario', 'si', true);
-  for it in select * from jsonb_array_elements(p_items) loop
-    n := n + 1;
-    begin
-      cod := nullif(nullif(trim(it->>'codigo'), ''), '—');
-      nom := trim(coalesce(it->>'nombre', ''));
-      q := coalesce(nullif(trim(it->>'cantidad'), '')::numeric, 0);
-      c := nullif(trim(it->>'costo'), '')::numeric;
-      if q < 0 or c < 0 then raise exception 'la cantidad y el costo no pueden ser negativos'; end if;
-
-      -- El producto: por número, por código o por nombre y presentación
-      pr := null;
-      if (it->>'producto_id') is not null then
-        select * into pr from productos where id = (it->>'producto_id')::bigint and empresa_id = p_empresa and activo;
-        if pr.id is null then raise exception 'producto no encontrado'; end if;
-      elsif cod is not null then
-        select * into pr from productos where empresa_id = p_empresa and activo and (codigo = cod or cod = any(codigos_alt)) limit 1;
-      elsif nom <> '' then
-        select * into pr from productos where empresa_id = p_empresa and activo and lower(nombre) = lower(nom)
-          and lower(coalesce(nullif(presentacion, '—'), '')) = lower(trim(coalesce(it->>'presentacion', ''))) order by id limit 1;
-      end if;
-      if pr.id is null then
-        if nom = '' then raise exception 'falta el nombre del producto'; end if;
-        if nom ~ '[<>]' then raise exception 'el nombre no puede llevar los signos < >'; end if;
-        iv := upper(coalesce(nullif(trim(it->>'iva'), ''), 'E'));
-        if iv not in ('E', 'G', 'R') then raise exception 'el IVA debe ser E (exento), G (16 %%) o R (8 %%)'; end if;
-        mg := coalesce(nullif(trim(it->>'margen'), '')::numeric, 30);
-        if mg < 0 or mg > 1000 then raise exception 'el %% de ganancia no es válido'; end if;
-        pv := coalesce(nullif(trim(it->>'precio'), '')::numeric, round(coalesce(c, 0) * (1 + mg / 100), 2));
-        insert into productos (empresa_id, codigo, codigos_alt, nombre, principio_activo, laboratorio, presentacion, seccion,
-                               iva, costo, margen, precio, pmvp, minimo, rx, controlado)
-        values (p_empresa, cod,
-                coalesce(array(select jsonb_array_elements_text(case when jsonb_typeof(it->'codigos_alt') = 'array' then it->'codigos_alt' else '[]' end)), '{}'),
-                nom, nullif(trim(it->>'principio_activo'), ''), nullif(trim(it->>'laboratorio'), ''), nullif(trim(it->>'presentacion'), ''),
-                nullif(trim(it->>'seccion'), ''), iv::alicuota_iva, coalesce(c, 0), mg, pv, nullif(trim(it->>'pmvp'), '')::numeric,
-                coalesce(nullif(trim(it->>'minimo'), '')::int, 5),
-                coalesce((it->>'rx')::boolean, false) or coalesce((it->>'controlado')::boolean, false), coalesce((it->>'controlado')::boolean, false))
-        returning * into pr;
-        nuevos := nuevos + 1;
-      end if;
-      if not pr.id = any(ids) then ids := ids || pr.id; end if;
-
-      -- La existencia: entra a su lote como inventario inicial
-      if q > 0 then
-        if nullif(trim(it->>'vence'), '') is null then raise exception 'falta la fecha de vencimiento'; end if;
-        lote_txt := upper(nullif(trim(it->>'lote'), ''));
-        if lote_txt is null and pr.controlado then raise exception 'un controlado necesita su número de lote'; end if;
-        insert into lotes (empresa_id, producto_id, lote, vence, cantidad, costo)
-        values (p_empresa, pr.id, coalesce(lote_txt, 'S/L'), (it->>'vence')::date, q, coalesce(c, pr.costo))
-        on conflict (producto_id, lote, vence) do update set cantidad = lotes.cantidad + excluded.cantidad, costo = excluded.costo
-        returning * into lt;
-        insert into movimientos (empresa_id, producto_id, lote_id, tipo, cantidad, costo, motivo)
-        values (p_empresa, pr.id, lt.id, 'inicial', q, lt.costo, 'Inventario inicial');
-        lotes_n := lotes_n + 1; unidades := unidades + q;
-      end if;
-    exception when others then
-      raise exception 'Renglón %: %', n, sqlerrm;
-    end;
-  end loop;
-  perform set_config('cuadre.inventario', '', true);
-  return jsonb_build_object('renglones', n, 'productos_nuevos', nuevos, 'lotes', lotes_n, 'unidades', unidades, 'productos', to_jsonb(ids));
-end $$;
-revoke all on function carga_inicial(uuid, jsonb) from public, anon;
-grant execute on function carga_inicial(uuid, jsonb) to authenticated;
-
--- ---------- 3. Cerrar la carga inicial (solo el dueño, una vez) ----------
-create or replace function cerrar_carga_inicial(p_empresa uuid)
-returns timestamptz
-language plpgsql security definer set search_path = public as $$
-declare t timestamptz;
-begin
-  if not tiene_rol(p_empresa, '{dueno}') then raise exception 'Solo el dueño cierra la carga inicial'; end if;
-  perform set_config('cuadre.carga_inicial', 'si', true);
-  update empresas set carga_inicial_cerrada = coalesce(carga_inicial_cerrada, now()) where id = p_empresa
-    returning carga_inicial_cerrada into t;
-  perform set_config('cuadre.carga_inicial', '', true);
-  return t;
-end $$;
-revoke all on function cerrar_carga_inicial(uuid) from public, anon;
-grant execute on function cerrar_carga_inicial(uuid) to authenticated;
-
--- ---------- 4. Registro de inventario: la carga inicial va en «inicial» ----------
-create or replace function registro_inventario(p_empresa uuid, p_mes date default null)
-returns table (producto_id bigint, codigo text, nombre text, controlado boolean,
-               inicial numeric, compras numeric, devoluciones numeric, ventas numeric,
-               retiros numeric, devoluciones_proveedor numeric, ajustes numeric, final numeric,
-               valor_inicial_usd numeric, valor_final_usd numeric, costo_usd numeric, tasa numeric, valor_final_bs numeric)
+-- ---------- 1. La tasa que vale para una factura de compra ----------
+create or replace function tasa_de_factura(p_fecha date, p_tasa numeric)
+returns numeric
 language plpgsql stable security definer set search_path = public as $$
-declare
-  mes date := date_trunc('month', coalesce(p_mes, (now() at time zone 'America/Caracas')::date))::date;
-  desde timestamptz; hasta timestamptz; t numeric;
+declare bcv numeric := tasa_del_dia(p_fecha);
 begin
-  if not tiene_rol(p_empresa, '{dueno,gerente,regente,almacen}') then raise exception 'No tienes permiso para ver el registro de inventario'; end if;
-  desde := mes::timestamp at time zone 'America/Caracas';
-  hasta := (mes + interval '1 month')::timestamp at time zone 'America/Caracas';
-  t := tasa_del_dia(least((mes + interval '1 month' - interval '1 day')::date, (now() at time zone 'America/Caracas')::date));
-  return query
-  with m as (
-    select mv.producto_id, mv.tipo, mv.cantidad, coalesce(mv.costo, 0) costo, mv.fecha,
-           (mv.tipo = 'salida' and mv.motivo ilike 'Devolución a droguería%') a_proveedor
-    from movimientos mv where mv.empresa_id = p_empresa and mv.fecha < hasta
-  ), s as (
-    select m.producto_id,
-      coalesce(sum(m.cantidad) filter (where m.fecha < desde or m.tipo = 'inicial'), 0) ini,
-      coalesce(sum(m.cantidad) filter (where m.fecha >= desde and m.tipo = 'compra'), 0) com,
-      coalesce(sum(m.cantidad) filter (where m.fecha >= desde and m.tipo = 'devolucion'), 0) dev,
-      coalesce(-sum(m.cantidad) filter (where m.fecha >= desde and m.tipo = 'venta'), 0) ven,
-      coalesce(-sum(m.cantidad) filter (where m.fecha >= desde and m.tipo = 'salida' and not m.a_proveedor), 0) ret,
-      coalesce(-sum(m.cantidad) filter (where m.fecha >= desde and m.a_proveedor), 0) dpr,
-      coalesce(sum(m.cantidad) filter (where m.fecha >= desde and m.tipo = 'ajuste'), 0) aju,
-      coalesce(sum(m.cantidad), 0) fin,
-      coalesce(sum(m.cantidad * m.costo) filter (where m.fecha < desde or m.tipo = 'inicial'), 0) vi,
-      coalesce(sum(m.cantidad * m.costo), 0) vf
-    from m group by m.producto_id
-  )
-  select p.id, p.codigo, p.nombre, p.controlado,
-         s.ini, s.com, s.dev, s.ven, s.ret, s.dpr, s.aju, s.fin,
-         round(s.vi, 2), round(s.vf, 2),
-         case when s.fin > 0 then round(s.vf / s.fin, 4) else 0 end,
-         t, round(s.vf * coalesce(t, 0), 2)
-  from s join productos p on p.id = s.producto_id
-  where s.ini <> 0 or s.fin <> 0 or s.com <> 0 or s.ven <> 0 or s.dev <> 0 or s.ret <> 0 or s.dpr <> 0 or s.aju <> 0
-  order by p.nombre;
-end $$;
-
--- ---------- 5. Libro de controlados: «Inventario inicial» ----------
-create or replace function libro_por_movimiento() returns trigger
-language plpgsql security definer set search_path = public as $$
-declare pr productos; lt lotes; d documentos; rx recipes; ci text; concepto text; origen text;
-begin
-  select * into pr from productos where id = new.producto_id;
-  if not pr.controlado then return new; end if;
-  select * into lt from lotes where id = new.lote_id;
-  if new.tipo = 'venta' then
-    select * into d from documentos where id = new.documento_id;
-    ci := upper(regexp_replace(regexp_replace(d.cliente_rif, '[.\s]', '', 'g'), '^([VEJGP])-?', '\1-'));
-    select * into rx from recipes
-      where empresa_id = new.empresa_id and tipo = 'especial' and producto_id = new.producto_id and paciente_ci = ci
-        and vendido - new.cantidad <= despachado and fecha > now() - interval '30 days'
-      order by fecha limit 1 for update;
-    if rx.id is null then
-      raise exception '% es controlado: registra primero el récipe especial de este paciente (cédula %), o no alcanza lo que autoriza', pr.nombre, ci;
-    end if;
-    update recipes set vendido = vendido - new.cantidad where id = rx.id;
-    concepto := 'Récipe especial N° ' || rx.numero_especial || ' · factura ' || lpad(d.numero::text, 8, '0');
-    origen := coalesce(rx.medico, '') || coalesce(' · MPPS ' || rx.mpps, '');
-  elsif new.tipo = 'compra' then concepto := 'Compra' || coalesce(' · ' || new.referencia, ''); origen := 'Droguería';
-  elsif new.tipo = 'inicial' then concepto := 'Inventario inicial'; origen := 'Conteo al arrancar el sistema';
-  elsif new.tipo = 'devolucion' then concepto := 'Devolución' || coalesce(' · ' || new.motivo, '');
-  else concepto := initcap(new.tipo) || coalesce(': ' || new.motivo, '');
+  if p_tasa is null then
+    if bcv is null then raise exception 'No hay tasa BCV cargada: escribe la tasa que trae la factura'; end if;
+    return bcv;
   end if;
-  insert into libro_controlados (empresa_id, fecha, producto_id, producto, concepto, origen, paciente_ci, lote, entrada, salida, recipe_id, movimiento_id, usuario)
-  values (new.empresa_id, new.fecha, pr.id, pr.nombre, concepto, origen, ci, lt.lote,
-          greatest(new.cantidad, 0), greatest(-new.cantidad, 0), rx.id, new.id, new.usuario);
-  return new;
+  if p_tasa <= 0 then raise exception 'La tasa de la factura debe ser mayor que cero'; end if;
+  if bcv is not null and (p_tasa < bcv * 0.6 or p_tasa > bcv * 1.6) then
+    raise exception 'Revisa la tasa de la factura: % queda muy lejos de la BCV de ese día (%)', round(p_tasa, 2), round(bcv, 2);
+  end if;
+  return round(p_tasa, 4);
 end $$;
+revoke all on function tasa_de_factura(date, numeric) from public, anon;
+grant execute on function tasa_de_factura(date, numeric) to authenticated;
 
--- >>>>> migrations/0027_vencimientos.sql
--- =====================================================================
--- Cuadre · Migración 0027: vencimientos
---
--- En la práctica del 10 nov, al recibir una compra el año del vencimiento
--- quedó en un solo dígito (0002, 0007): la pantalla se repintaba con cada
--- tecla. La pantalla ya se corrigió; esto es lo que la base hace cumplir:
---
---   1. Un vencimiento tiene que ser una fecha razonable (2000 a 2100).
---   2. No se recibe por Compras mercancía que ya está vencida.
---   3. corregir_vencimiento(): cambia el vencimiento de un lote que se
---      escribió mal. Dueño, gerente, regente o almacén, con motivo; queda
---      un movimiento con la fecha anterior, la nueva y quién lo hizo.
--- =====================================================================
-
--- ---------- 1. Fechas razonables (los lotes viejos mal escritos se corrigen con la función) ----------
-alter table lotes drop constraint if exists lotes_vence_razonable;
-alter table lotes add constraint lotes_vence_razonable
-  check (vence between date '2000-01-01' and date '2100-12-31') not valid;
-
--- ---------- 2. Recibir compra: nada vencido ----------
--- p_items: [{"producto_id", "lote", "vence", "cantidad", "costo"}]
-create or replace function recibir_compra(p_empresa uuid, p_items jsonb, p_referencia text default null)
-returns setof lotes
+-- ---------- 2. Factura de droguería (farmacia) ----------
+-- p_factura: {"proveedor_id","numero","control","fecha","tasa"}   "tasa" es opcional
+create or replace function recibir_factura(p_empresa uuid, p_factura jsonb, p_items jsonb)
+returns compras
 language plpgsql security definer set search_path = public as $$
-declare it jsonb; lt lotes;
+declare pv proveedores; c compras; t numeric; bcv numeric; ex numeric := 0; gr numeric := 0; it jsonb; iv alicuota_iva; m numeric;
 begin
   if not tiene_rol(p_empresa, '{dueno,gerente,regente,almacen}') then raise exception 'Tu usuario no recibe compras'; end if;
-  perform set_config('cuadre.inventario', 'si', true);
+  select * into pv from proveedores where id = (p_factura->>'proveedor_id')::bigint and empresa_id = p_empresa;
+  if pv.id is null then raise exception 'Escoge la droguería'; end if;
+  if coalesce(trim(p_factura->>'numero'), '') = '' then raise exception 'Escribe el número de la factura del proveedor'; end if;
+  bcv := tasa_del_dia(coalesce((p_factura->>'fecha')::date, current_date));
+  t := tasa_de_factura(coalesce((p_factura->>'fecha')::date, current_date), nullif(trim(p_factura->>'tasa'), '')::numeric);
   for it in select * from jsonb_array_elements(coalesce(p_items, '[]')) loop
-    if not exists (select 1 from productos where id = (it->>'producto_id')::bigint and empresa_id = p_empresa) then
-      raise exception 'Producto no encontrado';
-    end if;
-    if coalesce((it->>'cantidad')::numeric, 0) <= 0 or coalesce(trim(it->>'lote'), '') = '' or (it->>'vence') is null then
-      raise exception 'Cada producto necesita lote, vencimiento y cantidad';
-    end if;
-    if (it->>'vence')::date < (now() at time zone 'America/Caracas')::date then
-      raise exception 'El lote % de % ya está vencido (%): no se recibe mercancía vencida', upper(trim(it->>'lote')),
-        (select nombre from productos where id = (it->>'producto_id')::bigint), to_char((it->>'vence')::date, 'DD/MM/YYYY');
-    end if;
-    insert into lotes (empresa_id, producto_id, lote, vence, cantidad, costo)
-    values (p_empresa, (it->>'producto_id')::bigint, upper(trim(it->>'lote')), (it->>'vence')::date,
-            (it->>'cantidad')::numeric, coalesce((it->>'costo')::numeric, 0))
-    on conflict (producto_id, lote, vence) do update set cantidad = lotes.cantidad + excluded.cantidad, costo = excluded.costo
-    returning * into lt;
-    insert into movimientos (empresa_id, producto_id, lote_id, tipo, cantidad, costo, referencia)
-    values (p_empresa, lt.producto_id, lt.id, 'compra', (it->>'cantidad')::numeric, lt.costo, p_referencia);
-    return next lt;
+    select iva into iv from productos where id = (it->>'producto_id')::bigint and empresa_id = p_empresa;
+    m := round((it->>'cantidad')::numeric * coalesce((it->>'costo')::numeric, 0), 2);
+    if iv = 'E' then ex := ex + m; else gr := gr + m; end if;
   end loop;
-  perform set_config('cuadre.inventario', '', true);
+  insert into compras (empresa_id, proveedor_id, proveedor, rif, numero, control, fecha, tasa, exento_usd, gravable_usd, iva_usd, total_usd, vence, datos)
+  values (p_empresa, pv.id, pv.nombre, pv.rif, trim(p_factura->>'numero'), nullif(trim(p_factura->>'control'), ''),
+          coalesce((p_factura->>'fecha')::date, current_date), t, ex, gr, round(gr * 0.16, 2), ex + gr + round(gr * 0.16, 2),
+          coalesce((p_factura->>'fecha')::date, current_date) + pv.credito_dias,
+          case when bcv is distinct from t then jsonb_build_object('tasa_bcv', bcv) else '{}'::jsonb end)
+  returning * into c;
+  perform recibir_compra(p_empresa, p_items, pv.nombre || ' · factura ' || c.numero);
+  return c;
 end $$;
 
--- ---------- 3. Corregir el vencimiento de un lote ----------
-create or replace function corregir_vencimiento(p_lote bigint, p_vence date, p_motivo text)
-returns lotes
+-- ---------- Factura de servicios y gastos (los tres negocios) ----------
+create or replace function registrar_compra(p_empresa uuid, p_factura jsonb)
+returns compras
 language plpgsql security definer set search_path = public as $$
-declare lt lotes; antes date; mot text := trim(coalesce(p_motivo, ''));
+declare c compras; t numeric; f date; ex numeric; gr numeric; rif text;
 begin
-  select * into lt from lotes where id = p_lote for update;
-  if lt.id is null or not tiene_rol(lt.empresa_id, '{dueno,gerente,regente,almacen}') then raise exception 'Lote no encontrado'; end if;
-  if p_vence is null or p_vence < date '2000-01-01' or p_vence > date '2100-12-31' then
-    raise exception 'Escribe la fecha de vencimiento completa, con el año de cuatro cifras';
+  if not tiene_rol(p_empresa, '{dueno,gerente}') then raise exception 'Solo el dueño registra facturas de compra'; end if;
+  if coalesce(trim(p_factura->>'proveedor'), '') = '' or coalesce(trim(p_factura->>'numero'), '') = '' then
+    raise exception 'Escribe el proveedor y el número de la factura';
   end if;
-  if length(mot) < 5 then raise exception 'Escribe por qué se corrige el vencimiento'; end if;
-  if mot ~ '[<>]' then raise exception 'El motivo no puede llevar los signos < >'; end if;
-  if p_vence = lt.vence then raise exception 'El lote ya tiene ese vencimiento'; end if;
-  if exists (select 1 from lotes where producto_id = lt.producto_id and lote = lt.lote and vence = p_vence and id <> lt.id) then
-    raise exception 'Ya hay otro lote % de ese producto con ese vencimiento', lt.lote;
-  end if;
-  antes := lt.vence;
-  update lotes set vence = p_vence where id = lt.id returning * into lt;
-  -- Sin unidades: solo deja el rastro (y, si es controlado, pasa a su libro)
-  insert into movimientos (empresa_id, producto_id, lote_id, tipo, cantidad, costo, motivo)
-  values (lt.empresa_id, lt.producto_id, lt.id, 'ajuste', 0, lt.costo,
-          'Vencimiento corregido: ' || to_char(antes, 'DD/MM/YYYY') || ' → ' || to_char(p_vence, 'DD/MM/YYYY') || ' · ' || mot);
-  return lt;
+  rif := upper(regexp_replace(coalesce(p_factura->>'rif', ''), '[.\s]', '', 'g'));
+  rif := regexp_replace(rif, '^([JGVEP])-?([0-9]{8})-?([0-9])$', '\1-\2-\3');
+  if rif <> '' and rif !~ '^[JGVEP]-[0-9]{8}-[0-9]$' then raise exception 'El RIF del proveedor debe quedar así: J-12345678-9'; end if;
+  f := coalesce((p_factura->>'fecha')::date, current_date);
+  t := tasa_de_factura(f, nullif(trim(p_factura->>'tasa'), '')::numeric);
+  ex := coalesce((p_factura->>'exento_bs')::numeric, 0); gr := coalesce((p_factura->>'gravable_bs')::numeric, 0);
+  if ex < 0 or gr < 0 or ex + gr = 0 then raise exception 'Escribe el monto exento o la base gravable'; end if;
+  insert into compras (empresa_id, proveedor, rif, numero, control, fecha, tasa, exento_usd, gravable_usd, iva_usd, total_usd, pagado_usd, datos)
+  values (p_empresa, trim(p_factura->>'proveedor'), nullif(rif, ''), trim(p_factura->>'numero'), nullif(trim(p_factura->>'control'), ''), f, t,
+          round(ex / t, 2), round(gr / t, 2), round(gr * 0.16 / t, 2), round((ex + gr + round(gr * 0.16, 2)) / t, 2),
+          round((ex + gr + round(gr * 0.16, 2)) / t, 2),   -- servicios y gastos: se registran ya pagados
+          jsonb_build_object('exento_bs', ex, 'gravable_bs', gr, 'retencion', p_factura->'retencion'))
+  returning * into c;
+  return c;
 end $$;
-revoke all on function corregir_vencimiento(bigint, date, text) from public, anon;
-grant execute on function corregir_vencimiento(bigint, date, text) to authenticated;
+
+-- ---------- Nota de crédito de la droguería ----------
+create or replace function nota_compra(p_factura bigint, p_nota jsonb, p_items jsonb default '[]')
+returns compras
+language plpgsql security definer set search_path = public as $$
+declare f compras; n compras; ex numeric; gr numeric; iva numeric; tot numeric; resta numeric; saldo numeric; it jsonb; lt lotes;
+  mot text := trim(coalesce(p_nota->>'motivo', ''));
+begin
+  select * into f from compras where id = p_factura and tipo = 'FAC';
+  if f.id is null or not tiene_rol(f.empresa_id, '{dueno,gerente,regente,almacen}') then raise exception 'Factura de compra no encontrada'; end if;
+  if coalesce(trim(p_nota->>'numero'), '') = '' then raise exception 'Escribe el número de la nota de crédito de la droguería'; end if;
+  if mot = '' then raise exception 'Escribe el motivo de la nota de crédito'; end if;
+  ex := round(coalesce((p_nota->>'exento_usd')::numeric, 0), 2);
+  gr := round(coalesce((p_nota->>'gravable_usd')::numeric, 0), 2);
+  if ex < 0 or gr < 0 or ex + gr <= 0 then raise exception 'La nota de crédito necesita un monto'; end if;
+  iva := round(gr * 0.16, 2); tot := ex + gr + iva;
+  -- No más de lo que queda de la factura (descontando las notas que ya tiene)
+  select f.total_usd - coalesce(sum(total_usd), 0) into resta from compras where afecta_id = f.id and tipo = 'NC';
+  if tot > resta + 0.004 then raise exception 'La nota (% $) pasa de lo que queda de la factura % (% $)', tot, f.numero, round(resta, 2); end if;
+
+  insert into compras (empresa_id, proveedor_id, proveedor, rif, tipo, numero, control, fecha, tasa,
+                       exento_usd, gravable_usd, iva_usd, total_usd, vence, pagado_usd, afecta_id, motivo)
+  values (f.empresa_id, f.proveedor_id, f.proveedor, f.rif, 'NC', trim(p_nota->>'numero'), nullif(trim(p_nota->>'control'), ''),
+          coalesce((p_nota->>'fecha')::date, (now() at time zone 'America/Caracas')::date),
+          case when nullif(trim(p_nota->>'tasa'), '') is not null
+               then tasa_de_factura(coalesce((p_nota->>'fecha')::date, current_date), (p_nota->>'tasa')::numeric)
+               else coalesce(tasa_del_dia(coalesce((p_nota->>'fecha')::date, current_date)), f.tasa) end,
+          ex, gr, iva, tot, null, tot, f.id, mot)
+  returning * into n;
+
+  -- Lo que se le debía a la droguería por esa factura baja con la nota
+  saldo := greatest(f.total_usd - f.pagado_usd, 0);
+  if least(saldo, tot) > 0 then
+    insert into pagos_compras (empresa_id, compra_id, monto_usd, metodo) values (f.empresa_id, f.id, least(saldo, tot), 'Nota de crédito ' || n.numero);
+    update compras set pagado_usd = pagado_usd + least(saldo, tot) where id = f.id;
+  end if;
+
+  -- Mercancía devuelta: sale de su lote como devolución a la droguería
+  for it in select * from jsonb_array_elements(coalesce(p_items, '[]')) loop
+    select * into lt from lotes where id = (it->>'lote_id')::bigint and empresa_id = f.empresa_id;
+    if lt.id is null then raise exception 'Lote no encontrado'; end if;
+    perform salida_inventario(lt.id, (it->>'cantidad')::numeric, 'Devolución a droguería · nota ' || n.numero || ' de ' || f.proveedor);
+  end loop;
+  return n;
+end $$;
 
 -- >>>>> Historial de migraciones
 insert into supabase_migrations.schema_migrations (version, name) values
-  ('0026', 'carga_inicial'),('0027', 'vencimientos')
+  ('0028', 'tasa_factura')
 on conflict (version) do nothing;
 select 'Listo: migraciones aplicadas' as resultado;

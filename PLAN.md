@@ -18,6 +18,7 @@ Las pantallas de `farmacia.html`, `laboratorio.html` y `crossfit.html` son las m
 | **CrossFit** | Planes, productos y horario que arma el dueño, socios, cobro con IVA 16 % que corre el vencimiento, entrada con cédula, reservas, pizarra del día | ✅ |
 | Farmacia: carga inicial | Lo que ya está en los anaqueles entra sin factura (migración 0026): desde una hoja de Excel o CSV o a mano, por lote; no va al Libro de Compras ni deja deuda, y en el registro del art. 177 sale como existencia inicial. El dueño la cierra al terminar | ✅ (falta aplicar la 0026 en producción) |
 | Farmacia: vencimientos | El año se escribe completo en Compras; no se recibe mercancía vencida; en la caja lo vencido sale «fuera de venta» y no se selecciona; el dueño, gerente, regente o almacén corrigen un vencimiento mal escrito desde Inventario y lotes, con motivo y rastro (migración 0027) | ✅ (falta aplicar la 0027 en producción) |
+| Farmacia: tasa de la factura de compra | En Compras se escribe la tasa que trae impresa la factura de la droguería (la del día anterior, la del euro…); el Libro de Compras sale en bolívares a esa tasa. Vacía, va con la BCV del día de la factura. También en la nota de crédito de la droguería (migración 0028) | ✅ (falta aplicar la 0028 en producción) |
 | Farmacia: administración | Droguerías con RIF, factura de compra (número y control), Libro de Compras, cuentas por pagar y pagos, gastos, cuentas bancarias, configuración, fallas, cotizaciones, nómina (empleados y novedades), Ganancias y gastos con cifras reales, tablero con las ventas reales | ✅ |
 | Farmacia: récipes y controlados | Récipes con número interno, médicos con MPPS, récipe especial sin repetir; la base no deja vender un controlado sin el récipe del paciente ni más de lo autorizado; el libro de controlados se llena solo con cada movimiento y cuadra con el inventario | ✅ |
 | Farmacia: bancos, puntos y alertas | Cuentas y bancos con lo cobrado hoy, deuda con droguerías y Cashea guardado; Azul Puntos con los clientes reales; libro de ventas del módulo fiscal con las facturas; alertas de alergias que registra la regente y la caja frena sin ver el motivo | ✅ |
@@ -33,7 +34,7 @@ Las pantallas de `farmacia.html`, `laboratorio.html` y `crossfit.html` son las m
 | Los tres: respaldo sin internet | Franja de aviso mientras haya algo sin subir; copia en una carpeta del equipo; «Recuperar desde un archivo de respaldo» sin repetir nada | ✅ |
 | Los tres: panel del grupo | El dueño ve las ventas reales del mes de los tres negocios | ✅ |
 
-Pruebas: **442 de base de datos** (`supabase/tests/correr.sh`) y **345 de navegador** (`tests/navegador/correr.sh`), incluidas las de ataque (`tests/navegador/seguridad.test.js`) y la que recorre todas las pantallas con cada rol buscando textos o nombres de la maqueta (`tests/navegador/textos.test.js`).
+Pruebas: **480 de base de datos** (`supabase/tests/correr.sh`) y **355 de navegador** (`tests/navegador/correr.sh`), incluidas las de ataque (`tests/navegador/seguridad.test.js`) y la que recorre todas las pantallas con cada rol buscando textos o nombres de la maqueta (`tests/navegador/textos.test.js`).
 
 ## Qué todavía muestra datos de muestra
 
