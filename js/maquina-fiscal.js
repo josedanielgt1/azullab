@@ -1,16 +1,18 @@
 /* =====================================================================
    Cuadre · Máquina fiscal (impresora fiscal) de la farmacia
-     * Se activa cuando la empresa tiene medio_factura = 'maquina'
-       (Configuración del dueño en Módulo fiscal).
+     * La farmacia factura SOLO por máquina fiscal: sin imprenta digital y
+       sin talonario. Mientras el dueño no configure la impresora
+       (medio_factura = 'maquina', en Módulo fiscal), la caja no factura.
      * La caja web habla con un AGENTE LOCAL que corre en la computadora
        de la caja y maneja la impresora por USB o serial con la librería
        del fabricante. Protocolo: docs/agente-maquina-fiscal.md.
      * Venta: vender() deja la factura pendiente → el agente la imprime y
        devuelve el número de la memoria fiscal → registrar_maquina().
-       Si la impresora falla: reintentar, dejarla pendiente o sacarla del
-       talonario de imprenta autorizada (registrar_falla_maquina).
+       Si la impresora falla: reintentar o dejarla pendiente (la falla queda
+       en el libro de la máquina); se imprime desde Módulo fiscal.
      * Sin internet: la impresora imprime igual y la venta se guarda en el
-       equipo; al volver la conexión sube con vender_impresa().
+       equipo; al volver la conexión sube con vender_impresa(). Si además
+       la impresora falla, se reintenta o se cancela la venta.
      * Reporte X y Reporte Z: los imprime la máquina; el Z se guarda en la
        base, que dice si cuadra con sus facturas.
      * Con «simulada» como agente, el equipo imita la impresora (para
@@ -24,7 +26,7 @@
   const A = () => C.acceso || {};
   const E = () => C.empresa || {};
   const EMP = () => A().empresa_id;
-  const activa = () => A().tipo === 'farmacia' && E().medio_factura === 'maquina';
+  const activa = () => A().tipo === 'farmacia' && E().medio_factura === 'maquina';   // impresora configurada
   const SIM = 'simulada';
   const simulada = () => E().maquina_agente === SIM;
   const avisar = t => toast(t);
@@ -117,7 +119,8 @@
       db.from('reportes_z').select('*').eq('empresa_id', EMP()).order('numero', {ascending: false}).limit(10),
       db.from('maquina_eventos').select('*').eq('empresa_id', EMP()).order('id', {ascending: false}).limit(30),
       db.from('documentos').select('numero_fiscal').eq('empresa_id', EMP()).eq('medio', 'maquina').eq('tipo', 'FAC').eq('maquina_registro', E().maquina_registro || '').order('numero_fiscal', {ascending: false, nullsFirst: false}).limit(1)]);
-    pendientes = pe || []; zs = z || []; eventos = ev || [];
+    const lista = x => Array.isArray(x) ? x : [];
+    pendientes = lista(pe); zs = lista(z); eventos = lista(ev);
     zHoy = zs.find(x => x.dia === hoyVE() && x.maquina_registro === E().maquina_registro) || null;
     if (typeof MAQ === 'object') {
       MAQ.ultFac = uf && uf[0] && uf[0].numero_fiscal ? +uf[0].numero_fiscal : 0;
@@ -147,30 +150,26 @@
 
   /* ---------------- Cuando la impresora no imprime ---------------- */
   let resolver = null;
+  // conPendiente: con internet la venta ya está en la base y puede quedar pendiente de imprimir.
+  // Sin internet no hay dónde dejarla: se reintenta o se cancela la venta.
   function preguntarFalla(error, conPendiente) {
     return new Promise(res => {
       resolver = res;
       openModal(`<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="mq-t" style="max-width:460px"><div class="hd"><h2 id="mq-t">La impresora no imprimió</h2></div><div class="bd">
         <p class="fx-aviso" style="margin:0">${ic('alert')}<span>${esc(error)}</span></p>
-        <p class="small" style="margin:0">Revisa que esté encendida, con papel y la tapa cerrada, y reintenta. Si está dañada, la factura sale del <b>talonario de imprenta autorizada</b> y queda anotada en el libro de la máquina.</p>
-        <div class="grid g2" style="gap:8px 14px">
-          <div class="field"><label for="mq-tal">Número del talonario</label><input id="mq-tal" class="input num" inputmode="numeric" value="${FX.n.tal || ''}"></div>
-          <div class="field"><label for="mq-mot">Qué le pasó a la impresora</label><input id="mq-mot" class="input" value="${esc(String(error).slice(0, 120))}"></div></div>
-        <div class="row">${conPendiente ? '<button class="btn" data-act="mq-pend">Dejar pendiente</button>' : ''}<button class="btn" data-act="mq-tal">Usar el talonario</button><span class="spacer"></span><button class="btn primary" data-act="mq-reint">Reintentar</button></div></div></div>`);
+        <p class="small" style="margin:0">Revisa que esté encendida, con papel y la tapa cerrada, y reintenta. ${conPendiente
+          ? 'Si está dañada, deja la factura <b>pendiente</b>: queda anotada la falla en el libro de la máquina y se imprime desde Módulo fiscal cuando la impresora vuelva. Llama al servicio técnico autorizado.'
+          : 'Sin internet y sin impresora no se puede facturar: reintenta o cancela la venta (el carrito queda como estaba).'}</p>
+        ${conPendiente ? `<div class="field"><label for="mq-mot">Qué le pasó a la impresora</label><input id="mq-mot" class="input" value="${esc(String(error).slice(0, 120))}"></div>` : ''}
+        <div class="row">${conPendiente ? '<button class="btn" data-act="mq-pend">Dejar pendiente</button>' : '<button class="btn" data-act="mq-pend">Cancelar la venta</button>'}<span class="spacer"></span><button class="btn primary" data-act="mq-reint">Reintentar</button></div></div></div>`);
     });
   }
   document.addEventListener('click', e => {
-    const b = e.target.closest('[data-act="mq-pend"],[data-act="mq-tal"],[data-act="mq-reint"]'); if (!b || !resolver) return;
+    const b = e.target.closest('[data-act="mq-pend"],[data-act="mq-reint"]'); if (!b || !resolver) return;
     e.preventDefault(); e.stopImmediatePropagation();
     const res = resolver, act = b.dataset.act;
-    if (act === 'mq-tal') {
-      const n = parseInt(String((document.getElementById('mq-tal') || {}).value || '').replace(/\D/g, ''), 10);
-      const motivo = ((document.getElementById('mq-mot') || {}).value || '').trim();
-      if (!(n > 0)) { avisar('Escribe el número del talonario'); return; }
-      if (!motivo) { avisar('Escribe qué le pasó a la impresora'); return; }
-      resolver = null; closeModal(); res({numero: n, motivo}); return;
-    }
-    resolver = null; closeModal(); res(act === 'mq-reint' ? 'reintentar' : 'pendiente');
+    const motivo = ((document.getElementById('mq-mot') || {}).value || '').trim();
+    resolver = null; closeModal(); res(act === 'mq-reint' ? 'reintentar' : {pendiente: true, motivo});
   }, true);
 
   /* ---------------- Imprimir una factura o nota que ya está en la base ---------------- */
@@ -196,12 +195,11 @@
       marcar(false, r.error);
       const ele = await preguntarFalla(r.error || 'La impresora no respondió', conPendiente);
       if (ele === 'reintentar') continue;
-      if (ele === 'pendiente') { avisar('Quedó pendiente de imprimir: la ves en Módulo fiscal'); C.maquina.alCambiar(); return doc; }
-      const {data, error} = await db.rpc('registrar_falla_maquina', {p_doc: d.id, p_numero: ele.numero, p_motivo: ele.motivo});
-      if (error) { avisar(C.msg(error)); continue; }
-      FX.n.tal = ele.numero + 1; C.guardarLocal('talonario', ele.numero + 1);
-      avisar(`Factura del talonario ${data.numero_control}. Llama al servicio técnico autorizado`);
-      C.maquina.alCambiar(); return data;
+      // Queda pendiente de imprimir; la falla se anota en el libro de control de la máquina
+      try { await db.from('maquina_eventos').insert({empresa_id: EMP(), maquina_registro: E().maquina_registro, tipo: 'falla',
+        detalle: (ele.motivo || r.error || 'La impresora no imprimió') + ' · ' + (d.tipo === 'FAC' ? 'venta' : 'nota') + ' P-' + p8(d.numero) + ' quedó pendiente'}); } catch (_) {}
+      avisar('Quedó pendiente de imprimir: la ves en Módulo fiscal. Llama al servicio técnico autorizado');
+      C.maquina.alCambiar(); return doc;
     }
   }
 
@@ -234,13 +232,8 @@
       marcar(false, r.error);
       const ele = await preguntarFalla(r.error || 'La impresora no respondió', false);
       if (ele === 'reintentar') continue;
-      if (ele === 'pendiente') return null;
-      // Impresora dañada y sin internet: la venta va al talonario y sube sola después
-      FX.n.tal = ele.numero; C.guardarLocal('talonario', ele.numero);
-      if (!C.farmacia || !C.farmacia.ventaTalonario || !C.farmacia.ventaTalonario()) return null;
-      const reg = E().maquina_registro;
-      try { await db.from('maquina_eventos').insert({empresa_id: EMP(), maquina_registro: reg, tipo: 'falla', detalle: ele.motivo + ' · sin internet, talonario ' + ele.numero}); } catch (_) {}
-      return {medio: 'talonario', numero_control: (FX.F.talSerie || '01') + '-' + p8(ele.numero), numero: null, id: null};
+      avisar('Venta cancelada: no se facturó. El carrito sigue igual');
+      return null;   // sin internet y sin impresora no se factura
     }
   }
 
@@ -333,8 +326,6 @@
     window.ticketText = function (sale) {
       if (!activa() || sale.mode !== 'maquina') return ticketOriginal(sale);
       const d = sale.doc ? FX.byId(sale.doc) : null;
-      // Factura que salió del talonario porque la máquina falló
-      if (d && d.medio === 'talonario') return FX.ticketText(d, {head: [pad('CAJERO: ' + shortName(sale.u || S.user), (sale.caja || '').toUpperCase())]});
       let txt = ticketOriginal(sale);
       if (d && /^P-/.test(d.num)) txt = txt.replace('SENIAT', 'PENDIENTE DE IMPRIMIR').replace('FACTURA N:', 'VENTA N:  ');
       if (simulada()) txt = txt.replace(/^.*MH .*$/m, ctr('IMPRESORA SIMULADA') + '\n' + ctr('NO ES UNA FACTURA FISCAL'));
@@ -347,15 +338,14 @@
       let h = modalOriginal(sale);
       if (!activa() || sale.mode !== 'maquina') return h;
       const d = sale.doc ? FX.byId(sale.doc) : null;
-      if (d && d.medio === 'talonario') h = h.replace(/<p class="small muted" style="text-align:center">[\s\S]*?<\/p>/, `<p class="envio">${ic('alert')}Factura del talonario <span class="pill warn">${esc(d.ctrl)}</span></p>`);
-      else if (d && /^P-/.test(d.num)) h = h.replace(/<p class="small muted" style="text-align:center">[\s\S]*?<\/p>/, `<p class="envio">${ic('clock')}La impresora no la imprimió <span class="pill warn">Pendiente</span></p>`);
+      if (d && /^P-/.test(d.num)) h = h.replace(/<p class="small muted" style="text-align:center">[\s\S]*?<\/p>/, `<p class="envio">${ic('clock')}La impresora no la imprimió <span class="pill warn">Pendiente</span></p>`);
       return h;
     };
   }
 
   /* ---------------- Libro de ventas con máquina fiscal ----------------
      Reglamento de la Ley del IVA, art. 77: las facturas a consumidor final van resumidas por Reporte Z,
-     del primer al último número, con el registro de la máquina. Las de RIF, las notas y las del talonario
+     del primer al último número, con el registro de la máquina. Las de RIF y las notas
      van una por una (eso lo hace el motor fiscal común). Las que la impresora aún no imprimió se listan aparte. */
   if (typeof FX === 'object' && typeof FX.libroVentas === 'function') {
     const libroComun = FX.libroVentas;
@@ -363,7 +353,7 @@
     FX.libroVentas = () => {
       if (!activa()) return libroComun();
       const mes = (FX.Y && FX.Y.hoy ? FX.Y.hoy : hoyVE()).slice(0, 7);
-      const resumida = d => d.medio === 'maquina' && d.tipo === 'FAC' && !d.cont && !conRif(d.cli.id);
+      const resumida = d => d.medio === 'maquina' && d.tipo === 'FAC' && !conRif(d.cli.id);
       const todos = FX.docs.slice(), quedan = todos.filter(d => !resumida(d));
       let rows;
       FX.docs.length = 0; FX.docs.push(...quedan);
@@ -392,6 +382,7 @@
   const vFiscal = V.fiscal;
   V.fiscal = () => {
     const base = vFiscal();
+    if (A().tipo === 'farmacia' && !activa()) return sinImpresora();
     if (!activa()) return base;
     const dueno = A().rol === 'dueno';
     const zLocal = C.leerLocal('z_pendiente');
@@ -402,7 +393,7 @@
       <div class="bd flush tbl-wrap"><table><thead><tr><th>Documento</th><th>Fecha</th><th>Cliente</th><th class="r">Total Bs</th><th></th></tr></thead><tbody>
       ${pendientes.map(p => `<tr><td class="num">${p.tipo === 'FAC' ? 'Venta' : p.tipo === 'NC' ? 'Nota de crédito' : 'Nota de débito'} P-${p8(p.numero)}</td><td class="num small">${cuando(p.fecha)}</td><td>${esc(p.cliente_nombre)}</td><td class="r">${nf(+p.total)}</td>
         <td class="r">${puedeCaja() ? `<button class="btn sm" data-act="mq-repend" data-id="${esc(p.id)}">${ic('printer')}Imprimir</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">Todo lo vendido quedó impreso.</td></tr>'}</tbody></table></div>
-      <div class="bd small muted" style="border-top:1px solid var(--line)">Si la impresora sigue dañada, al imprimir puedes pasar la factura al talonario.</div></section>
+      <div class="bd small muted" style="border-top:1px solid var(--line)">Si la impresora sigue dañada, llama al servicio técnico autorizado y anota la falla en el libro de la máquina. Cuando la reparen, imprime aquí lo pendiente.</div></section>
     <section class="panel"><div class="hd"><h2>Reportes Z</h2>${zLocal ? `<span class="pill warn">Z ${p4(zLocal.numero)} por subir${zLocal.error ? ': ' + esc(zLocal.error) : ''}</span>` : ''}</div>
       <div class="bd flush tbl-wrap"><table><thead><tr><th>Z</th><th>Día</th><th class="r">Facturas</th><th class="r">Total Bs (impresora)</th><th class="r">Total Bs (Cuadre)</th><th></th></tr></thead><tbody>
       ${zs.map(z => `<tr><td class="num">${p4(z.numero)}</td><td class="num small">${z.dia.split('-').reverse().join('/')}</td><td class="r">${z.cant_fac}</td><td class="r">${nf(+z.total)}</td><td class="r">${z.sis_total == null ? '—' : nf(+z.sis_total)}</td>
@@ -415,8 +406,12 @@
         <div class="field"><label for="mq-ev-tec">Técnico (si vino)</label><input id="mq-ev-tec" class="input" maxlength="80"></div>
         <div class="field" style="grid-column:1/-1"><label for="mq-ev-d">Detalle</label><input id="mq-ev-d" class="input" maxlength="300" placeholder="Qué pasó o qué se hizo"></div>
         <div class="row" style="grid-column:1/-1"><span class="small muted">Lo anotado no se edita ni se borra. El libro físico sigue junto a la máquina.</span><span class="spacer"></span><button class="btn" type="submit">Anotar</button></div></form></div>` : ''}</section>
-    ${dueno ? `<section class="panel"><div class="hd"><h2>Configurar la impresora</h2></div><div class="bd"><button class="btn" data-act="medio">${ic('printer')}Cambiar datos de la impresora o el medio de facturación</button></div></section>` : ''}`;
+    ${dueno ? `<section class="panel"><div class="hd"><h2>Configurar la impresora</h2></div><div class="bd"><button class="btn" data-act="medio">${ic('printer')}Cambiar los datos de la impresora fiscal</button></div></section>` : ''}`;
   };
+  // Sin la impresora configurada, la farmacia no factura: el Módulo fiscal lo dice primero
+  const sinImpresora = () => `<p class="fx-aviso" style="margin:0 0 12px">${ic('alert')}<span><b>Falta configurar la impresora fiscal.</b> La farmacia factura solo por máquina fiscal: mientras no esté configurada, la caja no emite facturas.${A().rol === 'dueno' ? '' : ' Avísale al dueño.'}</span></p>`
+    + (A().rol === 'dueno' ? `<section class="panel"><div class="hd"><h2>Impresora fiscal</h2><span class="pill warn">Sin configurar</span></div><div class="bd"><button class="btn primary" data-act="medio">${ic('printer')}Configurar la impresora fiscal</button>
+      <p class="small muted" style="margin:10px 0 0">Marca, modelo, número de registro (junto al logo MH) y el agente de la computadora de la caja. Para practicar sin impresora, escribe «simulada» como agente.</p></div></section>` : '');
   document.addEventListener('click', e => {
     const b = e.target.closest('[data-act="mq-repend"]'); if (!b || !activa()) return;
     e.preventDefault(); e.stopImmediatePropagation();
@@ -435,14 +430,12 @@
     avisar('Anotado en el libro de la máquina'); await refrescar(); render();
   }, true);
 
-  /* Medio de facturación y datos de la impresora: solo el dueño */
+  /* Datos de la impresora fiscal: solo el dueño. La farmacia no tiene otro medio de facturación */
   function configHtml() {
-    const e = E(), maq = e.medio_factura === 'maquina';
+    const e = E();
     const v = x => esc(x || '');
-    return hoja('Medio de facturación', `
-      <div class="field"><label for="mq-medio">Cómo factura este negocio</label><select id="mq-medio" class="input">
-        <option value="maquina" ${maq ? 'selected' : ''}>Máquina fiscal (impresora fiscal)</option>
-        <option value="imprenta" ${maq ? '' : 'selected'}>Imprenta digital</option></select></div>
+    return hoja('Impresora fiscal', `
+      <p class="small muted" style="margin:0">La farmacia factura solo por máquina fiscal. Estos datos están en la placa de la impresora y en su libro de control.</p>
       <div class="grid g2" style="gap:8px 14px">
         <div class="field"><label for="mq-marca">Marca</label><input id="mq-marca" class="input" value="${v(e.maquina_marca)}" placeholder="The Factory"></div>
         <div class="field"><label for="mq-modelo">Modelo</label><input id="mq-modelo" class="input" value="${v(e.maquina_modelo)}" placeholder="HKA80"></div>
@@ -455,17 +448,17 @@
   document.addEventListener('click', e => {
     const b = e.target.closest('[data-act="medio"]'); if (!b || !C.acceso || A().tipo !== 'farmacia') return;
     e.preventDefault(); e.stopImmediatePropagation();
-    if (A().rol !== 'dueno') { avisar('El medio de facturación lo cambia el dueño'); return; }
+    if (A().rol !== 'dueno') { avisar('La impresora fiscal la configura el dueño'); return; }
     openModal(configHtml());
   }, true);
   document.addEventListener('click', async e => {
     const b = e.target.closest('[data-act="mq-cfg"]'); if (!b) return;
     e.preventDefault(); e.stopImmediatePropagation();
     const val = id => (document.getElementById(id) || {}).value || '';
-    const cambio = {medio_factura: val('mq-medio'), maquina_marca: val('mq-marca').trim() || null, maquina_modelo: val('mq-modelo').trim() || null,
+    const cambio = {medio_factura: 'maquina', maquina_marca: val('mq-marca').trim() || null, maquina_modelo: val('mq-modelo').trim() || null,
       maquina_registro: val('mq-reg').toUpperCase().replace(/[\s-]/g, '') || null, maquina_distribuidor: val('mq-dist').trim() || null,
       maquina_agente: val('mq-ag').trim().toLowerCase() || 'http://127.0.0.1:7123'};
-    if (cambio.medio_factura === 'maquina' && !cambio.maquina_registro) { avisar('Escribe el número de registro de la impresora'); return; }
+    if (!cambio.maquina_registro) { avisar('Escribe el número de registro de la impresora'); return; }
     if (cambio.maquina_registro && !/^[A-Z0-9]{6,15}$/.test(cambio.maquina_registro)) { avisar('El número de registro lleva solo letras y números (6 a 15)'); return; }
     if (!/^(https?:\/\/(127\.0\.0\.1|localhost)(:\d{2,5})?\/?|simulada)$/.test(cambio.maquina_agente)) { avisar('El agente va en esta misma computadora: http://127.0.0.1:7123, o «simulada»'); return; }
     b.disabled = true;
@@ -474,7 +467,7 @@
     if (error) { avisar(C.msg(error)); return; }
     Object.assign(C.empresa || (C.empresa = {}), data);
     closeModal(); await alEntrar();
-    avisar(activa() ? 'Este negocio factura por máquina fiscal' : 'Este negocio factura por imprenta digital');
+    avisar('Impresora fiscal guardada: la farmacia ya puede facturar');
     render();
   }, true);
 
@@ -482,8 +475,8 @@
   let reloj = null;
   async function alEntrar() {
     if (A().tipo !== 'farmacia') return;
-    S.medio = activa() ? 'maquina' : 'digital';
-    if (!activa()) { clearInterval(reloj); reloj = null; return; }
+    S.medio = 'maquina';   // la farmacia no tiene otro medio
+    if (!activa()) { clearInterval(reloj); reloj = null; Object.assign(MAQ, {lista: false, estado: 'Sin configurar', corto: 'Impresora', modelo: 'Sin configurar', registro: '—', conexion: '—', memoria: null, ultFac: 0, ultZ: false}); return; }
     ponerDatos(); marcar(true);
     await Promise.all([refrescar().catch(x => console.error('Cuadre máquina: datos', x)), revisarEstado()]);
     if (!reloj) reloj = setInterval(revisarEstado, 60000);

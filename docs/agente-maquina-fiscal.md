@@ -47,7 +47,7 @@ Lo que manda la caja:
 ```
 
 - `tipo`: `FAC`, `NC` o `ND`. `alicuota`: `E` (exento), `G` (16 %) o `R` (8 %). `precio` es el precio unitario **sin IVA**.
-- En una nota, `afecta` trae la factura que corrige: `{"numero": 1501, "control": null, "fecha": "...", "registro": "Z7C0012345"}`. Si esa factura salió del talonario, en `control` viene su número de control, y `motivo` trae el motivo de la nota.
+- En una nota, `afecta` trae la factura que corrige: `{"numero": 1501, "control": null, "fecha": "...", "registro": "Z7C0012345"}`. `motivo` trae el motivo de la nota.
 - `pie` son líneas de texto para el final del ticket (la referencia en dólares y la tasa BCV).
 
 Lo que responde el agente:
@@ -95,7 +95,7 @@ o, si la máquina no imprimió:
 
 La impresora va por cable, así que sin internet **sigue facturando por la máquina**. La venta queda en el equipo con su número fiscal y sube sola al volver la conexión (`vender_impresa`), con la fecha y la tasa de cuando se imprimió. El Reporte Z también se puede hacer sin internet: queda guardado y sube después.
 
-El talonario de imprenta autorizada se usa **solo si la máquina está dañada**. Ese número queda anotado en el libro de control de la máquina.
+La farmacia **no usa talonario** (decidido el 13 nov 2026). Si la máquina está dañada, la venta queda pendiente de imprimir, la falla se anota en el libro de control y se imprime desde Módulo fiscal cuando la reparen. Sin internet y con la máquina dañada no se factura.
 
 ## Pendiente
 

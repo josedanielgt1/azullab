@@ -468,6 +468,88 @@
     if (!error) { FX_SYS.excedente = datos.excedente; FX_SYS.declPrev = datos.declPrev; FX.F.excedente = ex.value; FX.F.declPrev = datos.declPrev; }
   }
 
+  /* ---------------- Permisos por rol: el dueño marca qué abre cada rol ----------------
+     Se guardan en la lista «permisos» de colecciones ({rol: [claves]}); solo el dueño la cambia
+     (migración 0029). El dueño tiene siempre el control total. El rol que no está en la lista usa
+     lo de siempre (def). Cada casilla solo se ofrece si la base deja a ese rol hacerlo (base): la
+     base sigue poniendo su propio límite, así que marcar algo fuera de eso no serviría. */
+  const PERMISOS = {
+    farmacia: {
+      roles: ['gerente', 'regente', 'cajero', 'almacen'],
+      lista: [
+        {k: 'caja', t: 'Caja: vender, cobrar y facturar', v: ['pos'], base: ['gerente', 'regente', 'cajero'], def: ['gerente', 'regente', 'cajero']},
+        {k: 'clientes', t: 'Clientes', v: ['clients'], base: ['gerente', 'regente', 'cajero', 'almacen'], def: ['gerente', 'regente']},
+        {k: 'productos', t: 'Productos: catálogo, precios y códigos', v: ['products'], base: ['gerente', 'regente', 'almacen'], def: ['gerente', 'regente', 'almacen']},
+        {k: 'inventario', t: 'Inventario y lotes: salidas y vencimientos', v: ['inventory'], base: ['gerente', 'regente', 'almacen'], def: ['gerente', 'regente', 'almacen']},
+        {k: 'compras', t: 'Compras de droguería y carga inicial', v: ['purchases'], base: ['gerente', 'regente', 'almacen'], def: ['gerente', 'regente', 'almacen']},
+        {k: 'recipes', t: 'Récipes y controlados', v: ['recipes'], base: ['gerente', 'regente'], def: ['gerente', 'regente']},
+        {k: 'fiscal', t: 'Módulo fiscal: Reporte X, Reporte Z y pendientes de imprimir', v: ['fiscal'], base: ['gerente', 'regente', 'cajero'], def: ['gerente', 'regente']},
+        {k: 'facturas', t: 'Facturas y notas de crédito', v: ['docs'], base: ['gerente', 'regente', 'cajero'], def: ['gerente', 'regente']},
+        {k: 'reportes', t: 'Reportes y cierre', v: ['reports'], base: ['gerente', 'regente', 'cajero'], def: ['gerente', 'regente']},
+        {k: 'libros', t: 'Libros fiscales y checklist SENIAT', v: ['libros', 'checklist'], base: ['gerente', 'regente'], def: ['gerente', 'regente']},
+        {k: 'finanzas', t: 'Ganancias y gastos, cuentas y bancos, proveedores y pagos', v: ['finance', 'banks', 'suppliers'], base: ['gerente'], def: ['gerente']},
+        {k: 'nomina', t: 'Nómina y empleados', v: ['employees', 'payroll'], base: ['gerente'], def: ['gerente']},
+        {k: 'usuarios', t: 'Usuarios y equipos de la caja', v: ['users', 'equipo'], base: ['gerente'], def: ['gerente']},
+        {k: 'config', t: 'Configuración', v: ['config'], base: ['gerente'], def: ['gerente']}]
+    }
+  };
+  let permisosGuardados = null;   // lo que está en la base: {rol: [claves]}
+  const tienePermiso = (p, rol) => p.base.includes(rol) && (permisosGuardados && Array.isArray(permisosGuardados[rol]) ? permisosGuardados[rol].includes(p.k) : p.def.includes(rol));
+  C.tienePermiso = k => { const cat = PERMISOS[A().tipo], p = cat && cat.lista.find(x => x.k === k); return !p || A().rol === 'dueno' || tienePermiso(p, A().rol); };
+  /* Lo que ve el rol que entró: se le suman las pantallas marcadas y se le quitan las desmarcadas */
+  const ORIG = {};
+  function aplicarPermisos() {
+    const cat = PERMISOS[A().tipo]; if (!cat || typeof ROLES !== 'object') return;
+    const txt = (C.ROLES[A().tipo] || {})[A().rol], R = ROLES[txt]; if (!R) return;
+    if (!(txt in ORIG)) ORIG[txt] = Array.isArray(R.views) ? R.views.slice() : R.views;
+    R.deny = [];
+    if (A().rol === 'dueno') { R.views = Array.isArray(ORIG[txt]) ? ORIG[txt].slice() : ORIG[txt]; return; }
+    const si = cat.lista.filter(p => tienePermiso(p, A().rol)).flatMap(p => p.v);
+    const no = cat.lista.filter(p => !tienePermiso(p, A().rol)).flatMap(p => p.v).filter(v => !si.includes(v));
+    R.views = Array.isArray(ORIG[txt]) ? [...new Set(ORIG[txt].filter(v => !no.includes(v)).concat(si))] : ORIG[txt];
+    R.deny = no;
+  }
+  C.alEntrar(async a => {
+    if (!PERMISOS[a.tipo]) return;
+    const {data, error} = await db.from('colecciones').select('datos').eq('empresa_id', a.empresa_id).eq('nombre', 'permisos').maybeSingle();
+    if (error) permisosGuardados = C.leerLocal('permisos');
+    else { permisosGuardados = data && data.datos && typeof data.datos === 'object' && !Array.isArray(data.datos) ? data.datos : null; C.guardarLocal('permisos', permisosGuardados); }
+    aplicarPermisos();
+  });
+  function panelPermisos() {
+    const cat = PERMISOS[A().tipo]; if (!cat) return null;
+    const editar = soyDueno();
+    const celda = (p, r) => !p.base.includes(r)
+      ? `<td class="c no" title="La base no se lo permite a ${esc(RTXT[r])}">—</td>`
+      : `<td class="c"><label class="perm-ck"><input type="checkbox" data-perm="${p.k}" data-rol="${r}" ${tienePermiso(p, r) ? 'checked' : ''} ${editar ? '' : 'disabled'} aria-label="${esc(p.t)}: ${esc(RTXT[r])}"></label></td>`;
+    return `<section class="panel"><div class="hd"><h2>Permisos por rol</h2><span class="muted small">${editar ? 'Marca lo que puede usar cada rol' : 'Solo el dueño los cambia'}</span></div>
+      <div class="bd flush tbl-wrap"><table class="matrix"><thead><tr><th>Puede usar</th><th class="c">Dueño</th>${cat.roles.map(r => `<th class="c">${esc(RTXT[r])}</th>`).join('')}</tr></thead>
+      <tbody>${cat.lista.map(p => `<tr><td>${esc(p.t)}</td><td class="c yes">Siempre</td>${cat.roles.map(r => celda(p, r)).join('')}</tr>`).join('')}</tbody></table></div>
+      <div class="bd"><p class="small muted" style="margin:0 0 10px">El dueño tiene el control total. Una raya (—) es algo que ese rol no puede hacer aunque se marque: la base no se lo permite. Los cambios valen desde que cada persona vuelve a entrar.</p>
+      ${editar ? `<div class="row"><button class="btn" data-act="cq-perm-def">Volver a lo de siempre</button><span class="spacer"></span><button class="btn primary" data-act="cq-perm-ok">${icono('check')}Guardar permisos</button></div>` : ''}</div></section>`;
+  }
+  async function guardarPermisos(datos) {
+    const {error} = await db.from('colecciones').upsert({empresa_id: A().empresa_id, nombre: 'permisos', datos, actualizado: new Date().toISOString()}, {onConflict: 'empresa_id,nombre'});
+    if (error) { avisar(/row-level|permission/i.test(error.message) ? 'Solo el dueño cambia los permisos' : C.msg(error)); return false; }
+    permisosGuardados = datos; C.guardarLocal('permisos', datos); return true;
+  }
+  document.addEventListener('click', async e => {
+    const b = e.target.closest('[data-act="cq-perm-ok"],[data-act="cq-perm-def"]'); if (!b || !C.acceso) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    if (!soyDueno()) { avisar('Solo el dueño cambia los permisos'); return; }
+    const cat = PERMISOS[A().tipo]; if (!cat) return;
+    let datos;
+    if (b.dataset.act === 'cq-perm-def') datos = {};
+    else {
+      datos = {}; cat.roles.forEach(r => { datos[r] = []; });
+      document.querySelectorAll('input[data-perm]').forEach(i => { if (i.checked && datos[i.dataset.rol]) datos[i.dataset.rol].push(i.dataset.perm); });
+    }
+    b.disabled = true;
+    const ok = await guardarPermisos(datos);
+    b.disabled = false;
+    if (ok) { repintar(); avisar(b.dataset.act === 'cq-perm-def' ? 'Permisos de siempre puestos otra vez' : 'Permisos guardados. Cada persona los tiene desde que vuelva a entrar'); }
+  }, true);
+
   /* ---------------- Usuarios ---------------- */
   const EQ = {lista: null, cargando: false, error: ''};
   async function cargarEquipo() {
@@ -491,14 +573,15 @@
       : L.map((u, i) => `<div class="it"><span class="av">${esc(iniciales(u.nombre))}</span><div class="t"><b>${esc(u.nombre)}</b>
           <span class="small muted">${esc(RTXT[u.rol] || u.rol)}${u.caja ? ' · ' + esc(u.caja) : ''} · ${esc(u.correo)} · ${esc(fechaHora(u.ultima_entrada))}${u.activo ? '' : ' · <span style="color:var(--bad)">Sin acceso</span>'}</span></div>
           ${u.user_id === EQ.yo ? '<span class="pill ghost">Tú</span>' : `<button class="btn sm" data-act="cq-editar" data-i="${i}">${icono('edit')}Editar</button>`}</div>`).join('');
+    const perm = panelPermisos(), nota = '«Dar acceso» sirve para alguien que ya tiene usuario en otro negocio del grupo: entra con el mismo correo y aquí tiene su propio rol. Para entrar con PIN en la caja: menú «Este equipo».';
+    const equipo = `<section class="panel"><div class="hd"><h2>Equipo de ${esc(A().empresa || '')}</h2><span class="muted small">${L.filter(u => u.activo).length} con acceso</span></div><div class="bd flush list">${filas}</div></section>`;
     const qv = Object.entries(ROLES).map(([r, x]) => `<div class="stat" style="align-items:start"><b>${esc(r)}</b><span class="small muted" style="text-align:right;max-width:70%">${esc(x.desc || '')}</span></div>`).join('');
     return `<div class="row"><p class="lead">Cada persona entra con su correo y su clave, y el sistema le abre solo lo de su rol. Todo lo que hace queda registrado con su nombre y la hora.</p><span class="spacer"></span>
       <button class="btn" data-act="cq-acceso">${icono('key')}Dar acceso</button><button class="btn primary" data-act="cq-nuevo">${icono('plus')}Nuevo usuario</button></div>
       ${EQ.error ? `<p class="small" style="color:var(--bad)">${esc(EQ.error)}</p>` : ''}
-      <div class="grid g2" style="align-items:start">
-      <section class="panel"><div class="hd"><h2>Equipo de ${esc(A().empresa || '')}</h2><span class="muted small">${L.filter(u => u.activo).length} con acceso</span></div><div class="bd flush list">${filas}</div></section>
+      ${perm ? `${equipo}<p class="small muted">${nota}</p>${perm}` : `<div class="grid g2" style="align-items:start">${equipo}
       <section class="panel"><div class="hd"><h2>Qué ve cada rol</h2></div><div class="bd">${qv}
-        <p class="small muted" style="margin:10px 0 0">«Dar acceso» sirve para alguien que ya tiene usuario en otro negocio del grupo: entra con el mismo correo y aquí tiene su propio rol. Para entrar con PIN en la caja: menú «Este equipo».</p></div></section></div>`;
+        <p class="small muted" style="margin:10px 0 0">${nota}</p></div></section></div>`}`;
   }
 
   /* ---------------- Este equipo: copia de lo hecho sin internet ---------------- */
