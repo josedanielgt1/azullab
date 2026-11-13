@@ -34,8 +34,8 @@ supabase/armar_sql_editor.sh 0026 > supabase/pendiente_sql_editor.sql   # el nú
 
 Empieza por la farmacia; el laboratorio y el CrossFit, cuando les toque.
 
-1. **Configuración → Datos fiscales**: razón social, RIF, domicilio, imprenta, talonario de contingencia (primer y último número), excedente del mes anterior. Marcar «confirmados» (sin eso no se factura).
-   - Farmacia (máquina fiscal): número de registro de la máquina y el agente instalado en la PC de la caja (ver `docs/agente-maquina-fiscal.md`). Mientras no esté, se practica con la impresora «simulada».
+1. **Configuración → Datos fiscales**: razón social, RIF, domicilio, contador, excedente del mes anterior (laboratorio y CrossFit: además imprenta y talonario de contingencia; la farmacia no los usa). Marcar «confirmados» (sin eso no se factura).
+   - Farmacia: factura **solo por máquina fiscal** (Módulo fiscal → Configurar la impresora). Sin la impresora configurada, la caja no factura. Número de registro de la máquina y el agente instalado en la PC de la caja (ver `docs/agente-maquina-fiscal.md`). Mientras no esté, se practica con la impresora «simulada».
 2. **Tasa BCV**: se carga sola al entrar el dueño; si falla, «Tasa BCV» a mano.
 3. **Usuarios**: crear al equipo con su rol (cajero, regente, almacén, atención, bioanalista, toma de muestras, coach). El acceso es por negocio: quien se crea en la farmacia solo entra a la farmacia. Al dueño real del Grupo se le crea en la farmacia y, cuando se instalen los otros, se le da acceso como dueño con «Dar acceso» en cada uno.
    - Antes de entregar, quitar los usuarios de prueba (por ejemplo «prueba») en Supabase → Authentication → Users.
@@ -51,11 +51,12 @@ Farmacia
 - [ ] Crear un producto, recibir una compra con número y control de factura y con la tasa que trae impresa; verla en el Libro de Compras con los mismos bolívares del papel.
 - [ ] Vencimientos: en Compras el año se escribe completo a mano; un lote vencido no se recibe; en la caja lo vencido sale «fuera de venta»; en Inventario y lotes, «Corregir» cambia un vencimiento mal escrito y queda en los movimientos.
 - [ ] Vender con factura por la máquina fiscal: queda pendiente hasta que la impresora devuelve su número; la existencia baja del lote que vence primero; aparece en Mi turno y en el Libro de Ventas.
-- [ ] Falla de la impresora: la factura sale del talonario y queda en el libro de control.
+- [ ] Falla de la impresora: reintentar o dejar pendiente; la falla queda en el libro de control y lo pendiente se imprime desde Módulo fiscal.
 - [ ] Reporte Z del día: cuadra con la base.
 - [ ] Devolución con nota de crédito: la mercancía vuelve al lote.
 - [ ] Un controlado no se vende sin récipe especial del paciente; la venta queda en el libro de controlados.
-- [ ] Sin internet (desconectar el wifi): vender con talonario; al volver, sube solo.
+- [ ] Sin internet (desconectar el wifi): la impresora sigue facturando; al volver, la venta sube sola.
+- [ ] Usuarios → Permisos por rol: el dueño marca qué abre cada rol y guarda; la persona lo ve al volver a entrar.
 - [ ] Cajero: no ve ganancias, compras, récipes ni usuarios.
 
 Laboratorio (en su instalación)
