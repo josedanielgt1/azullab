@@ -140,7 +140,8 @@
       cliente: {rif: d.cliente_rif, nombre: d.cliente_nombre, dir: d.cliente_dir || null, tel: d.cliente_tel || null},
       lineas: (d.documento_lineas || []).sort((a, b) => a.renglon - b.renglon)
         .map(l => ({descripcion: l.descripcion, cantidad: +l.cantidad, precio: +l.precio_unit, alicuota: l.alicuota})),
-      pagos: (d.documento_pagos || []).map(p => ({metodo: p.metodo, monto: +p.monto_bs})),
+      // A la impresora van los pagos recibidos (ella calcula e imprime el cambio); el vuelto, con monto negativo, es de la caja
+      pagos: (d.documento_pagos || []).filter(p => +p.monto_bs > 0).sort((a, b) => a.id - b.id).map(p => ({metodo: p.metodo, monto: +p.monto_bs})),
       totales: {exento: +d.base_exenta, base_general: +d.base_general, iva_general: +d.iva_general,
         base_reducida: +d.base_reducida, iva_reducida: +d.iva_reducida, igtf: +d.igtf, total: +d.total},
       tasa: +d.tasa, total_usd: +d.total_usd, motivo: d.motivo || null,
@@ -208,7 +209,7 @@
     const rate = S.rate, iva = +(E().iva_general ?? 16), ivr = +(E().iva_reducida ?? 8);
     const items = S.cart.flatMap(c => { const p = P.find(x => x.id === c.id); return segs(p, c.q).map(sg => ({p, cantidad: sg.q, precio_usd: sg.pv ?? p.price})); });
     const cli = S.client ? {rif: S.client.ci, nombre: S.client.name, tel: S.client.tel && S.client.tel !== '—' ? S.client.tel : null} : {rif: 'V-00000000', nombre: 'Consumidor final'};
-    const pagos = S.pays.map(p => ({metodo: p.k, monto_bs: r2(p.a * rate), divisa: !!p.div}));
+    const pagos = S.pays.map(p => ({metodo: p.k, monto_bs: r2(p.a * rate), divisa: !!p.div})).concat(typeof vueltoPagos === 'function' ? vueltoPagos(rate) : []);
     const lineas = items.map(i => { const pu = r2(i.precio_usd * rate); return {descripcion: i.p.name + (i.p.pres && i.p.pres !== '—' ? ' · ' + i.p.pres : ''), cantidad: i.cantidad, precio: pu, alicuota: i.p.iva}; });
     const t = {exento: 0, base_general: 0, base_reducida: 0};
     lineas.forEach(l => { const m = r2(l.precio * l.cantidad); if (l.alicuota === 'G') t.base_general += m; else if (l.alicuota === 'R') t.base_reducida += m; else t.exento += m; });
@@ -217,7 +218,7 @@
     const id = (crypto.randomUUID ? crypto.randomUUID() : 'v' + Date.now() + Math.random().toString(16).slice(2));
     const fecha = new Date().toISOString();
     for (;;) {
-      const r = await pedir('/documento', {id, tipo: 'FAC', fecha, cliente: cli, lineas, pagos: pagos.map(p => ({metodo: p.metodo, monto: p.monto_bs})),
+      const r = await pedir('/documento', {id, tipo: 'FAC', fecha, cliente: cli, lineas, pagos: pagos.filter(p => p.monto_bs > 0).map(p => ({metodo: p.metodo, monto: p.monto_bs})),
         totales: t, tasa: rate, total_usd: r2(t.total / rate), motivo: null, afecta: null, pie: ['REF. USD ' + nf(r2(t.total / rate)), 'TASA BCV ' + nf(rate)]});
       if (r.ok) {
         marcar(true);

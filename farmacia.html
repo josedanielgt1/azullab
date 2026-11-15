@@ -301,6 +301,11 @@ tbody tr:hover td{background:var(--acento-suave)}
 .monto .input{border:0;background:transparent;min-width:0;padding-left:6px}
 .monto .input:focus{box-shadow:none}
 .vuelto{font-family:var(--font-forma);font-size:13px;color:var(--sello-ambar);font-weight:700}
+.vto-tot{display:grid;gap:2px;text-align:center;padding:14px;border:1px dashed var(--sello-ambar);border-radius:4px;background:var(--sello-ambar-suave);color:var(--sello-ambar)}
+.vto-tot b{font-family:var(--font-maquina);font-variant-numeric:tabular-nums;font-size:1.7rem;line-height:1.1}
+.vto-tot span{font-family:var(--font-maquina);font-variant-numeric:tabular-nums;font-weight:600}
+.payln.vto{grid-template-columns:minmax(0,1fr) 150px 64px}
+.payln.vto .btn{min-height:44px;padding:0 10px}
 .due{border-radius:4px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:12px;font-weight:700;font-family:var(--font-maquina);font-variant-numeric:tabular-nums;min-height:64px}
 .due.pend{background:var(--sello-ambar-suave);color:var(--sello-ambar);border:1px dashed var(--sello-ambar)}
 .due.done{background:var(--hoja);color:var(--tinta);border:1px dashed var(--renglon)}
@@ -873,7 +878,7 @@ const CLIENTS = [
 ];
 const S = {
   view:'login', cashea:[], medio:'maquina', cont:451, spe:false, libro:'ventas', rxTab:'lista', rxq:'', rxN:215, role:'Dueño', user:'Daniela Uzcátegui', caja:'Todas las cajas', newClient:null, buyTab:'scan', repPeriod:'Hoy',
-  online:true, rate:881.88, cart:[], client:null, pays:[], cat:'Todos', q:'',
+  online:true, rate:881.88, cart:[], client:null, pays:[], vuelto:[], cat:'Todos', q:'',
   inv:1249, z:87, invFilter:'Todos',
   sales:[
     {t:'13:41', n:'00001248', c:'Consumidor final', m:'Pago móvil', u:'Kevin Albarrán', v:'Kevin Albarrán', caja:'Caja 1', it:[[4,2],[1,1]]},
@@ -1241,10 +1246,45 @@ const METHODS = [
   {k:'Efectivo USD', div:true, s:'Divisas'}, {k:'Zelle', div:true, s:'Divisas'}, {k:'Cashea', div:false, cashea:true, s:'Inicial + cuotas'}
 ];
 const CASHEA_INI = 0.40, CASHEA_CUOTAS = 3;
+/* --- Vuelto: se reparte por forma de entrega antes de imprimir; así la caja cuadra --- */
+const VUELTO_M = [{k:'Efectivo Bs', div:false}, {k:'Efectivo USD', div:true}, {k:'Pago móvil', div:false}];
+const vueltoDado = () => S.vuelto.reduce((a,v)=>a+v.a,0);
+const vueltoFalta = t => +(t.over - vueltoDado()).toFixed(2);   // en dólares: >0 falta, <0 se pasó
+const hayVuelto = t => t.rem<=0 && t.over>0.004;
+const vueltoListo = t => !hayVuelto(t) || (S.vuelto.some(v=>v.a>0.004) && Math.abs(vueltoFalta(t))<0.005);
+const vueltoTxt = () => S.vuelto.filter(v=>v.a>0.004).map(v=>`${v.k} ${v.div?usd(v.a):bs(v.a*S.rate)}`).join(' · ');
+/* Lo que va a la base: el vuelto es un pago con monto negativo en la forma en que se entregó */
+const vueltoPagos = rate => S.vuelto.filter(v=>v.a>0.004).map(v=>({metodo:v.k, monto_bs:-(Math.round(v.a*rate*100)/100), divisa:!!v.div}));
 function dueHtml(t){
   if (t.rem>0){ S.stamped = false; return `<span>Falta por cobrar</span><span>${usd(t.rem)} · ${bs(t.rem*S.rate)}</span>`; }
+  if (hayVuelto(t) && !vueltoListo(t)){ S.stamped = false; return `<span>Vuelto por entregar</span><span class="num" data-vto-pend>${bs(t.over*S.rate)} · ${usd(t.over)}</span>`; }
   const anim = !S.stamped; S.stamped = true;
-  return `<span style="display:grid;gap:2px"><span class="small muted" style="font-family:var(--font-forma);font-weight:600">Total cobrado</span><span style="font-size:20px">${usd(t.total)}</span>${t.over>0.004?`<span class="vuelto">Vuelto: ${bs(t.over*S.rate)} · ${usd(t.over)}</span>`:''}</span><span class="sello verde ${anim?'estampar':''}">Pagado</span>`;
+  return `<span style="display:grid;gap:2px"><span class="small muted" style="font-family:var(--font-forma);font-weight:600">Total cobrado</span><span style="font-size:20px">${usd(t.total)}</span>${hayVuelto(t)?`<span class="vuelto">Vuelto entregado: ${vueltoTxt()}</span>`:''}</span><span class="sello verde ${anim?'estampar':''}">Pagado</span>`;
+}
+/* El botón del cobro: si hay vuelto sin repartir, primero el vuelto; la factura se imprime después */
+const payBtn = t => hayVuelto(t) && !vueltoListo(t)
+  ? `<button class="btn primary big" data-act="vuelto">${ic('coins')}Entregar vuelto · ${bs(t.over*S.rate)}</button>`
+  : `<button class="btn primary big" data-act="emit" ${t.rem>0?'disabled':''}>${ic('printer')}Emitir factura fiscal</button>`;
+function vueltoEstado(t){
+  const f = vueltoFalta(t), ok = vueltoListo(t);
+  return ok ? `<span>Vuelto completo</span><span class="sello verde">Entregado</span>`
+    : f>0 ? `<span>Falta por repartir</span><span>${bs(f*S.rate)} · ${usd(f)}</span>`
+    : `<span>Te pasaste del vuelto</span><span>${bs(-f*S.rate)} · ${usd(-f)}</span>`;
+}
+function vueltoModal(){
+  const t = totals();
+  VUELTO_M.filter(m=>!CFG.mOff.includes(m.k)).forEach(m => { if (!S.vuelto.some(v=>v.k===m.k)) S.vuelto.push({k:m.k, div:m.div, a:0}); });
+  const lines = S.vuelto.map((v,i)=>`<div class="payln vto"><div><b>${v.k}</b><div class="small muted">${v.div?'Sale de los dólares de la caja':v.k==='Pago móvil'?'Sale de la cuenta, no de la gaveta':'Sale de los bolívares de la caja'}</div></div>
+    <label class="monto"><span>${v.div?'$':'Bs'}</span><input class="input" data-vto="${i}" data-cur="${v.div?'usd':'bs'}" inputmode="decimal" aria-label="Vuelto en ${v.k}" value="${v.a>0.004?(v.div?nf(v.a):nf(v.a*S.rate)):''}" placeholder="0,00"></label>
+    <button class="btn" data-act="vtotodo" data-i="${i}" title="Poner aquí todo lo que falta">Todo</button></div>`).join('');
+  return `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="vt" style="max-width:520px"><div class="hd"><h2 id="vt">Entregar vuelto</h2><button class="x" data-act="vtoback" aria-label="Volver al cobro">${ic('x')}</button></div>
+  <div class="bd">
+    <div class="vto-tot"><span class="small" style="font-family:var(--font-forma)">Vuelto del cliente</span><b>${bs(t.over*S.rate)}</b><span>${usd(t.over)} · tasa ${nf(S.rate)}</span></div>
+    <p class="small muted" style="margin:0">Escribe cómo le entregas el vuelto. Lo que salga de la caja se resta del cierre, y la factura se imprime cuando el vuelto esté completo.</p>
+    <div style="display:grid;gap:8px">${lines}</div>
+    <div class="due ${vueltoListo(t)?'done':'pend'}" id="vto-est">${vueltoEstado(t)}</div>
+    <div class="row"><button class="btn" data-act="vtoback">Volver al cobro</button><button class="btn primary big" style="flex:1" data-act="emit" id="vto-ok" ${vueltoListo(t)?'':'disabled'}>${ic('printer')}Vuelto entregado · Emitir factura</button></div>
+  </div></div>`;
 }
 const paySub = p => p.cashea ? `Financiado · ${CASHEA_CUOTAS} cuotas de ${usd(p.a/CASHEA_CUOTAS)} cada 14 días` : p.div ? (S.spe?`Cobrar ${usd(p.a*1.03)} (incluye IGTF)`:`Divisas · ${bs(p.a*S.rate)}`) : `Equivale a ${usd(p.a)}`;
 const parseVE = str => { let v = String(str).trim().replace(/[^0-9.,]/g,''); if (!v) return 0;
@@ -1263,8 +1303,8 @@ function payModal(){
     ${S.pays.some(p=>p.div)?`<p class="small" style="background:var(--hoja-alt);border:1px dashed var(--linea);border-radius:4px;padding:8px 12px;margin:0">${S.spe?'<b>IGTF 3 %</b> sobre lo pagado en divisas en efectivo o Zelle. Azullab lo cobra porque es contribuyente especial (agente de percepción) y sale en la factura.':'<b>IGTF: no se cobra.</b> Solo lo cobran los contribuyentes especiales. Azullab es contribuyente ordinario. Si el SENIAT la califica como especial, se activa el módulo y se suma 3 % a lo pagado en divisas.'}</p>`:''}
     ${lines?`<div style="display:grid;gap:8px"><p class="small muted">Pago móvil, punto y efectivo en bolívares se escriben en Bs; el sistema calcula cuánto falta.</p>${lines}</div>`:''}
     ${S.pays.some(p=>p.cashea)?`<p class="small" style="background:var(--sello-violeta-suave);border:1px dashed var(--sello-violeta);border-radius:4px;padding:8px 12px">Con Cashea el cliente paga aquí la inicial y el resto en cuotas cada 14 días a la cuenta de la farmacia. Si no paga, Cashea cubre la cuota. Las cuotas quedan en <b>Cuentas y bancos</b>.</p>`:''}
-    <div class="due ${t.rem>0?'pend':'done'}">${dueHtml(t)}</div>
-    <button class="btn primary big" data-act="emit" ${t.rem>0?'disabled':''}>${ic('printer')}Emitir factura fiscal</button>
+    <div class="due ${t.rem>0||!vueltoListo(t)?'pend':'done'}">${dueHtml(t)}</div>
+    <div id="paybtn" style="display:grid">${payBtn(t)}</div>
     ${S.online?'':'<p class="small" style="color:var(--warn)">Sin internet: la factura se imprime normal y la venta queda guardada para subirla después.</p>'}
   </div></div>`;
 }
@@ -1298,6 +1338,7 @@ function ticketText(sale){
   if (t.igtf) L.push(pad('IGTF 3,00%', 'Bs '+nf(t.igtf*r)));
   L.push('='.repeat(32), pad('TOTAL', 'Bs '+nf(t.total*r)), '='.repeat(32));
   sale.pays.forEach(p => L.push(pad(p.k.toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,''),'Bs '+nf((p.div&&S.spe?p.a*1.03:p.a)*r))));
+  const vto = (sale.vuelto||[]).reduce((a,v)=>a+v.a,0); if (vto>0.004) L.push(pad('CAMBIO','Bs '+nf(vto*r)));
   L.push('', pad('REF. USD', nf(t.total)), pad('TASA BCV', nf(r)), '');
   L.push(ctr('MH  '+MAQ.registro));
   L.push(ctr('GRACIAS POR SU COMPRA'), '', '', '', '');
@@ -2817,15 +2858,21 @@ document.addEventListener('click', e => {
     case 'nc-save': { const name = ($('#nc-name').value||'').trim(); if (!name) { toast('Escribe el nombre para guardar el cliente'); $('#nc-name').focus(); break; }
       const c = {ci:S.newClient.ci, name, tel:($('#nc-tel').value||'').trim()||'—', visits:0, total:0, last:'26/10/2026', pts:0};
       CLIENTS.unshift(c); S.client = c; S.newClient = null; rerenderPOS(); toast(`${name} quedó registrado. La próxima vez aparece con solo poner la cédula`); break; }
-    case 'checkout': S.pays = []; S.stamped = false; openModal(payModal()); break;
+    case 'checkout': S.pays = []; S.vuelto = []; S.stamped = false; openModal(payModal()); break;
     case 'addpay': { const m = METHODS.find(x=>x.k===b.dataset.k); const t = totals(); if (t.rem<=0) { toast('El pago ya está completo'); break; }
       if (m.cashea) { if (S.pays.some(p=>p.cashea)) { toast('Esta venta ya tiene Cashea'); break; }
-        S.pays.push({k:'Cashea (cuotas)', div:false, cashea:true, a:+(t.rem*(1-CASHEA_INI)).toFixed(2)}); openModal(payModal());
+        S.pays.push({k:'Cashea (cuotas)', div:false, cashea:true, a:+(t.rem*(1-CASHEA_INI)).toFixed(2)}); S.vuelto = []; openModal(payModal());
         toast(`Cashea financia ${Math.round((1-CASHEA_INI)*100)} %: cobra ahora la inicial con otra forma de pago`); break; }
-      S.pays.push({k:m.k, div:m.div, a:t.rem}); openModal(payModal()); break; }
-    case 'delpay': S.pays.splice(+b.dataset.i,1); openModal(payModal()); break;
+      S.pays.push({k:m.k, div:m.div, a:t.rem}); S.vuelto = []; openModal(payModal()); break; }
+    case 'delpay': S.pays.splice(+b.dataset.i,1); S.vuelto = []; openModal(payModal()); break;
+    case 'vuelto': openModal(vueltoModal()); { const i1 = $('#modal [data-vto]'); if (i1) i1.focus(); } break;
+    case 'vtoback': S.vuelto = S.vuelto.filter(v=>v.a>0.004); openModal(payModal()); break;
+    case 'vtotodo': { const v = S.vuelto[+b.dataset.i], f = vueltoFalta(totals()); if (!v) break;
+      v.a = Math.max(0, +(v.a + f).toFixed(4)); openModal(vueltoModal()); break; }
     case 'emit': {
       const t = totals();
+      /* Primero el vuelto, después el ticket */
+      if (hayVuelto(t) && !vueltoListo(t)) { openModal(vueltoModal()); break; }
       const items = S.cart.flatMap(c=>{ const p = P.find(x=>x.id===c.id); return segs(p, c.q).map(sg=>({p, q:sg.q, pv:sg.pv, l:sg.l})); });
       const now = new Date(); const tm = String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
       const mode = 'maquina';
@@ -2833,10 +2880,10 @@ document.addEventListener('click', e => {
       const divUSD = Math.min(S.pays.filter(p=>p.div).reduce((a,p)=>a+p.a,0), t.base);
       const doc = FX.emitir({cli:S.client?{n:S.client.name, id:S.client.ci, tel:S.client.tel}:null, tasa:S.rate, hora:tm, u:S.user, div:divUSD, igtf:t.igtf*S.rate,
         lines:items.map(({p,q,pv})=>({d:`${p.name} · ${p.pres}`, q, pu:FX.r2((pv??p.price)*S.rate), a:p.iva, pid:p.id})),
-        pagos:S.pays.map(p=>p.div||p.cashea?{k:p.k, usd:p.a}:{k:p.k, bs:FX.r2(p.a*S.rate)}), origen:{sale:true}});
+        pagos:S.pays.map(p=>p.div||p.cashea?{k:p.k, usd:p.a}:{k:p.k, bs:FX.r2(p.a*S.rate)}).concat(S.vuelto.filter(v=>v.a>0.004).map(v=>v.div?{k:v.k, usd:-v.a, v:true}:{k:v.k, bs:-FX.r2(v.a*S.rate), v:true})), origen:{sale:true}});
       const n = doc.num, ctrl = doc.ctrl;
       const cajaN = ROLES[S.role].caja==='Todas las cajas'?'Caja 1':ROLES[S.role].caja;
-      const sale = {n, t:tm, client:S.client, items, pays:S.pays.slice(), t_:t, offline:!S.online, mode, ctrl, u:S.user, v:vendNow(), caja:cajaN, doc:doc.id};
+      const sale = {n, t:tm, client:S.client, items, pays:S.pays.slice(), vuelto:S.vuelto.filter(v=>v.a>0.004), t_:t, offline:!S.online, mode, ctrl, u:S.user, v:vendNow(), caja:cajaN, doc:doc.id};
       items.forEach(({p,q})=>{ p.stock -= q; let r=q; p.lots.filter(l=>daysTo(l.e)>=0).sort((a,b)=>a.e.localeCompare(b.e)).forEach(l=>{const d=Math.min(l.q,r); l.q-=d; r-=d;}); });
       [...new Set(items.map(x=>x.p))].forEach(refreshPrice);
       const cz = S.pays.find(p=>p.cashea);
@@ -2844,7 +2891,7 @@ document.addEventListener('click', e => {
       const rec = {t:tm, n, c:S.client?S.client.name:'Consumidor final', m:cz?'Cashea':(S.pays.length>1?'Mixto':S.pays[0].k), usd:+t.total.toFixed(2), u:S.user, v:vendNow(), caja:cajaN, ctrl, doc:doc.id, it:items.map(({p,q,pv})=>[p.id,q,pv])};
       S.sales.unshift(rec); if (!S.online) S.queue.unshift(rec);
       if (S.client) { S.client.visits++; S.client.total += t.total; S.client.pts += Math.floor(t.total); }
-      S.inv = FX.n.FAC; S.cart = []; S.client = null; S.newClient = null; S.pays = []; S.cartOpen = false;
+      S.inv = FX.n.FAC; S.cart = []; S.client = null; S.newClient = null; S.pays = []; S.vuelto = []; S.cartOpen = false;
       openModal(ticketModal(sale)); rerenderPOS(); setCartOpen();
       if (!S.online) { const ob = document.querySelector('.offbar span'); if (ob) ob.innerHTML = offText(); }
       break; }
@@ -3000,8 +3047,11 @@ document.addEventListener('input', e => {
   if (e.target.id==='t-val'){ const v = parseVE(e.target.value), pv = $('#t-prev'); if (pv && v) pv.innerHTML = tasaPrev(v); }
   if (e.target.dataset.pay!==undefined){ const i = +e.target.dataset.pay; const v = parseVE(e.target.value); S.pays[i].a = e.target.dataset.cur==='bs' ? v / S.rate : v;
     const sb = document.querySelector(`[data-sub="${i}"]`); if (sb) sb.textContent = paySub(S.pays[i]);
-    const t = totals(); const due = document.querySelector('.due'); if (due){ due.className = 'due '+(t.rem>0?'pend':'done'); due.innerHTML = dueHtml(t); }
-    const em = document.querySelector('[data-act="emit"]'); if (em) em.disabled = t.rem>0; }
+    const t = totals(); const due = document.querySelector('.due'); S.vuelto = []; if (due){ due.className = 'due '+(t.rem>0||!vueltoListo(t)?'pend':'done'); due.innerHTML = dueHtml(t); }
+    const pb = document.getElementById('paybtn'); if (pb) pb.innerHTML = payBtn(t); }
+  if (e.target.dataset.vto!==undefined){ const v = S.vuelto[+e.target.dataset.vto], n = parseVE(e.target.value); v.a = e.target.dataset.cur==='bs' ? n / S.rate : n;
+    const t = totals(), est = document.getElementById('vto-est'), okb = document.getElementById('vto-ok');
+    if (est){ est.className = 'due '+(vueltoListo(t)?'done':'pend'); est.innerHTML = vueltoEstado(t); } if (okb) okb.disabled = !vueltoListo(t); }
 });
 document.addEventListener('change', e => {
   if (e.target.dataset.pay!==undefined) openModal(payModal());
@@ -3454,7 +3504,7 @@ const FX = (() => {
     if (t.br) L.push(pad('BI R8,00%', 'Bs ' + nf(t.br)), pad('IVA R8,00%', 'Bs ' + nf(t.ivr)));
     if (t.igtf) L.push(pad('IGTF 3,00%', 'Bs ' + nf(t.igtf)));
     L.push('='.repeat(W), pad('TOTAL', 'Bs ' + nf(t.total)), '='.repeat(W));
-    d.pagos.forEach(p => L.push(pad(U(p.k).slice(0, 18), (p.usd != null ? '$ ' + nf(p.usd) : 'Bs ' + nf(p.bs)))));
+    d.pagos.forEach(p => L.push(pad(U((p.v ? 'Vuelto ' : '') + p.k).slice(0, 20), (p.usd != null ? '$ ' + nf(Math.abs(p.usd)) : 'Bs ' + nf(Math.abs(p.bs))))));
     if (d.div) { const full = d.div >= r2(t.total / d.tasa) - .01; L.push('', pad('PAGADO EN DIVISAS:', '$ ' + nf(full ? r2(t.total / d.tasa) : d.div)), pad('TASA BCV ' + fd(d.fecha) + ':', nf(d.tasa)), pad('EQUIVALE A:', 'Bs ' + nf(full ? t.total : r2(d.div * d.tasa)))); }
     else L.push('', pad('REF. USD', nf(r2(t.total / d.tasa))), pad('TASA BCV ' + fd(d.fecha), nf(d.tasa)));
     L.push('');
@@ -3479,7 +3529,7 @@ const FX = (() => {
       ${t.br ? `<div><span>Base imponible alícuota reducida 8 %</span><b>${nf(t.br)}</b></div><div><span>IVA 8 %</span><b>${nf(t.ivr)}</b></div>` : ''}
       ${t.igtf ? `<div><span>IGTF 3 % (módulo contribuyente especial)</span><b>${nf(t.igtf)}</b></div>` : ''}
       <div class="tt"><span>Total Bs</span><b>${nf(t.total)}</b></div></div>
-    ${d.pagos.length ? `<div class="fx-pag"><span>Forma de pago</span>${d.pagos.map(p => `<b>${E(p.k)}: ${p.usd != null ? '$ ' + nf(p.usd) : B(p.bs)}</b>`).join('')}</div>` : ''}
+    ${d.pagos.length ? `<div class="fx-pag"><span>Forma de pago</span>${d.pagos.map(p => `<b>${p.v ? 'Vuelto en ' : ''}${E(p.k)}: ${p.usd != null ? '$ ' + nf(Math.abs(p.usd)) : B(Math.abs(p.bs))}</b>`).join('')}</div>` : ''}
     <p class="fx-div">${d.div ? (d.div >= r2(t.total / d.tasa) - .01 ? `Pagado en divisas: total <b class="num">$ ${nf(r2(t.total / d.tasa))}</b>, equivalente a <b class="num">${B(t.total)}</b> a la tasa BCV del día, <b class="num">${nf(d.tasa)} Bs/$</b> (${fd(d.fecha)}).`
       : `Pagado en divisas: <b class="num">$ ${nf(d.div)}</b>, equivalente a <b class="num">${B(r2(d.div * d.tasa))}</b> a la tasa BCV del día, <b class="num">${nf(d.tasa)} Bs/$</b> (${fd(d.fecha)}). El resto, <b class="num">${B(r2(t.total - d.div * d.tasa))}</b>, en bolívares.`)
       : `Referencia en divisas: <b class="num">$ ${nf(r2(t.total / d.tasa))}</b> a la tasa BCV de <b class="num">${nf(d.tasa)} Bs/$</b> del ${fd(d.fecha)}.`}</p>

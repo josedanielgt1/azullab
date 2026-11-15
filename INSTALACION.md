@@ -51,6 +51,7 @@ Farmacia
 - [ ] Crear un producto, recibir una compra con número y control de factura y con la tasa que trae impresa; verla en el Libro de Compras con los mismos bolívares del papel.
 - [ ] Vencimientos: en Compras el año se escribe completo a mano; un lote vencido no se recibe; en la caja lo vencido sale «fuera de venta»; en Inventario y lotes, «Corregir» cambia un vencimiento mal escrito y queda en los movimientos.
 - [ ] Vender con factura por la máquina fiscal: queda pendiente hasta que la impresora devuelve su número; la existencia baja del lote que vence primero; aparece en Mi turno y en el Libro de Ventas.
+- [ ] Vuelto: cobrar una venta con un billete mayor (por ejemplo $20 por $12); el botón pasa a «Entregar vuelto» y la factura no se imprime hasta repartirlo (efectivo Bs, efectivo USD o pago móvil); en Reportes y cierre, el cierre de caja resta el vuelto de la forma en que se entregó.
 - [ ] Falla de la impresora: reintentar o dejar pendiente; la falla queda en el libro de control y lo pendiente se imprime desde Módulo fiscal.
 - [ ] Reporte Z del día: cuadra con la base.
 - [ ] Devolución con nota de crédito: la mercancía vuelve al lote.
