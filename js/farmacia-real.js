@@ -153,7 +153,7 @@
     const hoy = hoyVE();
     S.sales.length = 0; S.queue.length = 0;
     FX.docs.filter(d => d.tipo === 'FAC' && d.fecha === hoy).reverse().forEach(d => S.sales.push({
-      t: d.hora, n: d.num, c: d.cli.n, m: d.pagos.length > 1 ? 'Mixto' : (d.pagos[0] || {}).k || '—', usd: r2(d.t.total / d.tasa), u: d.u, v: d.u,
+      t: d.hora, n: d.num, c: d.cli.n, m: d.pagos.filter(p => !p.v).length > 1 ? 'Mixto' : (d.pagos.find(p => !p.v) || {}).k || '—', usd: r2(d.t.total / d.tasa), u: d.u, v: d.u,
       caja: '—', cont: d.cont, ctrl: d.ctrl, doc: d.id, it: d.lines.filter(l => l.pid).map(l => [l.pid, l.q, r2(l.pu / d.tasa)])}));
   }
 
@@ -183,6 +183,8 @@
     if (!C.maquina.activa()) { avisar(A().rol === 'dueno' ? 'Falta configurar la impresora fiscal (Módulo fiscal → Configurar la impresora). Sin ella la farmacia no factura' : 'Falta configurar la impresora fiscal: avísale al dueño. Sin ella la farmacia no factura'); return; }
     const t = totals();
     if (t.rem > 0.005) { avisar('Falta cobrar ' + usd(t.rem)); return; }
+    // Primero el vuelto, después el ticket: la impresora no imprime con vuelto sin repartir
+    if (hayVuelto(t) && !vueltoListo(t)) { openModal(vueltoModal()); return; }
     if (!navigator.onLine) {
       // La máquina va por cable: sin internet imprime igual y la venta se guarda en el equipo
       const v = await C.maquina.ventaSinInternet(); if (v) { venta = v; segundaVuelta(b); } return; }
@@ -195,7 +197,7 @@
       }
       const items = S.cart.flatMap(c => { const p = P.find(x => x.id === c.id); return segs(p, c.q).map(sg => ({producto_id: p.id, cantidad: sg.q, precio_usd: sg.pv ?? p.price})); });
       const cli = S.client ? {rif: S.client.ci, nombre: S.client.name, tel: S.client.tel && S.client.tel !== '—' ? S.client.tel : null} : {rif: 'V-00000000', nombre: 'Consumidor final'};
-      const pagos = S.pays.map(p => ({metodo: p.k, monto_bs: r2(p.a * S.rate), divisa: !!p.div}));
+      const pagos = S.pays.map(p => ({metodo: p.k, monto_bs: r2(p.a * S.rate), divisa: !!p.div})).concat(vueltoPagos(S.rate));
       const {data, error} = await db.rpc('vender', {p_empresa: EMP(), p_cliente: cli, p_items: items, p_pagos: pagos});
       if (error) throw error;
       // La impresora imprime y devuelve su número (si falla, la venta queda pendiente de imprimir)
@@ -613,7 +615,7 @@
   FIN.compras = () => COMPRAS.slice(-6).reverse().map(c => [c.proveedor, c.numero, dmy(c.fecha), +c.total_usd, 'Recibida']);
   V.banks = () => {
     const hoy = hoyVE(), docs = FX.docs.filter(d => d.tipo === 'FAC' && d.fecha === hoy), por = {};
-    docs.forEach(d => d.pagos.forEach(p => { const k = p.k || '—'; por[k] = por[k] || {bs: 0, usd: 0, n: 0}; if (p.usd != null) por[k].usd += +p.usd; else por[k].bs += +p.bs || 0; por[k].n++; }));
+    docs.forEach(d => d.pagos.forEach(p => { const k = p.k || '—'; por[k] = por[k] || {bs: 0, usd: 0, n: 0}; if (p.usd != null) por[k].usd += +p.usd; else por[k].bs += +p.bs || 0; if (!p.v) por[k].n++; }));
     const tot = Object.values(por).reduce((t, x) => t + x.usd + x.bs / S.rate, 0);
     const deuda = COMPRAS.filter(c => c.tipo === 'FAC' && c.total_usd - c.pagado_usd > 0.004).sort((a, b) => (a.vence || '').localeCompare(b.vence || ''));
     const cz = S.cashea, czPend = cz.reduce((a, x) => a + (x.fin - x.cuota * x.pagadas), 0);

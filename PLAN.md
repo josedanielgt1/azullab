@@ -46,6 +46,7 @@ Pruebas: **480 de base de datos** (`supabase/tests/correr.sh`) y **355 de navega
 | Farmacia | Cuentas y bancos | Conciliación con el estado de cuenta: necesita los movimientos del banco |
 | Los tres | Páginas «Alcance de la propuesta», «Alcance y regalo», «Fase 2» | Decidir si se quitan para el cliente |
 | Farmacia | Máquina fiscal | Hecho en la base y en la caja (migración 0023): factura, notas, falla: reintentar o dejar pendiente (anotada en el libro de la máquina; sin talonario), sin internet, Reporte X y Z, libro de ventas por Z y libro de control. Falta el **agente** para el modelo que compren (protocolo en `docs/agente-maquina-fiscal.md`); mientras, se practica con la impresora «simulada» |
+| Farmacia | Vuelto en la caja | Hecho (migración 0030): con un pago mayor al total, primero se reparte el vuelto por forma de entrega y después se imprime; queda en la factura como pago negativo y el cierre de caja lo resta. Falta para después: apertura de caja (fondo inicial) y retiros del turno |
 | Farmacia | Registro de inventario (art. 177) | Real desde la migración 0024: sale de los movimientos de la base (antes eran cifras de muestra). Confirmar la presentación con el contador |
 | Farmacia | Notas de crédito de droguerías | En Proveedores y pagos (migración 0024): restan en el Libro de Compras y en la deuda, y lo devuelto sale de sus lotes |
 | Laboratorio y CrossFit | Medio de facturación | Siguen con imprenta digital (se escoge por empresa). Conectar al proveedor cuando lo escojan |

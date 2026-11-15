@@ -46,6 +46,7 @@ Lo que manda la caja:
 }
 ```
 
+- `pagos` trae lo que **entregó el cliente** por cada forma de pago; puede sumar más que el total. La impresora calcula e imprime el cambio. Cómo se entregó el vuelto (efectivo, pago móvil) lo guarda Cuadre para el cierre de caja y no viaja al agente.
 - `tipo`: `FAC`, `NC` o `ND`. `alicuota`: `E` (exento), `G` (16 %) o `R` (8 %). `precio` es el precio unitario **sin IVA**.
 - En una nota, `afecta` trae la factura que corrige: `{"numero": 1501, "control": null, "fecha": "...", "registro": "Z7C0012345"}`. `motivo` trae el motivo de la nota.
 - `pie` son líneas de texto para el final del ticket (la referencia en dólares y la tasa BCV).
