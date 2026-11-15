@@ -34,13 +34,15 @@ const { chromium } = require('playwright'); const mock = require('./mock');
         if (disp < it.cantidad) return { status: 400, body: { message: 'No hay existencia suficiente' } };
         let r = it.cantidad; T.lotes.filter(l => l.producto_id === it.producto_id && l.cantidad > 0 && l.vence >= hoy).sort((a, c) => a.vence.localeCompare(c.vence)).forEach(l => { const d = Math.min(l.cantidad, r); l.cantidad -= d; r -= d; }); }
       const n = T.docs.filter(d => d.tipo === 'FAC').length + 1, tot = body.p_items.reduce((t, i) => t + i.cantidad * i.precio_usd * 100, 0);
-      const d = { id: 'doc-' + n, empresa_id: 'E', tipo: 'FAC', origen: 'sistema', numero: n, numero_control: null, fecha: new Date().toISOString(), cliente_rif: body.p_cliente.rif, cliente_nombre: body.p_cliente.nombre, tasa: 100, total: tot, total_usd: tot / 100, igtf: 0, ref_tipo: 'venta', creado_por: 'u-d',
+      const d = { id: 'doc-' + n, empresa_id: 'E', tipo: 'FAC', origen: 'sistema', numero: n, numero_control: null, medio: 'maquina', estado: 'pendiente_imprenta', fecha: new Date().toISOString(), cliente_rif: body.p_cliente.rif, cliente_nombre: body.p_cliente.nombre, tasa: 100, total: tot, total_usd: tot / 100, igtf: 0, ref_tipo: 'venta', creado_por: 'u-d',
         documento_lineas: body.p_items.map((i, k) => ({ renglon: k + 1, descripcion: 'x', cantidad: i.cantidad, precio_unit: i.precio_usd * 100, alicuota: 'E', ref: { producto_id: i.producto_id } })), documento_pagos: body.p_pagos.map(x => ({ metodo: x.metodo, monto_bs: x.monto_bs })) };
       T.docs.push(d); return { body: d }; }
+    // La farmacia factura por máquina fiscal (simulada en las pruebas): la impresora devuelve su número
+    if (p === '/rest/v1/rpc/registrar_maquina') { const d = T.docs.find(x => x.id === body.p_doc); Object.assign(d, { numero_fiscal: body.p_numero, maquina_registro: body.p_registro, estado: 'emitido' }); return { body: d }; }
     if (p === '/rest/v1/rpc/emitir_nota') {
       if (body.p_reintegrar) body.p_lineas.forEach(l => { const lt = T.lotes.find(x => x.producto_id === l.ref.producto_id && x.lote === 'GV24'); lt.cantidad += l.cantidad; });
       const n = T.docs.filter(d => d.tipo === body.p_tipo).length + 1, f = T.docs.find(d => d.id === body.p_factura);
-      const d = { ...f, id: 'nota-' + n, tipo: body.p_tipo, numero: n, afecta_id: f.id, motivo: body.p_motivo, ref_tipo: null, documento_lineas: body.p_lineas.map((l, k) => ({ renglon: k + 1, descripcion: l.descripcion, cantidad: l.cantidad, precio_unit: l.precio_bs, alicuota: l.alicuota, ref: l.ref })), documento_pagos: [] };
+      const d = { ...f, id: 'nota-' + n, tipo: body.p_tipo, numero: n, numero_fiscal: null, estado: 'pendiente_imprenta', afecta_id: f.id, motivo: body.p_motivo, ref_tipo: null, documento_lineas: body.p_lineas.map((l, k) => ({ renglon: k + 1, descripcion: l.descripcion, cantidad: l.cantidad, precio_unit: l.precio_bs, alicuota: l.alicuota, ref: l.ref })), documento_pagos: [] };
       T.docs.push(d); return { body: d }; }
     if (p === '/rest/v1/rpc/salida_inventario') { const l = T.lotes.find(x => x.id === body.p_lote); if (body.p_cantidad > l.cantidad) return { status: 400, body: { message: 'La salida debe ser entre 1 y ' + l.cantidad } }; l.cantidad -= body.p_cantidad; return { body: l }; }
   };
@@ -110,7 +112,7 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   const nc = T.rpc.find(r => r.f === 'emitir_nota');
   ok(nc && nc.body.p_tipo === 'NC' && nc.body.p_factura === 'doc-1' && nc.body.p_lineas[0].cantidad === 1 && nc.body.p_lineas[0].ref.producto_id === 1, 'la nota de crédito va a la base citando su factura');
   ok(nc && nc.body.p_reintegrar === /devoluci/i.test(nc.body.p_motivo), 'si es devolución, pide reintegrar al inventario');
-  ok(await pg.evaluate(() => FX.docs.find(d => d.tipo === 'NC').num) === '00000001', 'la nota sale con el número que dio la base');
+  ok(await pg.evaluate(() => FX.docs.find(d => d.tipo === 'NC').num) === '900000001', 'la nota sale con el número de la máquina fiscal');
   ok(await pg.evaluate(() => P[0].stock) === 14, 'la pantalla toma la existencia de la base (14)');
   await pg.evaluate(() => closeModal());
   // Venta sin existencia: la base la rechaza

@@ -54,7 +54,7 @@ const { chromium } = require('playwright'); const mock = require('./mock');
     if (ruta === '/reporte-z') return j({ ok: true, registro: 'Z7C0012345', numero: ++AG.z, fac_desde: 1501, fac_hasta: 1502, cant_fac: 2, total: 600, texto: 'REPORTE Z' });
     return j({ ok: false, error: 'ruta' });
   });
-  const st = mock(pg, { tasas: [{ fecha: hoy, tasa: 100 }], rest, empresaExtra: { medio_factura: 'maquina', maquina_marca: 'The Factory', maquina_modelo: 'HKA80', maquina_registro: 'Z7C0012345', maquina_agente: 'http://127.0.0.1:7123', talonario_desde: 1, talonario_hasta: 50, iva_general: 16, iva_reducida: 8, igtf: 0 } });
+  const st = mock(pg, { tasas: [{ fecha: hoy, tasa: 100 }], rest, empresaExtra: { medio_factura: 'maquina', maquina_marca: 'The Factory', maquina_modelo: 'HKA80', maquina_registro: 'Z7C0012345', maquina_agente: 'http://127.0.0.1:7123', iva_general: 16, iva_reducida: 8, igtf: 0 } });
   await pg.goto('http://localhost:8765/farmacia.html'); await pg.fill('#lu', 'jose@azullab.com'); await pg.fill('#lp', 'clave-buena'); await pg.click('#loginForm [type=submit]');
   await pg.waitForFunction(() => typeof S === 'object' && S.view !== 'login' && P.length === 1 && S.medio === 'maquina', null, { timeout: 8000 }).catch(() => {});
   ok(await pg.evaluate(() => S.medio) === 'maquina', 'la farmacia con máquina configurada entra en modo máquina fiscal');
@@ -80,22 +80,18 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   await pg.waitForFunction(() => document.getElementById('modal').textContent.includes('00001502'), null, { timeout: 6000 }).catch(() => {});
   ok((await pg.textContent('#modal')).includes('00001502'), 'al reintentar, imprime y sigue');
 
-  // 3. Impresora dañada → talonario
+  // 3. Impresora dañada → pendiente (sin talonario), la falla queda en el libro de la máquina
   AG.falla = 'Error de memoria fiscal';
   await vender();
-  await pg.waitForSelector('#mq-tal', { timeout: 6000 }).catch(() => {});
-  await pg.fill('#mq-tal', '7'); await pg.click('[data-act="mq-tal"]');
-  await pg.waitForFunction(() => document.getElementById('modal').textContent.includes('01-00000007'), null, { timeout: 6000 }).catch(() => {});
-  const rf = T.rpc.find(r => r.f === 'registrar_falla_maquina');
-  ok(rf && rf.body.p_numero === 7 && rf.body.p_motivo === 'Error de memoria fiscal', 'la factura pasa al talonario con el motivo');
-  ok((await pg.textContent('#modal')).includes('01-00000007'), 'y el ticket muestra el número del talonario');
-
-  // 4. Dejar pendiente y luego imprimir desde Módulo fiscal
-  await vender();
   await pg.waitForSelector('[data-act="mq-pend"]', { timeout: 6000 }).catch(() => {});
+  ok(!(await pg.$('#mq-tal')) && !(await pg.$('[data-act="mq-tal"]')) && !(await pg.textContent('#modal')).toLowerCase().includes('talonario'), 'si la impresora se daña, no se ofrece talonario');
   await pg.click('[data-act="mq-pend"]'); await pg.waitForTimeout(800);
   const pend = T.docs.filter(d => d.estado === 'pendiente_imprenta');
   ok(pend.length === 1, 'puede quedar pendiente de imprimir (la venta ya está en la base)');
+  ok(T.maquina_eventos.some(e => e.tipo === 'falla' && e.detalle.includes('Error de memoria fiscal') && e.detalle.includes('pendiente')), 'la falla queda anotada en el libro de la máquina');
+  ok(!T.rpc.some(r => r.f === 'registrar_falla_maquina'), 'nada sale del talonario');
+
+  // 4. Imprimir lo pendiente desde Módulo fiscal
   AG.falla = null;
   await pg.evaluate(() => { closeModal(); go('fiscal'); }); await pg.waitForTimeout(800);
   await pg.evaluate(() => Cuadre.maquina.refrescar().then(() => render())); await pg.waitForTimeout(300);

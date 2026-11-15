@@ -10,7 +10,7 @@ Las pantallas de `farmacia.html`, `laboratorio.html` y `crossfit.html` son las m
 | --- | --- | --- |
 | Entrada | Correo y clave; el sistema abre según el rol; sesión guardada; «Olvidé mi clave» | ✅ (la recuperación necesita GitHub Pages, ver abajo) |
 | Usuarios | Equipo de cada negocio, nuevo usuario, dar acceso por correo, cambiar rol, caja, nombre y clave, quitar acceso | ✅ («Nuevo usuario» necesita subir la función `usuarios`) |
-| Datos fiscales | RIF, razón social, domicilio, imprenta, talonario y contador en Configuración; sin confirmarlos el negocio no factura | ✅ |
+| Datos fiscales | RIF, razón social, domicilio, contador (en la farmacia, sin imprenta ni talonario: factura solo por máquina fiscal) en Configuración; sin confirmarlos el negocio no factura | ✅ |
 | Tasa BCV | La base la lee directo de bcv.org.ve (función `tasa-bcv`, cada 5 min de 3 a 8 p. m.); se usa apenas se publica (la del día siguiente incluida); las cajas abiertas la toman solas; el dueño puede escribirla a mano | ✅ |
 | Facturas y notas | Número correlativo por RIF, IVA e IGTF calculados por la base, notas de crédito y débito, libro de ventas; nada se edita ni se borra | ✅ (número de control: espera la imprenta) |
 | **Farmacia** | Catálogo (vacío al instalar), códigos únicos, compras por lote, venta que factura y descuenta el lote que vence antes, salidas, devoluciones a su lote, clientes | ✅ |
@@ -23,7 +23,7 @@ Las pantallas de `farmacia.html`, `laboratorio.html` y `crossfit.html` son las m
 | Farmacia: récipes y controlados | Récipes con número interno, médicos con MPPS, récipe especial sin repetir; la base no deja vender un controlado sin el récipe del paciente ni más de lo autorizado; el libro de controlados se llena solo con cada movimiento y cuadra con el inventario | ✅ |
 | Farmacia: bancos, puntos y alertas | Cuentas y bancos con lo cobrado hoy, deuda con droguerías y Cashea guardado; Azul Puntos con los clientes reales; libro de ventas del módulo fiscal con las facturas; alertas de alergias que registra la regente y la caja frena sin ver el motivo | ✅ |
 | Laboratorio: catálogo, reactivos e historial | Editor de exámenes (precio, tubo, parámetros, referencias por sexo, reactivo que gasta) y de perfiles; entrada y corrección de reactivos; al validar se descuenta el reactivo; historial del paciente con sus órdenes | ✅ |
-| Farmacia: sin internet | Detecta sola el corte; vende con el talonario de contingencia (número y control), guarda la venta en el equipo y la sube sola al volver con su fecha y la tasa de ese día; abre con la copia local del catálogo; publicado en https queda instalado en el equipo | ✅ |
+| Farmacia: sin internet | Detecta sola el corte; la impresora fiscal sigue facturando por cable, guarda la venta en el equipo con su número fiscal y la sube sola al volver (`vender_impresa`). Sin internet y con la impresora dañada no se factura: se reintenta o se cancela la venta | ✅ |
 | Farmacia: nómina | Empleados, novedades y pagos de cada quincena guardados; la quincena, el calendario de pagos y las liquidaciones usan la fecha de hoy. Recibos por WhatsApp (uno por uno, con el recibo escrito) e impresos; constancia de trabajo, cálculo del AR-I y finiquito para imprimir o guardar en PDF; datos del pago móvil que se copian; archivo del banco con la cuenta marcada «nómina» y el RIF real; aumentos que entran el día que les toca. El acceso al sistema de un empleado se da en Usuarios | ✅ |
 | Los tres: calendario fiscal y forma 30 | Calendario fiscal del mes en curso; sin excedente de crédito fiscal, libro de compras ni retenciones de muestra | ✅ |
 | Laboratorio y CrossFit: libro de compras | «Registrar factura de compra» en Libros y declaración: proveedor, RIF, número, control, exento, base gravable y retención de ISLR; entra al Libro de Compras y al comprobante de retención | ✅ |
@@ -45,7 +45,7 @@ Pruebas: **480 de base de datos** (`supabase/tests/correr.sh`) y **355 de navega
 | Los tres | Fase 2 (tienda web, sucursales, Azul Puntos; portal, equipos, convenios, calidad y grupo del laboratorio) | Guardada en los archivos y fuera del menú; se activa con `FASE2 = true` en `js/cuadre-comun.js` |
 | Farmacia | Cuentas y bancos | Conciliación con el estado de cuenta: necesita los movimientos del banco |
 | Los tres | Páginas «Alcance de la propuesta», «Alcance y regalo», «Fase 2» | Decidir si se quitan para el cliente |
-| Farmacia | Máquina fiscal | Hecho en la base y en la caja (migración 0023): factura, notas, falla con talonario, sin internet, Reporte X y Z, libro de ventas por Z y libro de control. Falta el **agente** para el modelo que compren (protocolo en `docs/agente-maquina-fiscal.md`); mientras, se practica con la impresora «simulada» |
+| Farmacia | Máquina fiscal | Hecho en la base y en la caja (migración 0023): factura, notas, falla: reintentar o dejar pendiente (anotada en el libro de la máquina; sin talonario), sin internet, Reporte X y Z, libro de ventas por Z y libro de control. Falta el **agente** para el modelo que compren (protocolo en `docs/agente-maquina-fiscal.md`); mientras, se practica con la impresora «simulada» |
 | Farmacia | Registro de inventario (art. 177) | Real desde la migración 0024: sale de los movimientos de la base (antes eran cifras de muestra). Confirmar la presentación con el contador |
 | Farmacia | Notas de crédito de droguerías | En Proveedores y pagos (migración 0024): restan en el Libro de Compras y en la deuda, y lo devuelto sale de sus lotes |
 | Laboratorio y CrossFit | Medio de facturación | Siguen con imprenta digital (se escoge por empresa). Conectar al proveedor cuando lo escojan |
@@ -60,8 +60,8 @@ Al 10 nov: en producción están las migraciones hasta la 0025 y la función `us
 
 1. **Protección de claves filtradas**: solo existe en el plan Pro de Supabase (Authentication → Sign In / Providers → Email → «Prevent use of leaked passwords»). En el plan gratis queda el mínimo de 8 caracteres con mayúsculas, minúsculas y números. Activarla solo si pasan a Pro.
 2. **GitHub Pages** (para «Olvidé mi clave» y para entrar desde cualquier equipo): Settings → Pages → rama `main`, carpeta raíz. En Supabase → Authentication → URL Configuration: Site URL `https://josedanielgt1.github.io/azullab/` y en Redirect URLs `https://josedanielgt1.github.io/azullab/**`.
-3. **Talonario de contingencia**: en Configuración → Datos fiscales, el rango del talonario (desde y hasta). Sin eso, la farmacia no puede vender sin internet.
-4. **Imprenta digital**: cuando la escojan, se conecta para el número de control.
+3. **Impresora fiscal de la farmacia**: Módulo fiscal → Configurar la impresora (marca, modelo, registro MH y agente). Sin eso la farmacia no factura: no tiene imprenta digital ni talonario.
+4. **Imprenta digital**: solo laboratorio y CrossFit, cuando la escojan.
 
 ## Decisiones tomadas
 

@@ -166,11 +166,10 @@
   FX.emitir = o => {
     const d = fxEmitir(o);
     if (venta && o.origen && o.origen.sale) {
-      // Con máquina fiscal el número es el de la memoria fiscal; si la máquina falló, el del talonario
-      const maq = venta.medio === 'maquina';
-      d.num = maq && venta.numero_fiscal ? p8(venta.numero_fiscal) : venta.numero == null ? d.num : maq ? 'P-' + p8(venta.numero) : p8(venta.numero);
-      d.ctrl = maq ? (venta.numero_fiscal ? 'MH ' + venta.maquina_registro : 'Pendiente de la impresora') : venta.numero_control || 'Pendiente de imprenta';
-      d.medio = venta.medio || 'imprenta'; d.dbId = venta.id; d.cont = venta.medio === 'talonario';
+      // El número es el de la memoria fiscal; si la impresora no imprimió, queda pendiente (P-)
+      d.num = venta.numero_fiscal ? p8(venta.numero_fiscal) : venta.numero == null ? d.num : 'P-' + p8(venta.numero);
+      d.ctrl = venta.numero_fiscal ? 'MH ' + venta.maquina_registro : 'Pendiente de la impresora';
+      d.medio = 'maquina'; d.dbId = venta.id;
       if (venta.numero != null) FX.n.FAC = venta.numero + 1;
       venta = null; }
     return d;
@@ -179,14 +178,14 @@
     const b = e.target.closest('[data-act="emit"]'); if (!b || A().tipo !== 'farmacia') return;
     if (pase) { pase = false; return; }   // segunda vuelta: la pantalla arma el ticket
     e.preventDefault(); e.stopImmediatePropagation();
-    const maquina = S.medio === 'maquina';
-    if (maquina && !C.maquina) { avisar('Falta el módulo de la máquina fiscal: recarga la página'); return; }
+    // La farmacia factura solo por máquina fiscal: sin la impresora configurada no se factura
+    if (!C.maquina) { avisar('Falta el módulo de la máquina fiscal: recarga la página'); return; }
+    if (!C.maquina.activa()) { avisar(A().rol === 'dueno' ? 'Falta configurar la impresora fiscal (Módulo fiscal → Configurar la impresora). Sin ella la farmacia no factura' : 'Falta configurar la impresora fiscal: avísale al dueño. Sin ella la farmacia no factura'); return; }
     const t = totals();
     if (t.rem > 0.005) { avisar('Falta cobrar ' + usd(t.rem)); return; }
     if (!navigator.onLine) {
       // La máquina va por cable: sin internet imprime igual y la venta se guarda en el equipo
-      if (maquina) { const v = await C.maquina.ventaSinInternet(); if (v) { venta = v; segundaVuelta(b); } return; }
-      if (ventaSinInternet()) { pase = true; b.click(); } return; }
+      const v = await C.maquina.ventaSinInternet(); if (v) { venta = v; segundaVuelta(b); } return; }
     const txt = b.innerHTML; b.disabled = true; b.textContent = 'Facturando…';
     try {
       await sincronizar();   // por si hay un producto nuevo sin número de la base
@@ -199,8 +198,8 @@
       const pagos = S.pays.map(p => ({metodo: p.k, monto_bs: r2(p.a * S.rate), divisa: !!p.div}));
       const {data, error} = await db.rpc('vender', {p_empresa: EMP(), p_cliente: cli, p_items: items, p_pagos: pagos});
       if (error) throw error;
-      // Máquina fiscal: la impresora imprime y devuelve su número (o, si falla, pasa al talonario)
-      venta = data.medio === 'maquina' ? await C.maquina.imprimir(data) : data;
+      // La impresora imprime y devuelve su número (si falla, la venta queda pendiente de imprimir)
+      venta = await C.maquina.imprimir(data);
       const ids = items.map(i => i.producto_id), cliente = S.client;
       b.disabled = false; b.innerHTML = txt; segundaVuelta(b);
       await recargar(ids); if (cliente) await cargarClientes(); tablero(); libroVentas(); actualizarInv(); if (P.some(p => ids.includes(p.id) && p.ctrl)) await C.recargarControlados();
@@ -650,7 +649,7 @@
     FX.docs.filter(d => !enZ(d)).forEach(d => {
       const s = d.tipo === 'NC' ? -1 : 1, t = d.t || {}, k = x => r2(s * (+x || 0) / d.tasa);
       LIBRO.push([dmy(d.fecha), (d.tipo === 'FAC' ? 'Factura ' : d.tipo === 'NC' ? 'Nota de crédito ' : 'Nota de débito ') + d.num, d.cli.id || '—', d.cli.n, k(t.total), k(t.ex), k(t.bg), k(t.ivg), k(d.igtf)]);
-      LIBRO_DIG.push(`${d.tipo === 'FAC' ? 'Factura' : d.tipo === 'NC' ? 'Nota de crédito' : 'Nota de débito'} ${d.num} · ${d.medio === 'maquina' ? 'máquina ' + (d.reg || '') : 'control ' + d.ctrl}`);
+      LIBRO_DIG.push(`${d.tipo === 'FAC' ? 'Factura' : d.tipo === 'NC' ? 'Nota de crédito' : 'Nota de débito'} ${d.num} · ${d.reg ? 'máquina ' + d.reg : d.ctrl}`);
     });
   }
 
@@ -710,32 +709,9 @@
     const mover = (v, grupo) => { const i = f2.items.findIndex(it => it[1] === v); if (i < 0) return; const [it] = f2.items.splice(i, 1); const g = NAV.find(x => x.g === grupo); if (g) g.items.push(it); const j = F2.indexOf(v); if (j >= 0) F2.splice(j, 1); };
     mover('recipes', 'Operación'); mover('suppliers', 'Administración'); })();
 
-  /* ---------------- Ventas sin internet: talonario de contingencia y cola ---------------- */
+  /* ---------------- Ventas sin internet: las imprime la máquina fiscal y esperan en la cola del equipo ---------------- */
   const COLA = () => C.leerLocal('cola') || [];
   const guardarCola = c => C.guardarLocal('cola', c);
-  async function siguienteTalonario() {
-    const F = FX.F, desde = +F.talDesde || 1;
-    let n = desde;
-    try {
-      // Lo usado del talonario: sin internet y por falla de la máquina fiscal
-      const {data} = await db.from('talonario_usados').select('numero').eq('empresa_id', EMP()).order('numero', {ascending: false}).limit(1);
-      if (data && data[0]) n = Math.max(n, +data[0].numero + 1);
-    } catch (_) {}
-    COLA().forEach(v => { if (!v.maquina) n = Math.max(n, v.numero + 1); });
-    const loc = C.leerLocal('talonario'); if (loc) n = Math.max(n, +loc);
-    FX.n.tal = n;
-  }
-  function ventaSinInternet() {
-    const F = FX.F, n = FX.n.tal;
-    if (!F.talHasta || n < (+F.talDesde || 1) || n > +F.talHasta) {
-      avisar('Sin internet y sin talonario de contingencia disponible: cárgalo en Configuración (desde y hasta)'); return false; }
-    const items = S.cart.flatMap(c => { const p = P.find(x => x.id === c.id); return segs(p, c.q).map(sg => ({producto_id: p.id, cantidad: sg.q, precio_usd: sg.pv ?? p.price})); });
-    const cli = S.client ? {rif: S.client.ci, nombre: S.client.name, tel: S.client.tel && S.client.tel !== '—' ? S.client.tel : null} : {rif: 'V-00000000', nombre: 'Consumidor final'};
-    const cola = COLA();
-    cola.push({numero: n, fecha: new Date().toISOString(), cliente: cli, items, pagos: S.pays.map(p => ({metodo: p.k, monto_bs: r2(p.a * S.rate), divisa: !!p.div})), usuario: A().nombre});
-    guardarCola(cola); C.guardarLocal('talonario', n + 1);
-    return true;
-  }
   let subiendo = false;
   async function subirCola() {
     if (subiendo || !navigator.onLine || A().tipo !== 'farmacia') return;
@@ -743,10 +719,9 @@
     subiendo = true; let ok = 0, malas = [];
     try {
       for (const v of cola) {
-        // Lo que imprimió la máquina sin internet sube con su número fiscal; lo demás, del talonario
-        const {error} = v.maquina
-          ? await db.rpc('vender_impresa', {p_empresa: EMP(), p_cliente: v.cliente, p_items: v.items, p_pagos: v.pagos, p_fecha: v.fecha, p_numero: v.numero, p_registro: v.maquina, p_resp: v.resp || {}})
-          : await db.rpc('vender', {p_empresa: EMP(), p_cliente: v.cliente, p_items: v.items, p_pagos: v.pagos, p_origen: 'contingencia', p_numero: v.numero, p_fecha: v.fecha});
+        // Lo que imprimió la máquina sin internet sube con su número fiscal
+        if (!v.maquina) { v.error = 'Venta sin número de la máquina fiscal: avisa a Cuadre'; malas.push(v); continue; }
+        const {error} = await db.rpc('vender_impresa', {p_empresa: EMP(), p_cliente: v.cliente, p_items: v.items, p_pagos: v.pagos, p_fecha: v.fecha, p_numero: v.numero, p_registro: v.maquina, p_resp: v.resp || {}});
         if (!error || /duplicate/i.test(error.message)) ok++;            // repetida: ya había subido
         else if (/Failed to fetch|network/i.test(error.message)) { malas.push(v); continue; }
         else { v.error = C.msg(error); malas.push(v); }
@@ -765,7 +740,7 @@
   const vOffline = V.offline;
   V.offline = () => { const cola = COLA();
     return `<section class="panel"><div class="hd"><h2>Ventas guardadas en este equipo</h2><span class="pill ${cola.length ? 'warn' : 'ok'}">${cola.length ? cola.length + ' por subir' : 'Todo subido'}</span></div><div class="bd flush tbl-wrap"><table><thead><tr><th>Número</th><th>Fecha</th><th>Cliente</th><th class="r">Renglones</th><th>Estado</th></tr></thead><tbody>
-      ${cola.map(v => `<tr><td class="num">${v.maquina ? 'Máquina ' + p8(v.numero) : FX.F.talSerie + '-' + p8(v.numero)}</td><td class="num small">${new Date(v.fecha).toLocaleString('es-VE')}</td><td>${C.esc(v.cliente.nombre)}</td><td class="r">${v.items.length}</td><td>${v.error ? `<span class="pill bad">${C.esc(v.error)}</span>` : '<span class="pill warn">Esperando internet</span>'}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">No hay ventas pendientes.</td></tr>'}</tbody></table></div>
+      ${cola.map(v => `<tr><td class="num">${'Máquina ' + p8(v.numero)}</td><td class="num small">${new Date(v.fecha).toLocaleString('es-VE')}</td><td>${C.esc(v.cliente.nombre)}</td><td class="r">${v.items.length}</td><td>${v.error ? `<span class="pill bad">${C.esc(v.error)}</span>` : '<span class="pill warn">Esperando internet</span>'}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">No hay ventas pendientes.</td></tr>'}</tbody></table></div>
       ${cola.length && navigator.onLine ? `<div class="bd"><button class="btn primary" data-act="fr-subir">${ic('sync')}Subir ahora</button></div>` : ''}</section>` + vOffline(); };
   document.addEventListener('click', e => { if (e.target.closest('[data-act="fr-subir"]')) { e.stopImmediatePropagation(); subirCola(); } }, true);
   // Copia local para abrir sin internet
@@ -820,7 +795,7 @@
     FX_SYS.onNota = (nc, fac, seed) => { onNotaMaqueta(nc, fac, C.acceso ? true : seed); if (C.acceso) setTimeout(actualizarInv, 300); };
   }
 
-  C.farmacia = {recargar, sincronizar, alCambiarDocs: () => { tablero(); libroVentas(); actualizarInv(); }, ventaTalonario: ventaSinInternet, cargarInventario, actualizarInv};
+  C.farmacia = {recargar, sincronizar, alCambiarDocs: () => { tablero(); libroVentas(); actualizarInv(); }, cargarInventario, actualizarInv};
   C.subirCola = subirCola;   // para «Recuperar desde la carpeta»
   /* Lo creado o cambiado sin internet (clientes y productos): se guarda en el equipo y sube al volver la conexión */
   C.sincronizarTodo = sincronizar;
@@ -1115,8 +1090,7 @@
       paso('registro de inventario', cargarInventario),
       paso('resumen', cargarResumen),
       paso('récipes', cargarRecipes),
-      paso('alertas', cargarAlertas),
-      paso('talonario', siguienteTalonario)]);
+      paso('alertas', cargarAlertas)]);
     RECV = []; S.cart = []; S.precioAvisos.length = 0;
     INI.man = []; INI.hoja = null;
     ventasDeHoy();
