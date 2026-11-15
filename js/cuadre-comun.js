@@ -301,7 +301,7 @@
     const x = {id, tipo: d.tipo, fecha: new Intl.DateTimeFormat('en-CA', {timeZone: 'America/Caracas'}).format(new Date(d.fecha)), hora: hm(d.fecha),
       cli: {n: d.cliente_nombre, id: d.cliente_rif === 'V-00000000' ? '' : d.cliente_rif, tel: d.cliente_tel || ''},
       lines: (d.documento_lineas || []).sort((a, b) => a.renglon - b.renglon).map(l => ({d: l.descripcion, q: +l.cantidad, pu: +l.precio_unit, a: l.alicuota, pid: l.ref && l.ref.producto_id})),
-      tasa: +d.tasa, div: 0, pagos: (d.documento_pagos || []).sort((a, b) => a.id - b.id).map(p => +p.monto_bs < 0 ? {k: p.metodo, bs: +p.monto_bs, v: true} : {k: p.metodo, bs: +p.monto_bs}), origen: d.ref_tipo === 'venta' ? {sale: true} : null,
+      tasa: +d.tasa, div: 0, vaj: +d.vuelto_ajuste || 0, vnota: d.vuelto_nota || '', pagos: (d.documento_pagos || []).sort((a, b) => a.id - b.id).map(p => +p.monto_bs < 0 ? {k: p.metodo, bs: +p.monto_bs, v: true} : {k: p.metodo, bs: +p.monto_bs}), origen: d.ref_tipo === 'venta' ? {sale: true} : null,
       afecta: d.afecta_id ? mapaDocs.get(d.afecta_id) || null : null, motivo: d.motivo || '', igtf: +d.igtf, u: nombres[d.creado_por] || '',
       cont: d.origen === 'contingencia' || d.medio === 'talonario', num: d.origen === 'contingencia' ? 'C-' + p8(d.numero) : p8(d.numero),
       ctrl: d.numero_control || 'Pendiente de imprenta', dbId: d.id, medio: d.medio || 'imprenta', z: d.reporte_z || null, nf: d.numero_fiscal, reg: d.maquina_registro};
