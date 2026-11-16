@@ -460,11 +460,13 @@
     }
   }
   /* ---------------- Tablero: ventas por día y por cajero, de las facturas reales ---------------- */
+  // Venta neta del día: facturas y notas de débito suman, notas de crédito restan
+  const SIGNO = {FAC: 1, ND: 1, NC: -1};
   function tablero() {
     const dia = new Intl.DateTimeFormat('es-VE', {weekday: 'short', day: 'numeric', timeZone: 'America/Caracas'});
     DAYS.length = 0;
     for (let i = 6; i >= 1; i--) {
-      const f = diasA(hoyVE(), -i), v = FX.docs.filter(d => d.tipo === 'FAC' && d.fecha === f).reduce((t, d) => t + d.t.total / d.tasa, 0);
+      const f = diasA(hoyVE(), -i), v = FX.docs.filter(d => SIGNO[d.tipo] && d.fecha === f).reduce((t, d) => t + SIGNO[d.tipo] * d.t.total / d.tasa, 0);
       DAYS.push({d: dia.format(new Date(f + 'T12:00:00')).replace(/^./, x => x.toUpperCase()).replace('.', ''), v: r2(v)});
     }
     USERS_TODAY.length = 0;
