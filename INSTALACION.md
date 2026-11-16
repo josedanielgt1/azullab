@@ -52,6 +52,7 @@ Farmacia
 - [ ] Vencimientos: en Compras el año se escribe completo a mano; un lote vencido no se recibe; en la caja lo vencido sale «fuera de venta»; en Inventario y lotes, «Corregir» cambia un vencimiento mal escrito y queda en los movimientos.
 - [ ] Vender con factura por la máquina fiscal: queda pendiente hasta que la impresora devuelve su número; la existencia baja del lote que vence primero; aparece en Mi turno y en el Libro de Ventas.
 - [ ] Vuelto: cobrar una venta con un billete mayor (por ejemplo $20 por $12); el botón pasa a «Entregar vuelto» y la factura no se imprime hasta repartirlo (efectivo Bs, efectivo USD o pago móvil); en Reportes y cierre, el cierre de caja resta el vuelto de la forma en que se entregó.
+- [ ] Vuelto que no sale exacto: entregar un poco de más y «Marcar como redondeo» (hasta 1 dólar); entregar de menos y «Dejar en caja» (más de 1 dólar pide la nota); en el cierre de caja salen «Vuelto que quedó en caja» y «Redondeos a favor del cliente» con su factura y su nota.
 - [ ] Falla de la impresora: reintentar o dejar pendiente; la falla queda en el libro de control y lo pendiente se imprime desde Módulo fiscal.
 - [ ] Reporte Z del día: cuadra con la base.
 - [ ] Devolución con nota de crédito: la mercancía vuelve al lote.

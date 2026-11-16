@@ -53,14 +53,14 @@ select prueba.igual('el redondeo entre monedas no pide vuelto (hasta un centavo 
 
 \echo '--- El cliente paga de más'
 select prueba.debe_fallar('pagó $20 por $12 y no se registró el vuelto: no se factura', $$ select vender((select f from ids), '{"rif":"V-1","nombre":"Ana"}',
-  '[{"producto_id":1,"cantidad":4,"precio_usd":3}]', '[{"metodo":"Efectivo USD","monto_bs":2000,"divisa":true}]') $$, 'registra el vuelto antes de facturar');
+  '[{"producto_id":1,"cantidad":4,"precio_usd":3}]', '[{"metodo":"Efectivo USD","monto_bs":2000,"divisa":true}]') $$, 'entrega el vuelto o marca que queda en caja');
 select prueba.igual('y esa venta que no salió no tocó el inventario', (select cantidad from lotes where lote = 'A1'), 92.000::numeric);
 select prueba.debe_fallar('con el vuelto a medias tampoco', $$ select vender((select f from ids), '{"rif":"V-1","nombre":"Ana"}',
   '[{"producto_id":1,"cantidad":4,"precio_usd":3}]', '[{"metodo":"Efectivo USD","monto_bs":2000,"divisa":true},{"metodo":"Efectivo Bs","monto_bs":-300}]') $$, 'pagó Bs 500.00 de más');
 select prueba.debe_fallar('el vuelto no pasa de lo que pagó de más', $$ select vender((select f from ids), '{"rif":"V-1","nombre":"Ana"}',
   '[{"producto_id":1,"cantidad":4,"precio_usd":3}]', '[{"metodo":"Efectivo USD","monto_bs":2000,"divisa":true},{"metodo":"Efectivo Bs","monto_bs":-900}]') $$, 'pasa de lo que el cliente pagó de más');
 select prueba.debe_fallar('ni hay vuelto si pagó exacto', $$ select vender((select f from ids), '{"rif":"V-1","nombre":"Ana"}',
-  '[{"producto_id":1,"cantidad":4,"precio_usd":3}]', '[{"metodo":"Pago móvil","monto_bs":1200},{"metodo":"Efectivo Bs","monto_bs":-50}]') $$, 'pasa de lo que el cliente pagó de más');
+  '[{"producto_id":1,"cantidad":4,"precio_usd":3}]', '[{"metodo":"Pago móvil","monto_bs":1200},{"metodo":"Efectivo Bs","monto_bs":-50}]') $$, 'No hay vuelto que entregar');
 select prueba.debe_fallar('un pago en cero no entra', $$ select vender((select f from ids), '{"rif":"V-1","nombre":"Ana"}',
   '[{"producto_id":1,"cantidad":4,"precio_usd":3}]', '[{"metodo":"Pago móvil","monto_bs":0}]') $$, 'pago sin monto');
 select prueba.debe_fallar('ni un pago sin forma de pago', $$ select vender((select f from ids), '{"rif":"V-1","nombre":"Ana"}',

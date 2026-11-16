@@ -678,6 +678,14 @@
     const enBs = k => !/USD|Zelle|\$/i.test(k);
     const arq = pagos.map(([k]) => { const sis = hoyD.reduce((t, d) => t + d.pagos.filter(p => (p.k || '—') === k).reduce((a, p) => a + (enBs(k) ? (p.bs != null ? +p.bs : (+p.usd || 0) * d.tasa) : (p.usd != null ? +p.usd : (+p.bs || 0) / d.tasa)), 0), 0);
       return [k, r2(sis), enBs(k) ? 'Bs' : '$']; });
+    // Vuelto que no salió exacto: lo que quedó en caja y los redondeos a favor del cliente (ya van dentro de «Según sistema»)
+    const ajs = hoyD.filter(d => d.vaj), enCaja = ajs.filter(d => d.vaj > 0), redon = ajs.filter(d => d.vaj < 0);
+    const sumA = xs => r2(xs.reduce((t, d) => t + Math.abs(d.vaj), 0));
+    const ajHtml = !ajs.length ? '' : `<div class="bd" style="border-top:1px solid var(--line);display:grid;gap:6px" data-vto-cierre>
+      <div class="row"><b>Vuelto que quedó en caja</b><span class="spacer"></span><span class="num"><b>Bs ${nf(sumA(enCaja))}</b> · ${enCaja.length} ${enCaja.length === 1 ? 'venta' : 'ventas'}</span></div>
+      <div class="row"><b>Redondeos a favor del cliente</b><span class="spacer"></span><span class="num"><b>Bs ${nf(sumA(redon))}</b> · ${redon.length} ${redon.length === 1 ? 'venta' : 'ventas'}</span></div>
+      <div class="small muted">Ya están contados en «Según sistema»: la caja debe tener lo facturado, más lo que quedó, menos lo redondeado.</div>
+      ${ajs.map(d => `<div class="small"><span class="num">Factura ${C.esc(String(d.num))}</span> · ${d.vaj > 0 ? 'quedó en caja' : 'redondeo'} <span class="num">Bs ${nf(Math.abs(d.vaj))}</span>${d.vnota ? ' · ' + C.esc(d.vnota) : ''}${d.u ? ' · ' + C.esc(d.u) : ''}</div>`).join('')}</div>`;
     const dueno = ['dueno', 'gerente'].includes(A().rol);
     return `<div class="grid g2">${facturaBuscar()}${notasPanel()}</div>
     ${dueno ? `<section class="panel"><div class="hd"><h2>Ventas por usuario</h2><div class="cats">${PERIODOS.map(p => `<button data-act="rper" data-p="${p}" class="${per === p ? 'on' : ''}">${p}</button>`).join('')}</div></div>
@@ -692,6 +700,7 @@
       <tbody>${arq.map(([k, sis, mon]) => { const c = S.cierre[k], d = c == null ? null : r2(c - sis);
         return `<tr><td>${C.esc(k)}</td><td class="r">${mon} ${nf(sis)}</td><td class="r"><input class="input num" data-cierre="${C.esc(k)}" value="${c == null ? '' : nf(c)}" placeholder="0,00" style="max-width:130px;text-align:right"></td>
           <td class="r">${d == null ? '<span class="muted">—</span>' : `<span class="pill ${Math.abs(d) < 0.01 ? 'ok' : 'warn'}">${Math.abs(d) < 0.01 ? 'Cuadra' : mon + ' ' + nf(d)}</span>`}</td></tr>`; }).join('') || '<tr><td colspan="4" class="muted">Sin cobros hoy.</td></tr>'}</tbody></table></div>
+      ${ajHtml}
       ${arq.length ? `<div class="bd" style="border-top:1px solid var(--line)"><div class="row"><span class="small muted">El cierre queda guardado con el usuario que lo hizo.</span><span class="spacer"></span><button class="btn primary" data-act="fr-cierre">Guardar cierre</button></div></div>` : ''}</section>
       <section class="panel"><div class="hd"><h2>Más vendidos esta semana</h2></div><div class="bd flush tbl-wrap"><table><thead><tr><th>Producto</th><th class="r">Unidades</th><th class="r">Ventas $</th></tr></thead><tbody>
         ${top.map(([id, v]) => { const p = P.find(x => x.id === +id); return `<tr><td>${C.esc(p ? p.name : 'Producto ' + id)}</td><td class="r">${nf0(v.q)}</td><td class="r">${nf(v.usd)}</td></tr>`; }).join('') || '<tr><td colspan="3" class="muted">Sin ventas esta semana.</td></tr>'}</tbody></table></div></section></div>`;
