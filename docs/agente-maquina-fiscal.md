@@ -1,6 +1,8 @@
 # Agente de la impresora fiscal (farmacia)
 
-La caja de Cuadre es una página web y no puede hablar directo con una impresora por USB o serial. Por eso, en la computadora de la caja corre un programa pequeño, el **agente**. El agente recibe la factura por `http://127.0.0.1:7123`, la manda a la impresora con la librería del fabricante (por ejemplo la de The Factory HKA) y devuelve lo que respondió la máquina.
+La caja de Cuadre es una página web y no puede hablar directo con una impresora por USB o serial. Por eso, en la computadora de la caja corre un programa pequeño, el **agente**. El agente recibe la factura por `http://127.0.0.1:7123`, la manda a la impresora y devuelve lo que respondió la máquina.
+
+El agente está en la carpeta `agente/` (Go, sin dependencias, un solo `CuadreAgente.exe`). Habla el protocolo directo de The Factory HKA (Aclas PP9 Plus, HKA80…), sin la DLL del fabricante. Cómo instalarlo y usarlo: `agente/LEEME.md`.
 
 **Cuadre nunca numera una factura fiscal.** El número sale de la memoria fiscal y la base solo lo guarda (`registrar_maquina`).
 
@@ -100,5 +102,5 @@ La farmacia **no usa talonario** (decidido el 13 nov 2026). Si la máquina está
 
 ## Pendiente
 
-- Escribir el agente para el modelo que compre la farmacia, con la librería del fabricante. Para probarlo hace falta la impresora conectada.
-- Confirmar con el distribuidor si el modelo emite notas de débito.
+- Probar el agente con la impresora real de la farmacia (Aclas PP9 Plus) y confirmar con su **Diagnóstico** la paridad del puerto y las posiciones de las respuestas (ver `agente/LEEME.md`). Está probado contra una impresora simulada según el manual y contra la caja real (`tests/navegador/agente.test.js`).
+- Notas de débito: según el manual V8.5.0, la PP9 Plus sí las emite; el agente las soporta.
