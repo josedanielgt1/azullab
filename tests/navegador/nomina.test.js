@@ -16,7 +16,7 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   const ctx = await b.newContext(); await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: 'http://localhost:8765' });
   const pg = await ctx.newPage(); const errs = []; pg.on('pageerror', e => errs.push(e.message));
   mock(pg, { tasas: [{ fecha: hoy, tasa: 100 }], rest, empresaExtra: { rif: 'J-12345678-9', razon_social: 'Azullab Farmacia, C.A.', domicilio: 'Calle 1, La Azulita' } });
-  await pg.goto('http://localhost:8765/farmacia.html'); await pg.fill('#lu', 'jose@azullab.com'); await pg.fill('#lp', 'clave-buena'); await pg.click('#loginForm [type=submit]');
+  await pg.addInitScript(() => { window.CUADRE_NOMINA = true; }); await pg.goto('http://localhost:8765/farmacia.html'); await pg.fill('#lu', 'jose@azullab.com'); await pg.fill('#lp', 'clave-buena'); await pg.click('#loginForm [type=submit]');
   await pg.waitForFunction(() => typeof S === 'object' && S.view !== 'login' && EMP.length === 2, null, { timeout: 8000 });
   await pg.evaluate(() => { window.__imp = []; window.imprimirDoc = (t, h) => __imp.push({ t, h }); window.__wa = []; window.open = u => { __wa.push(u); return null; }; });
   const app = () => pg.textContent('#app'), modal = () => pg.textContent('#modal');
