@@ -14,11 +14,24 @@ const { chromium } = require('playwright'); const mock = require('./mock');
   const entrar = async (rol) => {
     const ctx = await b.newContext(); const pg = await ctx.newPage(); const errs = []; pg.on('pageerror', e => errs.push(e.message));
     const st = mock(pg, { rol, tasas: [{ fecha: hoy, tasa: 100 }], rest });
-    await pg.goto('http://localhost:8765/farmacia.html'); await pg.fill('#lu', 'jose@azullab.com'); await pg.fill('#lp', 'clave-buena'); await pg.click('#loginForm [type=submit]');
+    await pg.addInitScript(() => { window.CUADRE_NOMINA = true; }); await pg.goto('http://localhost:8765/farmacia.html'); await pg.fill('#lu', 'jose@azullab.com'); await pg.fill('#lp', 'clave-buena'); await pg.click('#loginForm [type=submit]');
     await pg.waitForFunction(() => typeof S === 'object' && S.view !== 'login', null, { timeout: 8000 }); await pg.waitForTimeout(300);
     return { ctx, pg, st, errs };
   };
   const menu = pg => pg.evaluate(() => [...document.querySelectorAll('nav a[data-v]')].map(a => a.dataset.v));
+
+  // 0. Nómina apagada (como va al cliente): no sale en el menú, ni en permisos, ni dice «aparte»
+  { const ctx = await b.newContext(); const pg = await ctx.newPage(); const errs = []; pg.on('pageerror', e => errs.push(e.message));
+    mock(pg, { rol: 'dueno', tasas: [{ fecha: hoy, tasa: 100 }], rest });
+    await pg.goto('http://localhost:8765/farmacia.html'); await pg.fill('#lu', 'jose@azullab.com'); await pg.fill('#lp', 'clave-buena'); await pg.click('#loginForm [type=submit]');
+    await pg.waitForFunction(() => typeof S === 'object' && S.view !== 'login', null, { timeout: 8000 }); await pg.waitForTimeout(300);
+    const m = await menu(pg), nav = await pg.textContent('nav');
+    ok(!m.includes('employees') && !m.includes('payroll') && !/Nómina|aparte/i.test(nav), 'nómina apagada: Empleados y Nómina no salen en el menú, y nada dice «aparte»');
+    await pg.evaluate(() => go('employees'));
+    ok((await pg.textContent('#app')).includes('no está activo'), 'y si se abre Empleados a la fuerza, dice que no está activo');
+    await pg.evaluate(() => go('users')); await pg.waitForSelector('input[data-perm]');
+    ok(!(await pg.$('input[data-perm="nomina"]')), 'los permisos por rol no ofrecen Nómina');
+    ok(errs.length === 0, 'nómina apagada: sin errores de JavaScript ' + errs.join(' | ')); await ctx.close(); }
 
   // 1. El dueño ve la lista con casillas y la guarda
   { const { ctx, pg, st, errs } = await entrar('dueno');

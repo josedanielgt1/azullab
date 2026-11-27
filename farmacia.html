@@ -965,7 +965,7 @@ const NAV = [
   {g:'Operación', items:[['dash','dashboard','Inicio'],['cart','pos','Caja'],['pill','products','Productos'],['box','inventory','Inventario y lotes'],['truck','purchases','Compras'],['users','clients','Clientes']]},
   {g:'Fiscal', items:[['receipt','fiscal','Módulo fiscal'],['chart','reports','Reportes y cierre']]},
   {g:'Administración', items:[['coins','finance','Ganancias y gastos'],['wallet','banks','Cuentas y bancos']]},
-  {g:'Nómina', mod:true, items:[['idcard','employees','Empleados'],['pay','payroll','Nómina']]},
+  {g:'Nómina', items:[['idcard','employees','Empleados'],['pay','payroll','Nómina']]},
   {g:'Sistema', items:[['cloud','offline','Modo sin conexión'],['shield','users','Usuarios y permisos'],['gear','config','Configuración']]},
   {g:'Fase 2', f2:true, items:[['building','suppliers','Proveedores y pagos'],['star','loyalty','Azul Puntos'],['phone','store','Tienda web y WhatsApp'],['rx','recipes','Récipes y controlados'],['branches','branches','Sucursales y app del dueño']]}
 ];
@@ -986,9 +986,9 @@ function stampFolios(){
 
 function shell(inner){
   const nav = NAV.map(g => { const its = g.items.filter(([,v])=>can(v)); if (!its.length) return '';
-    return `<div class="grp"><span>${g.g}</span>${g.f2?'<span class="phase f2">Fase 2</span>':''}${g.mod?'<span class="phase mod">Aparte</span>':''}</div>` +
+    return `<div class="grp"><span>${g.g}</span>${g.f2?'<span class="phase f2">Fase 2</span>':''}</div>` +
     its.map(([i,v,t]) => `<a href="#${v}" data-act="nav" data-v="${v}" class="${S.view===v?'on':''}">${ic(i)}<span>${v==='dashboard'&&S.role==='Cajero'?'Mi turno':t}</span><span class="cod">${CODE[v]}</span></a>`).join(''); }).join('');
-  const phase = S.view==='scope' ? '' : MOD.includes(S.view) ? '<span class="phase mod">Módulo aparte</span>' : F2.includes(S.view) ? '<span class="phase f2">Fase 2</span>' : '<span class="phase f1">Fase 1</span>';
+  const phase = S.view==='scope' ? '' : F2.includes(S.view) ? '<span class="phase f2">Fase 2</span>' : '<span class="phase f1">Fase 1</span>';
   return `<div class="shell">
   <aside class="side ${S.sidebar?'open':''}" aria-label="Menú principal">
     <div class="logo">${INSIGNIA(38,false,'Farmacia')}</div>
@@ -2505,7 +2505,7 @@ V.payroll = () => {
     <div class="tabs" role="tablist">${tabs.map(([k,t])=>`<button role="tab" data-act="nomtab" data-k="${k}" class="${tab===k?'on':''}" aria-selected="${tab===k}">${t}</button>`).join('')}</div>
     ${body}</section>`;
 };
-const PERMS = [['Vender, cobrar y emitir factura',1,1,1,0],['Registrar clientes nuevos',1,1,1,0],['Ver solo sus propias ventas y su cierre',1,1,1,0],['Ver ventas de todos los cajeros',1,0,0,0],['Anular venta / nota de crédito',1,1,0,0],['Ver récipes y fichas de pacientes',1,1,0,0],['Registrar récipes y despachar controlados',0,1,0,0],['Cierre del día y Reporte Z',1,1,1,0],['Anotar fallas',1,1,1,1],['Ver fallas y recibir la alerta',1,1,0,1],['Cambiar precios y tasa BCV',1,0,0,0],['Recibir facturas de droguería',1,1,0,1],['Crear y editar productos, salidas de inventario',1,1,0,1],['Ver costos y ganancias',1,0,0,0],['Crear usuarios y permisos',1,0,0,0],['Configuración de la farmacia',1,0,0,0],['Nómina y empleados (módulo aparte)',1,0,0,0]];
+const PERMS = [['Vender, cobrar y emitir factura',1,1,1,0],['Registrar clientes nuevos',1,1,1,0],['Ver solo sus propias ventas y su cierre',1,1,1,0],['Ver ventas de todos los cajeros',1,0,0,0],['Anular venta / nota de crédito',1,1,0,0],['Ver récipes y fichas de pacientes',1,1,0,0],['Registrar récipes y despachar controlados',0,1,0,0],['Cierre del día y Reporte Z',1,1,1,0],['Anotar fallas',1,1,1,1],['Ver fallas y recibir la alerta',1,1,0,1],['Cambiar precios y tasa BCV',1,0,0,0],['Recibir facturas de droguería',1,1,0,1],['Crear y editar productos, salidas de inventario',1,1,0,1],['Ver costos y ganancias',1,0,0,0],['Crear usuarios y permisos',1,0,0,0],['Configuración de la farmacia',1,0,0,0],['Nómina y empleados',1,0,0,0]];
 V.users = () => {
   const own = S.role==='Dueño', who = ['Dueño','Regente','Cajero','Almacén'];
   return `<div class="row"><p class="lead">Cada persona entra con su usuario. Todo lo que hace queda registrado con su nombre y la hora. El dueño cambia roles, cajas y permisos cuando quiera.</p><span class="spacer"></span><button class="btn primary" data-act="usernew">${ic('plus')}Nuevo usuario</button></div>

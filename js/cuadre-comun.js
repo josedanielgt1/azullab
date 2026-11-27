@@ -38,6 +38,18 @@
     if (typeof F2 === 'object') F2.length = 0;
     if (Cuadre.destino && vistas.includes(Cuadre.destino)) Cuadre.destino = '';
   });
+  /* ---------------- Nómina y empleados: apagado por ahora ----------------
+     El módulo (Empleados y Nómina) sigue en los archivos, pero no sale en el menú ni en los
+     permisos por rol. Para volver a mostrarlo: NOMINA = true (las pruebas lo prenden con
+     window.CUADRE_NOMINA). */
+  const NOMINA = !!window.CUADRE_NOMINA;
+  const VISTAS_NOMINA = ['employees', 'payroll'];
+  C.alEntrar(async () => {
+    if (NOMINA || typeof NAV !== 'object' || typeof V !== 'object') return;
+    for (let i = NAV.length - 1; i >= 0; i--) { NAV[i].items = NAV[i].items.filter(it => !VISTAS_NOMINA.includes(it[1])); if (!NAV[i].items.length) NAV.splice(i, 1); }
+    VISTAS_NOMINA.forEach(v => { if (V[v]) V[v] = () => '<p class="lead">El módulo de nómina no está activo.</p>'; });
+    if (VISTAS_NOMINA.includes(Cuadre.destino)) Cuadre.destino = '';
+  });
   /* Las páginas de la propuesta de venta («Alcance de la propuesta», «Alcance y regalo») no van al cliente */
   C.alEntrar(async () => {
     if (typeof NAV !== 'object' || typeof V !== 'object') return;
@@ -493,6 +505,7 @@
         {k: 'config', t: 'Configuración', v: ['config'], base: ['gerente'], def: ['gerente']}]
     }
   };
+  if (!NOMINA) Object.values(PERMISOS).forEach(c => { c.lista = c.lista.filter(p => p.k !== 'nomina'); });
   let permisosGuardados = null;   // lo que está en la base: {rol: [claves]}
   const tienePermiso = (p, rol) => p.base.includes(rol) && (permisosGuardados && Array.isArray(permisosGuardados[rol]) ? permisosGuardados[rol].includes(p.k) : p.def.includes(rol));
   C.tienePermiso = k => { const cat = PERMISOS[A().tipo], p = cat && cat.lista.find(x => x.k === k); return !p || A().rol === 'dueno' || tienePermiso(p, A().rol); };
